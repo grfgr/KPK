@@ -144,20 +144,31 @@ class KPK_Button
 	{
 		m_Id = id;
 		m_IsRow = isRow;
-		string file = "kpk_button.layout";
-		if (isRow)
-			file = "kpk_row.layout";
-		m_Root = ButtonWidget.Cast(KPK_UI.Make(file, parent, x, y, w, h));
+		// rows and buttons share kpk_button.layout: kpk_row.layout failed to create inside lists in game.
+		// A row gets its own left-aligned label on top; the centred one stays empty.
+		m_Root = ButtonWidget.Cast(KPK_UI.Make("kpk_button.layout", parent, x, y, w, h));
+		if (!m_Root)
+		{
+			Print("[KPK] could not create a button");
+			return;
+		}
 		m_Bg = m_Root.FindAnyWidget("bg");
 		m_Edge = m_Root.FindAnyWidget("edge");
 		m_Label = TextWidget.Cast(m_Root.FindAnyWidget("label"));
+		if (isRow)
+		{
+			m_Label.SetText("");
+			m_Label = KPK_UI.Text(m_Root, "", 0.04, 0, 0.94, 1, 15, KPK_UI.C_TEXT);
+			m_Edge.SetSize(0.008, 1);
+		}
 		SetText(text);
 		Refresh();
 	}
 
 	void SetText(string text)
 	{
-		m_Label.SetText(text);
+		if (m_Label)
+			m_Label.SetText(text);
 	}
 
 	void SetTextColor(int color)
@@ -186,11 +197,14 @@ class KPK_Button
 
 	void Show(bool show)
 	{
-		m_Root.Show(show);
+		if (m_Root)
+			m_Root.Show(show);
 	}
 
 	void Refresh()
 	{
+		if (!m_Root)
+			return;
 		int bg;
 		if (m_IsRow)
 		{
