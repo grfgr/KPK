@@ -1390,7 +1390,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_SignalTime -= timeslice;
 		if (m_SignalTime <= 0)
 		{
-			m_SignalTime = Math.RandomFloat(2, 6);
+			m_SignalTime = Math.RandomFloat(2.0, 6.0);
 			m_Signal = Math.RandomInt(2, 5);
 		}
 

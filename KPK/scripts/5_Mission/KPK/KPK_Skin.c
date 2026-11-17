@@ -100,13 +100,13 @@ class KPK_Skin
 		// worn paint: lighter patches along the edges, where fingers hold the device
 		for (int w = 0; w < 14; w++)
 		{
-			float wx = Range(0, 0.96);
+			float wx = Range(0.0, 0.96);
 			float wy;
 			if (Rand() < 0.5)
-				wy = Range(0, 0.04);
+				wy = Range(0.0, 0.04);
 			else
 				wy = Range(0.93, 0.975);
-			Line(device, wx, wy, Range(0.01, 0.05), Range(0.005, 0.02), 0x14FFFFF0, Range(-10, 10));
+			Line(device, wx, wy, Range(0.01, 0.05), Range(0.005, 0.02), 0x14FFFFF0, Range(-10.0, 10.0));
 		}
 
 		// scratches on the case
@@ -129,8 +129,8 @@ class KPK_Skin
 				else
 					sx = Range(0.986, 0.996);
 			}
-			int alpha = Range(0x14, 0x3A);
-			Line(device, sx, sy, Range(0.008, 0.06), 0.002, (alpha << 24) | 0xE8E4D0, Range(-40, 40));
+			int alpha = Range(20.0, 58.0);
+			Line(device, sx, sy, Range(0.008, 0.06), 0.002, (alpha << 24) | 0xE8E4D0, Range(-40.0, 40.0));
 		}
 
 		// dirt in the corners
@@ -144,7 +144,7 @@ class KPK_Skin
 		Widget head = KPK_UI.Panel(parent, x, y, 0.012, 0.022, 0xFF54554A);
 		Line(head, 0, 0, 1, 0.2, 0x40FFFFFF);
 		Line(head, 0, 0.8, 1, 0.2, 0x70000000);
-		Line(head, 0.1, 0.42, 0.8, 0.16, 0xFF1B1C17, Range(20, 70));
+		Line(head, 0.1, 0.42, 0.8, 0.16, 0xFF1B1C17, Range(20.0, 70.0));
 	}
 
 	// ------------------------------------------------------------------ screen
@@ -214,7 +214,7 @@ class KPK_Skin
 		m_GlitchTimer -= dt;
 		if (m_GlitchTimer <= 0)
 		{
-			m_GlitchTimer = Math.RandomFloat(7, 18);
+			m_GlitchTimer = Math.RandomFloat(7.0, 18.0);
 			m_GlitchLeft = Math.RandomFloat(0.06, 0.18);
 			m_GlitchY = Math.RandomFloat(0.1, 0.9);
 			m_Glitch.SetPos(0, m_GlitchY);
