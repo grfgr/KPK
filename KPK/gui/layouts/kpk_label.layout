@@ -1,0 +1,43 @@
+FrameWidgetClass KPK_Label {
+ ignorepointer 1
+ position 0 0
+ size 220 40
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ {
+  TextWidgetClass name {
+   ignorepointer 1
+   color 0.45 0.9 0.35 1
+   position 0 0
+   size 220 22
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text ""
+   font "gui/fonts/sdf_MetronBook24"
+   "exact text" 1
+   "exact text size" 16
+   "text halign" center
+   "text valign" center
+  }
+  TextWidgetClass dist {
+   ignorepointer 1
+   color 0.8 0.8 0.75 0.9
+   position 0 20
+   size 220 18
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text ""
+   font "gui/fonts/sdf_MetronBook24"
+   "exact text" 1
+   "exact text size" 13
+   "text halign" center
+   "text valign" center
+  }
+ }
+}

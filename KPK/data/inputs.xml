@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<modded_inputs>
+	<inputs>
+		<actions>
+			<input name="UAKPKToggle" loc="КПК: открыть / закрыть" />
+			<input name="UAKPKLabels" loc="КПК: метки группы в мире вкл/выкл" />
+		</actions>
+		<sorting name="kpk" loc="КПК">
+			<input name="UAKPKToggle" />
+			<input name="UAKPKLabels" />
+		</sorting>
+	</inputs>
+	<preset>
+		<input name="UAKPKToggle">
+			<btn name="kK" />
+		</input>
+		<input name="UAKPKLabels">
+			<btn name="kLControl">
+				<btn name="kK" />
+			</btn>
+		</input>
+	</preset>
+</modded_inputs>
