@@ -44,6 +44,7 @@ class KPK_Server
 	ref map<string, int> m_PartyOf;               // steamId -> party id
 	int m_NextPartyId = 1;
 	ref array<ref KPK_Invite> m_Invites;
+	ref map<string, ref KPK_Assembler> m_Incoming;   // chunked client messages per sender
 
 	static KPK_Server Get()
 	{
@@ -75,6 +76,7 @@ class KPK_Server
 		m_Parties = new array<ref KPK_Party>();
 		m_PartyOf = new map<string, int>();
 		m_Invites = new array<ref KPK_Invite>();
+		m_Incoming = new map<string, ref KPK_Assembler>();
 
 		m_Settings = KPK_Settings.Load();
 		LoadIndex();
@@ -248,6 +250,25 @@ class KPK_Server
 		m_Open.Remove(steamId);
 		m_LastPos.Remove(steamId);
 		m_LastMatesCount.Remove(steamId);
+		m_Incoming.Remove(steamId);
+	}
+
+	// one chunk from a client; handles the message once it is complete
+	void OnChunk(PlayerBase player, PlayerIdentity sender, int action, int index, int total, string part)
+	{
+		string steamId = sender.GetPlainId();
+		KPK_Assembler assembler;
+		if (!m_Incoming.Find(steamId, assembler))
+		{
+			assembler = new KPK_Assembler();
+			m_Incoming.Set(steamId, assembler);
+		}
+		// a client message is small; refuse anything absurd
+		if (total > 64)
+			return;
+		string json;
+		if (assembler.Add(action, index, total, part, json))
+			OnRpc(player, sender, action, json);
 	}
 
 	// =================================================================== sending
@@ -256,7 +277,7 @@ class KPK_Server
 	{
 		if (!player || !player.GetIdentity())
 			return;
-		GetGame().RPCSingleParam(player, KPK_RPC, new Param2<int, string>(action, payload), true, player.GetIdentity());
+		KPK_Net.Send(player, action, payload, player.GetIdentity());
 	}
 
 	void Msg(PlayerBase player, string text)

@@ -7,6 +7,8 @@ class KPK_Client
 	static bool s_WantOpen;
 	static bool s_LabelsEnabled = true;
 
+	static ref KPK_Assembler s_Assembler = new KPK_Assembler();
+
 	static ref ScriptInvoker s_OnView = new ScriptInvoker();     // ()
 	static ref ScriptInvoker s_OnOpen = new ScriptInvoker();     // () server allowed to open
 	static ref ScriptInvoker s_OnDenied = new ScriptInvoker();   // (string reason)
@@ -23,7 +25,7 @@ class KPK_Client
 		if (req)
 			json = KPK_Json<KPK_Req>.To(req);
 
-		GetGame().RPCSingleParam(player, KPK_RPC, new Param2<int, string>(action, json), true);
+		KPK_Net.Send(player, action, json);
 	}
 
 	static void SendText(int action, string s1, string s2 = "", int i1 = 0, int i2 = 0)

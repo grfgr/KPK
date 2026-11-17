@@ -7,7 +7,7 @@ modded class PlayerBase
 		if (rpc_type != KPK_RPC)
 			return;
 
-		Param2<int, string> data = new Param2<int, string>(0, "");
+		Param4<int, int, int, string> data = new Param4<int, int, int, string>(0, 0, 0, "");
 		if (!ctx.Read(data))
 			return;
 
@@ -17,11 +17,13 @@ modded class PlayerBase
 			if (!sender || !GetIdentity() || sender.GetId() != GetIdentity().GetId())
 				return;
 			if (KPK_Server.Get())
-				KPK_Server.Get().OnRpc(this, sender, data.param1, data.param2);
+				KPK_Server.Get().OnChunk(this, sender, data.param1, data.param2, data.param3, data.param4);
 		}
 		else
 		{
-			KPK_Client.OnRpc(data.param1, data.param2);
+			string json;
+			if (KPK_Client.s_Assembler.Add(data.param1, data.param2, data.param3, data.param4, json))
+				KPK_Client.OnRpc(data.param1, json);
 		}
 	}
 
