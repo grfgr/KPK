@@ -52,7 +52,7 @@
 
 ## Предмет
 
-Пока у КПК нет своей модели, поэтому используется корпус ванильного GPS-приёмника с его слотом под **батарейку 9V**. Пока КПК открыт, батарейка разряжается (`BatteryDrainPercentPerMinute`). Без батарейки КПК не включается. Чтобы поставить свою модель, пропишите `model`, `hiddenSelections` и `hiddenSelectionsTextures` в `KPK/config.cpp` у класса `KPK_Device`.
+У КПК своя модель (`KPK/data/kpk.p3d`): армейский КПК-«кирпич» с потёртостями. Как перевести текстуры в `.paa` и упаковать модель с бинаризацией, описано в [MODEL.md](MODEL.md). Слот под **батарейку 9V** и держание в руках унаследованы от ванильного GPS. Пока КПК открыт, батарейка разряжается (`BatteryDrainPercentPerMinute`). Без батарейки КПК не включается.
 
 ## Управление
 
@@ -152,8 +152,10 @@ KPK_Faction faction = KPK_Server.Get().FactionOf(steamId);
 KPK/
   config.cpp            предмет KPK_Device, моды скриптов, клавиши
   data/inputs.xml       K и Ctrl+K
+  data/kpk.p3d          модель, kpk_*.png текстуры (перевести в .paa), kpk.rvmat, model.cfg
   gui/layouts/*.layout  простые кирпичики интерфейса (раскладка экрана в KPK_Menu.c)
   scripts/3_Game        данные, настройки, константы, утилиты
   scripts/4_World       сервер (KPK_Server), клиентский кеш, предмет, действие, хуки убийств
   scripts/5_Mission     меню КПК, 3D-метки, подключение к миссии
+source/model/           исходники модели: скрипты Blender, .blend, .fbx, .obj, превью (в PBO не входят)
 ```

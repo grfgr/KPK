@@ -53,11 +53,15 @@ class CfgVehicles
 {
 	class GPSReceiver;
 
-	// The device reuses the vanilla GPS body and its 9V battery slot until a custom model exists.
-	// For your own model: set model / hiddenSelections / hiddenSelectionsTextures here.
+	// Own model (KPK/data/kpk.p3d). The class still inherits the vanilla GPS for its 9V battery slot,
+	// energy manager and the way it is held in hands.
 	class KPK_Device: GPSReceiver
 	{
 		scope = 2;
+		model = "\KPK\data\kpk.p3d";
+		hiddenSelections[] = {"camo"};
+		hiddenSelectionsTextures[] = {"\KPK\data\kpk_co.paa"};
+		hiddenSelectionsMaterials[] = {"\KPK\data\kpk.rvmat"};
 		displayName = "КПК сталкера";
 		descriptionShort = "Карманный персональный компьютер. Сеть Зоны, карта, связь с группой и группировкой, личные заметки. Работает от батарейки 9V.";
 		weight = 300;
