@@ -4,8 +4,9 @@ import json, struct, sys
 
 src, out = sys.argv[1], sys.argv[2]
 # variant flags for testing in game: reverse face winding, invert stored normals
-REVERSE = sys.argv[3] == "1" if len(sys.argv) > 3 else True
-INVERT = sys.argv[4] == "1" if len(sys.argv) > 4 else True
+# tested in game: variant D (original winding, normals as they are) renders correctly
+REVERSE = sys.argv[3] == "1" if len(sys.argv) > 3 else False
+INVERT = sys.argv[4] == "1" if len(sys.argv) > 4 else False
 TEX = "kpk\\data\\kpk_co.paa"
 MAT = "kpk\\data\\kpk.rvmat"
 MASS = 0.3
@@ -59,9 +60,9 @@ def lod(points, normals, faces, resolution, taggs=b""):
 
 
 def to_p3d(v):
-    # mesh.json: lying flat, screen +Z, antenna +Y (Blender). The game looks at items from +Z,
-    # so P3D: screen faces +Z, antenna up (+Y); x mirrored because P3D is left-handed.
-    return (-v[0], v[1], v[2])
+    # mesh.json: lying flat, screen +Z, antenna +Y (Blender). Held in hands the player looks at the
+    # item's -Z side, so P3D: antenna up (+Y), screen towards -Z. One axis flips: P3D is left-handed.
+    return (v[0], v[1], -v[2])
 
 
 def visual_lod(path, resolution):

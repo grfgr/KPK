@@ -84,12 +84,55 @@ class KPK_Device extends ItemBase
 	}
 };
 
-// in case the engine runs the KPK with the GPS script: the action checks IsKPK, plain GPS units never show it
+// The engine runs the KPK with the GPS script (the config inherits GPSReceiver). Keep only the parts
+// the KPK needs (battery slot, hands); the GPS display would overwrite the KPK texture with its digits.
 modded class GPSReceiver
 {
 	override void SetActions()
 	{
 		super.SetActions();
 		AddAction(ActionKPKOpen);
+	}
+
+	override void OnWorkStart()
+	{
+		if (KPK_Device.IsKPK(this))
+			return;
+		super.OnWorkStart();
+	}
+
+	override void OnWorkStop()
+	{
+		if (KPK_Device.IsKPK(this))
+			return;
+		super.OnWorkStop();
+	}
+
+	override void OnWork(float consumed_energy)
+	{
+		if (KPK_Device.IsKPK(this))
+			return;
+		super.OnWork(consumed_energy);
+	}
+};
+
+// the vanilla GPS on/off actions must not show up on the KPK
+modded class ActionTurnOnWhileInHands
+{
+	override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
+	{
+		if (KPK_Device.IsKPK(item))
+			return false;
+		return super.ActionCondition(player, target, item);
+	}
+};
+
+modded class ActionTurnOffWhileInHands
+{
+	override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
+	{
+		if (KPK_Device.IsKPK(item))
+			return false;
+		return super.ActionCondition(player, target, item);
 	}
 };

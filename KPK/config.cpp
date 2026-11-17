@@ -59,35 +59,14 @@ class CfgVehicles
 	{
 		scope = 2;
 		model = "\KPK\data\kpk.p3d";
-		hiddenSelections[] = {"camo"};
-		hiddenSelectionsTextures[] = {"\KPK\data\kpk_co.paa"};
-		hiddenSelectionsMaterials[] = {"\KPK\data\kpk.rvmat"};
+		// textures come from the model itself; no hiddenSelections on purpose: the inherited GPS
+		// script writes its display digits into hidden selection 0
+		hiddenSelections[] = {};
+		hiddenSelectionsTextures[] = {};
+		hiddenSelectionsMaterials[] = {};
 		displayName = "КПК сталкера";
 		descriptionShort = "Карманный персональный компьютер. Сеть Зоны, карта, связь с группой и группировкой, личные заметки. Работает от батарейки 9V.";
 		weight = 300;
 		itemSize[] = {1, 2};
-	};
-
-	// TEMPORARY: four builds of the model (face winding x normals) to find the one that renders right.
-	// Spawn all four, keep the good one, remove these classes and the kpk_a..d files afterwards.
-	class KPK_Test_A: KPK_Device
-	{
-		displayName = "КПК тест A";
-		model = "\KPK\data\kpk_a.p3d";
-	};
-	class KPK_Test_B: KPK_Device
-	{
-		displayName = "КПК тест B";
-		model = "\KPK\data\kpk_b.p3d";
-	};
-	class KPK_Test_C: KPK_Device
-	{
-		displayName = "КПК тест C";
-		model = "\KPK\data\kpk_c.p3d";
-	};
-	class KPK_Test_D: KPK_Device
-	{
-		displayName = "КПК тест D";
-		model = "\KPK\data\kpk_d.p3d";
 	};
 };
