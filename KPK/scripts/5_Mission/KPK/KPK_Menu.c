@@ -1085,7 +1085,7 @@ class KPK_Menu extends UIScriptedMenu
 		text += "Заместители:  " + deputies + "\n";
 		text += "Численность:  " + count + "\n";
 		text += "Предположительное местоположение:\n   " + EncField(f.Location, f.LocationEnc) + "\n\n";
-		text += EncField(f.Description, f.DescriptionEnc) + "\n";
+		text += KPK_Util.FromWire(EncField(f.Description, f.DescriptionEnc)) + "\n";
 		if (v.IsAdmin)
 		{
 			text += "\n[админ] шифр: ";
@@ -1253,7 +1253,7 @@ class KPK_Menu extends UIScriptedMenu
 		text += "Награда:  " + task.Reward + "\n";
 		text += "Статус:  " + TaskStatus(task.Status) + "\n";
 		text += "Получено:  " + task.Date + "\n\n";
-		text += task.Description;
+		text += KPK_Util.FromWire(task.Description);
 		m_TaskText.SetText(text);
 	}
 
@@ -1320,7 +1320,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Note note = v.Notes[i];
 		m_NoteId = note.Id;
 		m_NoteTitle.SetText(note.Title);
-		m_NoteText.SetText(note.Text);
+		m_NoteText.SetText(KPK_Util.FromWire(note.Text));
 		m_NoteInfo.SetText("Изменено: " + note.Date);
 	}
 

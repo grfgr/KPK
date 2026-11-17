@@ -87,6 +87,22 @@ class KPK_Account
 		if (!Tasks) Tasks = new array<ref KPK_Task>();
 		if (!Reputation) Reputation = new array<ref KPK_Reputation>();
 		if (NextId < 1) NextId = 1;
+
+		// text saved by older versions may hold characters that break the JSON view
+		foreach (KPK_Note n : Notes)
+		{
+			n.Title = KPK_Util.Safe(n.Title);
+			n.Text = KPK_Util.Safe(n.Text, false);
+		}
+		foreach (KPK_Marker m : Markers)
+			m.Name = KPK_Util.Safe(m.Name);
+		foreach (KPK_Task t : Tasks)
+		{
+			t.Title = KPK_Util.Safe(t.Title);
+			t.Description = KPK_Util.Safe(t.Description, false);
+			t.Issuer = KPK_Util.Safe(t.Issuer);
+			t.Reward = KPK_Util.Safe(t.Reward);
+		}
 	}
 
 	int TakeId()
@@ -173,7 +189,14 @@ class KPK_FactionsFile
 		if (!Factions) Factions = new array<ref KPK_Faction>();
 		if (!FactionMarkers) FactionMarkers = new array<ref KPK_Marker>();
 		foreach (KPK_Faction f : Factions)
+		{
 			f.Fix();
+			f.Name = KPK_Util.Safe(f.Name);
+			f.Description = KPK_Util.Safe(f.Description, false);
+			f.Location = KPK_Util.Safe(f.Location);
+		}
+		foreach (KPK_Marker fm : FactionMarkers)
+			fm.Name = KPK_Util.Safe(fm.Name);
 		if (NextMarkerId < 1) NextMarkerId = 1;
 	}
 };

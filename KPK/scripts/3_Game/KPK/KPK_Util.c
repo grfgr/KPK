@@ -24,19 +24,37 @@ class KPK_Util
 		return string.Format("%1.%2 км", whole, tenths);
 	}
 
-	// cut to a character (not byte) limit and strip characters that break one-line widgets
+	// Player text travels inside JSON, and the DayZ serializer does not escape everything:
+	// backslashes, quotes, tabs and raw line breaks made the whole KPK view unreadable on the client.
+	// Line breaks are kept as the token <br> and turned back into new lines for display (FromWire).
+	static string Safe(string text, bool singleLine = true)
+	{
+		string result = text;
+		result.Replace("\\", "/");
+		result.Replace("\"", "'");
+		result.Replace("\t", " ");
+		result.Replace("\r", "");
+		if (singleLine)
+			result.Replace("\n", " ");
+		else
+			result.Replace("\n", "<br>");
+		return result;
+	}
+
+	// cut to a character (not byte) limit and make the text safe for the JSON view
 	static string Clean(string text, int maxChars, bool singleLine = true)
 	{
-		string result = text.Trim();
-		// a backslash breaks the JSON view on the client
-		result.Replace("\\", "/");
-		if (singleLine)
-		{
-			result.Replace("\n", " ");
-			result.Replace("\r", " ");
-		}
+		string result = Safe(text.Trim(), singleLine);
 		if (result.LengthUtf8() > maxChars)
 			result = result.SubstringUtf8(0, maxChars);
+		return result;
+	}
+
+	// <br> tokens back to real line breaks, for multi-line widgets
+	static string FromWire(string text)
+	{
+		string result = text;
+		result.Replace("<br>", "\n");
 		return result;
 	}
 

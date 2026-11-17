@@ -59,7 +59,15 @@ class KPK_Client
 				KPK_View view = new KPK_View();
 				if (!KPK_Json<KPK_View>.From(json, view))
 				{
-					Print("[KPK] could not read the view, " + json.Length() + " bytes: " + json);
+					Print("[KPK] could not read the view, " + json.Length() + " bytes");
+					// the log line is cut at ~8 KB: print the text in pieces so the broken spot is visible
+					for (int off = 0; off < json.Length(); off += 3000)
+					{
+						int len = json.Length() - off;
+						if (len > 3000)
+							len = 3000;
+						Print("[KPK] view part " + (off / 3000) + ": " + json.Substring(off, len));
+					}
 					s_WantOpen = false;
 					s_OnDenied.Invoke("ОШИБКА ДАННЫХ: см. script.log");
 					return;

@@ -646,11 +646,11 @@ class KPK_Server
 		if (!acc)
 			return;
 		KPK_Task task = new KPK_Task();
-		task.Id = id;
-		task.Title = title;
-		task.Description = description;
-		task.Issuer = issuer;
-		task.Reward = reward;
+		task.Id = KPK_Util.Safe(id);
+		task.Title = KPK_Util.Safe(title);
+		task.Description = KPK_Util.Safe(description, false);
+		task.Issuer = KPK_Util.Safe(issuer);
+		task.Reward = KPK_Util.Safe(reward);
 		task.Status = 0;
 		task.Date = KPK_Util.Now();
 		acc.Tasks.Insert(task);
