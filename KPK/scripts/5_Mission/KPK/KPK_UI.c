@@ -54,9 +54,18 @@ class KPK_UI
 
 	static TextWidget Text(Widget parent, string text, float x, float y, float w, float h, int size = 16, int color = 0xFF9EE084)
 	{
-		TextWidget t = TextWidget.Cast(Make("kpk_text.layout", parent, x, y, w, h));
+		// same pattern as the button labels, which render fine: the text sits inside a frame
+		// and its size is baked into the layout (no SetTextExactSize at runtime)
+		string file = "kpk_text20.layout";
+		if (size <= 13)
+			file = "kpk_text13.layout";
+		else if (size <= 15)
+			file = "kpk_text15.layout";
+		else if (size <= 17)
+			file = "kpk_text17.layout";
+		Widget box = Make(file, parent, x, y, w, h);
+		TextWidget t = TextWidget.Cast(box.FindAnyWidget("text"));
 		t.SetText(text);
-		t.SetTextExactSize(size);
 		t.SetColor(color);
 		return t;
 	}
@@ -238,7 +247,6 @@ class KPK_List
 		m_Prev = new KPK_Button(box, -1, "<", 0, rows * rowH + rowH * 0.1, 0.22, rowH * 0.85);
 		m_Next = new KPK_Button(box, -1, ">", 0.78, rows * rowH + rowH * 0.1, 0.22, rowH * 0.85);
 		m_PageText = KPK_UI.Text(box, "", 0.22, rows * rowH + rowH * 0.1, 0.56, rowH * 0.85, 13, KPK_UI.C_DIM);
-		m_PageText.SetTextExactSize(13);
 		Redraw();
 	}
 
