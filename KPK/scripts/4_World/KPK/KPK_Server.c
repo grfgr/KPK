@@ -254,7 +254,7 @@ class KPK_Server
 	}
 
 	// one chunk from a client; handles the message once it is complete
-	void OnChunk(PlayerBase player, PlayerIdentity sender, int action, int index, int total, string part)
+	void OnChunk(PlayerBase player, PlayerIdentity sender, int action, int index, int total, int totalBytes, string part)
 	{
 		string steamId = sender.GetPlainId();
 		KPK_Assembler assembler;
@@ -267,7 +267,7 @@ class KPK_Server
 		if (total > 64)
 			return;
 		string json;
-		if (assembler.Add(action, index, total, part, json))
+		if (assembler.Add(action, index, total, totalBytes, part, json))
 			OnRpc(player, sender, action, json);
 	}
 
