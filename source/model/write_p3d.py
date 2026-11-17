@@ -3,6 +3,9 @@
 import json, struct, sys
 
 src, out = sys.argv[1], sys.argv[2]
+# variant flags for testing in game: reverse face winding, invert stored normals
+REVERSE = sys.argv[3] == "1" if len(sys.argv) > 3 else True
+INVERT = sys.argv[4] == "1" if len(sys.argv) > 4 else True
 TEX = "kpk\\data\\kpk_co.paa"
 MAT = "kpk\\data\\kpk.rvmat"
 MASS = 0.3
@@ -56,7 +59,9 @@ def lod(points, normals, faces, resolution, taggs=b""):
 
 
 def to_p3d(v):
-    return (v[0], v[2], v[1])
+    # mesh.json: lying flat, screen +Z, antenna +Y (Blender). The game looks at items from +Z,
+    # so P3D: screen faces +Z, antenna up (+Y); x mirrored because P3D is left-handed.
+    return (-v[0], v[1], v[2])
 
 
 def visual_lod(path, resolution):
@@ -65,8 +70,12 @@ def visual_lod(path, resolution):
     normals, faces = [], []
     for tri in m["tris"]:
         verts = []
-        for vi, n, uv in reversed(tri):
-            normals.append(tuple(-c for c in to_p3d(n)))   # MLOD stores normals pointing inwards
+        corners = list(reversed(tri)) if REVERSE else list(tri)
+        for vi, n, uv in corners:
+            pn = to_p3d(n)
+            if INVERT:
+                pn = tuple(-c for c in pn)
+            normals.append(pn)
             verts.append((vi, len(normals) - 1, uv[0], 1.0 - uv[1]))
         faces.append((verts, TEX, MAT))
     taggs = selection("camo", len(points), len(faces))
@@ -101,7 +110,7 @@ xs = [p[0] for p in pts]
 ys = [p[1] for p in pts]
 zs = [p[2] for p in pts]
 mn = (min(xs), min(ys), min(zs))
-mx = (max(xs), max(ys), min(max(zs), 0.074))
+mx = (max(xs), min(max(ys), 0.074), max(zs))   # antenna (above y=0.074) left out
 print("bbox", [round(c, 4) for c in mn], [round(c, 4) for c in mx], "points", len(pts))
 
 memory_pts = [(0.0, 0.0, 0.0)]

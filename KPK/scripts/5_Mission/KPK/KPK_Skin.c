@@ -42,40 +42,72 @@ class KPK_Skin
 
 	void BuildDevice(Widget device)
 	{
-		// bevel: light top/left edge, dark bottom/right edge
-		Line(device, 0, 0, 1, 0.005, 0x40FFFFF0);
-		Line(device, 0, 0, 0.003, 1, 0x30FFFFF0);
-		Line(device, 0, 0.993, 1, 0.007, 0x70000000);
-		Line(device, 0.997, 0, 0.003, 1, 0x60000000);
+		// --- shading of the plastic: light top edge, dark bottom edge, soft vertical falloff
+		Line(device, 0, 0, 1, 0.004, 0x50FFFFF0);
+		Line(device, 0, 0.004, 1, 0.01, 0x12FFFFF0);
+		Line(device, 0, 0.99, 1, 0.01, 0x80000000);
+		Line(device, 0, 0.975, 1, 0.015, 0x30000000);
 		// inner groove around the bezel
-		Line(device, 0.014, 0.056, 0.972, 0.003, 0x50000000);
-		Line(device, 0.014, 0.922, 0.972, 0.003, 0x25FFFFF0);
+		Line(device, 0.034, 0.055, 0.932, 0.003, 0x60000000);
+		Line(device, 0.034, 0.924, 0.932, 0.003, 0x28FFFFF0);
+		Line(device, 0.034, 0.055, 0.002, 0.872, 0x50000000);
+		Line(device, 0.964, 0.055, 0.002, 0.872, 0x20FFFFF0);
 
-		// brand, embossed into the plastic
-		TextWidget brand = KPK_UI.Text(device, "КПК-7  «ВЕСТНИК»", 0.03, 0.008, 0.3, 0.045, 17, 0xFF8A8670);
+		// --- rubber side grips with ribs (left and right)
+		SideGrip(device, 0.004);
+		SideGrip(device, 0.966);
+
+		// --- rubber corner bumpers, a bit larger than the case
+		Bumper(device, -0.006, -0.012, 0.05, 0.085);
+		Bumper(device, 0.956, -0.012, 0.05, 0.085);
+		Bumper(device, -0.006, 0.927, 0.05, 0.085);
+		Bumper(device, 0.956, 0.927, 0.05, 0.085);
+
+		// --- antenna stub and connector cap above the top edge
+		Widget antBase = KPK_UI.Panel(device, 0.075, -0.022, 0.034, 0.026, 0xFF3C3D36);
+		Line(antBase, 0, 0, 1, 0.15, 0x40FFFFFF);
+		Widget antenna = KPK_UI.Panel(device, 0.081, -0.115, 0.022, 0.095, 0xFF121311);
+		for (int a = 0; a < 6; a++)
+			Line(antenna, 0, 0.55 + a * 0.07, 1, 0.025, 0x30FFFFFF);
+		Line(antenna, 0.1, 0, 0.15, 1, 0x18FFFFFF);
+		Widget cap = KPK_UI.Panel(device, 0.86, -0.03, 0.05, 0.032, 0xFF151613);
+		Line(cap, 0, 0, 1, 0.12, 0x30FFFFFF);
+		Line(cap, 0.2, 0.45, 0.6, 0.1, 0xFF0A0A09);
+
+		// --- side buttons sticking out on the left
+		for (int b = 0; b < 2; b++)
+		{
+			Widget sideKey = KPK_UI.Panel(device, -0.012, 0.36 + b * 0.075, 0.014, 0.06, 0xFF1A1B17);
+			Line(sideKey, 0, 0, 0.3, 1, 0x28FFFFFF);
+		}
+
+		// --- brand, embossed into the plastic
+		TextWidget brand = KPK_UI.Text(device, "КПК-7  «ВЕСТНИК»", 0.055, 0.008, 0.3, 0.045, 17, 0xFF8A8670);
 		brand.SetShadow(1, 0xFF000000, 0.8, 1, 1);
-		TextWidget maker = KPK_UI.Text(device, "НИИ ЧАЗ  ·  изд. 1986-М", 0.25, 0.012, 0.3, 0.04, 13, 0xFF5E5B4C);
+		TextWidget maker = KPK_UI.Text(device, "НИИ ЧАЗ  ·  изд. 1986-М", 0.27, 0.012, 0.3, 0.04, 13, 0xFF5E5B4C);
 		maker.SetShadow(1, 0xFF000000, 0.7, 1, 1);
 
 		// speaker grille
 		for (int g = 0; g < 9; g++)
 			Line(device, 0.55 + g * 0.012, 0.016, 0.005, 0.03, 0xFF0C0D0A);
 
-		// serial plate
-		Widget plate = KPK_UI.Panel(device, 0.78, 0.012, 0.19, 0.036, 0xFF4A4A40);
+		// serial plate with rivets
+		Widget plate = KPK_UI.Panel(device, 0.74, 0.012, 0.19, 0.036, 0xFF4A4A40);
 		Line(plate, 0, 0, 1, 0.08, 0x40FFFFFF);
-		m_Serial = KPK_UI.Text(plate, "S/N ----", 0.05, 0, 0.9, 1, 13, 0xFF1A1A14);
+		Line(plate, 0.015, 0.35, 0.02, 0.3, 0xFF2A2A24);
+		Line(plate, 0.965, 0.35, 0.02, 0.3, 0xFF2A2A24);
+		m_Serial = KPK_UI.Text(plate, "S/N ----", 0.06, 0, 0.88, 1, 13, 0xFF1A1A14);
 
-		// screws in the corners
-		Screw(device, 0.006, 0.012);
-		Screw(device, 0.982, 0.012);
-		Screw(device, 0.006, 0.948);
-		Screw(device, 0.982, 0.948);
+		// screws next to the bezel corners
+		Screw(device, 0.046, 0.014);
+		Screw(device, 0.942, 0.014);
+		Screw(device, 0.046, 0.94);
+		Screw(device, 0.942, 0.94);
 
 		// power LED
-		m_LedGlow = KPK_UI.Panel(device, 0.026, 0.944, 0.018, 0.032, 0x3040FF40);
-		m_Led = KPK_UI.Panel(device, 0.03, 0.951, 0.01, 0.018, 0xFF4DE64D);
-		KPK_UI.Text(device, "ПИТ", 0.045, 0.94, 0.05, 0.04, 13, 0xFF6E6B5A);
+		m_LedGlow = KPK_UI.Panel(device, 0.07, 0.944, 0.018, 0.032, 0x3040FF40);
+		m_Led = KPK_UI.Panel(device, 0.074, 0.951, 0.01, 0.018, 0xFF4DE64D);
+		KPK_UI.Text(device, "ПИТ", 0.09, 0.94, 0.05, 0.04, 13, 0xFF6E6B5A);
 
 		// hardware buttons
 		string keys[5] = {"МЕНЮ", "<", "OK", ">", "ВЫКЛ"};
@@ -89,54 +121,65 @@ class KPK_Skin
 		}
 
 		// inventory sticker, slightly crooked and worn
-		Widget sticker = KPK_UI.Panel(device, 0.73, 0.932, 0.2, 0.05, 0xFFC9C1A0);
+		Widget sticker = KPK_UI.Panel(device, 0.71, 0.932, 0.2, 0.05, 0xFFC9C1A0);
 		sticker.SetRotation(0, 0, -1.5);
 		Line(sticker, 0, 0, 1, 0.1, 0xFFB01E1E);
 		KPK_UI.Text(sticker, "ИНВ. № 07-0347   НЕ ВСКРЫВАТЬ", 0.04, 0.12, 0.95, 0.85, 13, 0xFF2A2418);
-		// torn corner and dirt on the sticker
-		Line(sticker, 0.93, 0.55, 0.09, 0.6, 0xFF2A2C24, 35);
+		Line(sticker, 0.93, 0.55, 0.09, 0.6, 0xFF2A2C24, 35.0);
 		Line(sticker, 0.2, 0.3, 0.25, 0.5, 0x18402810);
 
-		// worn paint: lighter patches along the edges, where fingers hold the device
-		for (int w = 0; w < 14; w++)
+		// worn paint: faint lighter patches on the top and bottom strips
+		for (int w = 0; w < 10; w++)
 		{
-			float wx = Range(0.0, 0.96);
+			float wx = Range(0.05, 0.92);
 			float wy;
 			if (Rand() < 0.5)
 				wy = Range(0.0, 0.04);
 			else
 				wy = Range(0.93, 0.975);
-			Line(device, wx, wy, Range(0.01, 0.05), Range(0.005, 0.02), 0x14FFFFF0, Range(-10.0, 10.0));
+			Line(device, wx, wy, Range(0.01, 0.04), Range(0.004, 0.012), 0x0CFFFFF0, Range(-6.0, 6.0));
 		}
 
-		// scratches on the case
-		for (int s = 0; s < 34; s++)
+		// fine scratches, only on the case strips (never over the screen)
+		for (int s = 0; s < 28; s++)
 		{
-			float sx = Range(0.0, 0.97);
+			float sx = Range(0.05, 0.93);
 			float sy;
-			float r = Rand();
-			if (r < 0.45)
-				sy = Range(0.002, 0.05);
-			else if (r < 0.9)
-				sy = Range(0.928, 0.99);
+			if (Rand() < 0.5)
+				sy = Range(0.004, 0.05);
 			else
-				sy = Range(0.06, 0.92);
-			if (r >= 0.9)
-			{
-				// along the side rims
-				if (Rand() < 0.5)
-					sx = Range(0.001, 0.012);
-				else
-					sx = Range(0.986, 0.996);
-			}
-			int alpha = Range(20.0, 58.0);
-			Line(device, sx, sy, Range(0.008, 0.06), 0.002, (alpha << 24) | 0xE8E4D0, Range(-40.0, 40.0));
+				sy = Range(0.93, 0.99);
+			int alpha = Range(12.0, 30.0);
+			Line(device, sx, sy, Range(0.006, 0.035), 0.0012, (alpha << 24) | 0xE8E4D0, Range(-30.0, 30.0));
 		}
+	}
 
-		// dirt in the corners
-		Line(device, 0, 0, 0.04, 0.05, 0x22000000);
-		Line(device, 0.96, 0.95, 0.04, 0.05, 0x26000000);
-		Line(device, 0, 0.95, 0.03, 0.05, 0x1C000000);
+	protected void SideGrip(Widget device, float x)
+	{
+		Widget grip = KPK_UI.Panel(device, x, 0.1, 0.03, 0.8, 0xFF181915);
+		Line(grip, 0, 0, 1, 0.006, 0x30FFFFFF);
+		Line(grip, 0, 0.994, 1, 0.006, 0x70000000);
+		Line(grip, 0, 0, 0.12, 1, 0x14FFFFFF);
+		Line(grip, 0.88, 0, 0.12, 1, 0x50000000);
+		// ribs
+		for (int r = 0; r < 34; r++)
+		{
+			float ry = 0.03 + r * 0.028;
+			Line(grip, 0.15, ry, 0.7, 0.011, 0xFF0B0C0A);
+			Line(grip, 0.15, ry + 0.011, 0.7, 0.004, 0x18FFFFFF);
+		}
+	}
+
+	protected void Bumper(Widget device, float x, float y, float w, float h)
+	{
+		Widget b = KPK_UI.Panel(device, x, y, w, h, 0xFF141512);
+		Line(b, 0, 0, 1, 0.06, 0x38FFFFFF);
+		Line(b, 0, 0, 0.08, 1, 0x20FFFFFF);
+		Line(b, 0, 0.92, 1, 0.08, 0x80000000);
+		Line(b, 0.92, 0, 0.08, 1, 0x60000000);
+		// moulding seam and rubbed edge
+		Line(b, 0.15, 0.5, 0.7, 0.03, 0xFF0A0A09);
+		Line(b, 0.1, 0.06, 0.5, 0.02, 0x22FFFFF0);
 	}
 
 	protected void Screw(Widget parent, float x, float y)
@@ -168,14 +211,12 @@ class KPK_Skin
 		}
 
 		// glass glare in the upper left corner
-		Line(screen, -0.1, 0.06, 0.55, 0.05, 0x0AFFFFFF, -18);
-		Line(screen, -0.05, 0.15, 0.4, 0.02, 0x07FFFFFF, -18);
-		Line(screen, 0.72, 0.84, 0.35, 0.03, 0x05FFFFFF, -18);
+		Line(screen, 0.0, 0.0, 0.35, 0.18, 0x05FFFFFF);
+		Line(screen, 0.0, 0.0, 0.2, 0.1, 0x04FFFFFF);
 
 		// scratches on the glass
-		Line(screen, 0.12, 0.3, 0.42, 0.0025, 0x14FFFFFF, 8);
-		Line(screen, 0.55, 0.62, 0.3, 0.002, 0x10FFFFFF, -14);
-		Line(screen, 0.3, 0.8, 0.18, 0.002, 0x0EFFFFFF, 3);
+		Line(screen, 0.22, 0.34, 0.3, 0.0012, 0x0CFFFFFF, 4.0);
+		Line(screen, 0.6, 0.66, 0.2, 0.0012, 0x0AFFFFFF, -6.0);
 
 		// dead pixels
 		Line(screen, 0.413, 0.271, 0.0016, 0.0028, 0xFF000000);
@@ -183,7 +224,7 @@ class KPK_Skin
 		Line(screen, 0.236, 0.884, 0.0016, 0.0028, 0xFF000000);
 
 		// animated: slow refresh band, flicker, rare interference line
-		m_RollBand = Line(screen, 0, 0, 1, 0.07, 0x08B0FFB0);
+		m_RollBand = Line(screen, 0, 0, 1, 0.05, 0x05B0FFB0);
 		m_Flicker = Line(screen, 0, 0, 1, 1, 0x00000000);
 		m_Glitch = Line(screen, 0, 0.5, 1, 0.006, 0x50C8FFC0);
 		m_Glitch.Show(false);

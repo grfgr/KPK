@@ -67,4 +67,27 @@ class CfgVehicles
 		weight = 300;
 		itemSize[] = {1, 2};
 	};
+
+	// TEMPORARY: four builds of the model (face winding x normals) to find the one that renders right.
+	// Spawn all four, keep the good one, remove these classes and the kpk_a..d files afterwards.
+	class KPK_Test_A: KPK_Device
+	{
+		displayName = "КПК тест A";
+		model = "\KPK\data\kpk_a.p3d";
+	};
+	class KPK_Test_B: KPK_Device
+	{
+		displayName = "КПК тест B";
+		model = "\KPK\data\kpk_b.p3d";
+	};
+	class KPK_Test_C: KPK_Device
+	{
+		displayName = "КПК тест C";
+		model = "\KPK\data\kpk_c.p3d";
+	};
+	class KPK_Test_D: KPK_Device
+	{
+		displayName = "КПК тест D";
+		model = "\KPK\data\kpk_d.p3d";
+	};
 };
