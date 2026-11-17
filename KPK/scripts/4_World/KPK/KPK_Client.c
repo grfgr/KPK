@@ -56,7 +56,12 @@ class KPK_Client
 			{
 				KPK_View view = new KPK_View();
 				if (!KPK_Json<KPK_View>.From(json, view))
+				{
+					Print("[KPK] could not read the view, " + json.Length() + " bytes: " + json);
+					s_WantOpen = false;
+					s_OnDenied.Invoke("ОШИБКА ДАННЫХ: см. script.log");
 					return;
+				}
 				s_View = view;
 				s_OnView.Invoke();
 				if (s_WantOpen)

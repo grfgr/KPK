@@ -28,6 +28,8 @@ class KPK_Util
 	static string Clean(string text, int maxChars, bool singleLine = true)
 	{
 		string result = text.Trim();
+		// a backslash breaks the JSON view on the client
+		result.Replace("\\", "/");
 		if (singleLine)
 		{
 			result.Replace("\n", " ");
@@ -58,7 +60,8 @@ class KPK_Util
 	// Garbage of about the same length as the hidden text; the real text never leaves the server.
 	static string Scramble(string seedText, int minLen = 8)
 	{
-		string charset = "#%&@$?!/\\<>=+*01";
+		// no backslash or quote: they break the JSON that carries the view to the client
+		string charset = "#%&@$?!/<>=+*01X";
 		int len = seedText.LengthUtf8();
 		if (len < minLen)
 			len = minLen;
