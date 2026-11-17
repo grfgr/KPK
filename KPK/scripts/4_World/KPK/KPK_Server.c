@@ -892,6 +892,7 @@ class KPK_Server
 		{
 			case KPK_C.MARKER_ADD: HandleMarkerAdd(player, acc, req); break;
 			case KPK_C.MARKER_DEL: HandleMarkerDel(player, acc, req); break;
+			case KPK_C.MARKER_EDIT: HandleMarkerEdit(player, acc, req); break;
 			case KPK_C.NOTE_SAVE: HandleNoteSave(player, acc, req); break;
 			case KPK_C.NOTE_DEL: HandleNoteDel(player, acc, req); break;
 			case KPK_C.PARTY_INVITE: HandlePartyInvite(player, acc, req); break;
@@ -1196,6 +1197,95 @@ class KPK_Server
 				break;
 			}
 		}
+	}
+
+	protected void HandleMarkerEdit(PlayerBase player, KPK_Account acc, KPK_Req req)
+	{
+		KPK_Marker marker = null;
+		bool allowed = false;
+		KPK_Party party = null;
+		KPK_Faction faction = null;
+
+		switch (req.I2)
+		{
+			case KPK_Scope.PERSONAL:
+			{
+				foreach (KPK_Marker pm : acc.Markers)
+				{
+					if (pm.Id == req.I1)
+						marker = pm;
+				}
+				allowed = true;
+				break;
+			}
+			case KPK_Scope.PARTY:
+			{
+				party = PartyOf(acc.SteamId);
+				if (!party)
+					return;
+				foreach (KPK_Marker gm : party.Markers)
+				{
+					if (gm.Id == req.I1)
+						marker = gm;
+				}
+				if (marker)
+					allowed = marker.Author == acc.Callsign || party.LeaderId == acc.SteamId;
+				break;
+			}
+			case KPK_Scope.FACTION:
+			{
+				faction = FactionOf(acc.SteamId);
+				if (!faction)
+					return;
+				foreach (KPK_Marker fm : m_Factions.FactionMarkers)
+				{
+					if (fm.Id == req.I1 && fm.FactionId == faction.Id)
+						marker = fm;
+				}
+				if (marker)
+					allowed = marker.Author == acc.Callsign || faction.Find(acc.SteamId).Role >= KPK_Role.DEPUTY || m_Settings.IsAdmin(acc.SteamId);
+				break;
+			}
+		}
+
+		if (!marker)
+		{
+			Msg(player, "Метка не найдена");
+			SendView(player);
+			return;
+		}
+		if (!allowed)
+		{
+			Msg(player, "Изменять чужие метки может только лидер или заместитель");
+			return;
+		}
+
+		marker.Type = Math.Clamp(req.S2.ToInt(), 0, KPK_Const.MARKER_TYPES - 1);
+		marker.Name = KPK_Util.Clean(req.S1, 40);
+		if (marker.Name == "")
+			marker.Name = KPK_Const.MarkerName(marker.Type);
+		if (req.I3 == 1)
+		{
+			marker.X = req.F1;
+			marker.Z = req.F2;
+		}
+		marker.Date = KPK_Util.Now();
+
+		if (req.I2 == KPK_Scope.PERSONAL)
+		{
+			MarkDirty(acc.SteamId);
+			SendView(player);
+		}
+		else if (req.I2 == KPK_Scope.PARTY)
+		{
+			RefreshParty(party);
+		}
+		else
+		{
+			SaveFactions();
+			RefreshFaction(faction);
+		}
+		Msg(player, "Метка «" + marker.Name + "» обновлена");
 	}
 
 	// =================================================================== notes

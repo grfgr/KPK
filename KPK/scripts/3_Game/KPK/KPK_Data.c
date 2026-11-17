@@ -203,6 +203,7 @@ class KPK_Req
 	string S2;
 	int I1;
 	int I2;
+	int I3;
 	float F1;
 	float F2;
 };

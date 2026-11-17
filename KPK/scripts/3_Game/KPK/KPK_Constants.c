@@ -21,7 +21,8 @@ enum KPK_C
 	FACTION_LEAVE,
 	FACTION_KICK,
 	FACTION_SETROLE,
-	ADMIN_FACTION
+	ADMIN_FACTION,
+	MARKER_EDIT      // I1 id, I2 scope, S1 name, S2 type, I3 = 1 -> move to F1/F2
 };
 
 // server -> client

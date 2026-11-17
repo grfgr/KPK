@@ -114,8 +114,10 @@ mn = (min(xs), min(ys), min(zs))
 mx = (max(xs), min(max(ys), 0.074), max(zs))   # antenna (above y=0.074) left out
 print("bbox", [round(c, 4) for c in mn], [round(c, 4) for c in mx], "points", len(pts))
 
-memory_pts = [(0.0, 0.0, 0.0)]
-memory = lod(memory_pts, [(0.0, 1.0, 0.0)], [], 1e15, selection("ce_center", 1, 0))
+# memory points: centre, and "invView" - the side the inventory preview camera looks from (the screen, -Z)
+memory_pts = [(0.0, 0.0, 0.0), (0.0, 0.0, -0.35)]
+memory = lod(memory_pts, [(0.0, 1.0, 0.0)], [], 1e15,
+             selection("ce_center", 2, 0, points=[0]) + selection("invView", 2, 0, points=[1]))
 view_geo = box_lod(mn, mx, 6e15)
 fire_geo = box_lod(mn, mx, 7e15)
 shadow = box_lod(mn, mx, 10000.0, component=False, triangles=True)

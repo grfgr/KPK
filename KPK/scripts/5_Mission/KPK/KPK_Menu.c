@@ -26,6 +26,7 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_SCOPE_PREV = 205;
 	static const int B_SCOPE_NEXT = 206;
 	static const int B_MAP_HERE = 207;
+	static const int B_MAP_NEW = 208;
 	static const int B_P_INVITE = 300;
 	static const int B_P_LEAVE = 301;
 	static const int B_P_KICK = 302;
@@ -119,6 +120,10 @@ class KPK_Menu extends UIScriptedMenu
 	protected TextWidget m_MapInfo;
 	protected int m_NewType;
 	protected int m_NewScope;
+	protected int m_EditId = -1;       // marker being edited, -1 = creating a new one
+	protected int m_EditScope;
+	protected TextWidget m_EditorTitle;
+	protected MultilineTextWidget m_MapHint;
 	protected ref array<ref KPK_Marker> m_MarkerRows;
 
 	// party
@@ -603,7 +608,8 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(side, B_MAP_DEL, "УДАЛИТЬ", 0.51, 0.505, 0.45, 0.04);
 
 		KPK_UI.Panel(side, 0.04, 0.56, 0.92, 0.002, KPK_UI.C_LINE);
-		KPK_UI.Text(side, "НОВАЯ МЕТКА", 0.04, 0.565, 0.92, 0.04, 14, KPK_UI.C_ACCENT);
+		m_EditorTitle = KPK_UI.Text(side, "НОВАЯ МЕТКА", 0.04, 0.565, 0.6, 0.04, 14, KPK_UI.C_ACCENT);
+		AddButton(side, B_MAP_NEW, "НОВАЯ", 0.64, 0.565, 0.32, 0.036);
 		KPK_UI.Text(side, "Название", 0.04, 0.605, 0.92, 0.035, 13, KPK_UI.C_DIM);
 		m_MarkerName = KPK_UI.Edit(side, 0.04, 0.64, 0.92, 0.045);
 
@@ -616,8 +622,7 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(side, B_SCOPE_NEXT, ">", 0.82, 0.755, 0.14, 0.045);
 
 		AddButton(side, B_MAP_HERE, "ПОСТАВИТЬ ЗДЕСЬ", 0.04, 0.81, 0.92, 0.045);
-		MultilineTextWidget hint = KPK_UI.MText(side, 0.04, 0.865, 0.92, 0.075, 12, KPK_UI.C_DIM);
-		hint.SetText("Двойной клик по карте ставит метку в точку. Метки видны только в КПК.");
+		m_MapHint = KPK_UI.MText(side, 0.04, 0.865, 0.92, 0.075, 12, KPK_UI.C_DIM);
 		AddButton(side, B_MAP_SELF, "МОЯ ПОЗИЦИЯ", 0.04, 0.945, 0.92, 0.045);
 
 		UpdateMarkerEditor();
@@ -626,9 +631,60 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void UpdateMarkerEditor()
 	{
+		bool editing = m_EditId >= 0;
 		m_MarkerType.SetText(KPK_Const.MarkerName(m_NewType));
 		m_MarkerType.SetColor(KPK_Const.MarkerColor(m_NewType));
-		m_MarkerScope.SetText("Доступ: " + KPK_Const.ScopeName(m_NewScope));
+		int scope = m_NewScope;
+		if (editing)
+			scope = m_EditScope;
+		m_MarkerScope.SetText("Доступ: " + KPK_Const.ScopeName(scope));
+		m_ById.Get(B_SCOPE_PREV).SetEnabled(!editing);
+		m_ById.Get(B_SCOPE_NEXT).SetEnabled(!editing);
+		m_ById.Get(B_MAP_NEW).Show(editing);
+		if (editing)
+		{
+			m_EditorTitle.SetText("ИЗМЕНИТЬ МЕТКУ");
+			m_ById.Get(B_MAP_HERE).SetText("СОХРАНИТЬ");
+			m_MapHint.SetText("Двойной клик по карте переносит метку в точку. «НОВАЯ» вернёт к созданию.");
+		}
+		else
+		{
+			m_EditorTitle.SetText("НОВАЯ МЕТКА");
+			m_ById.Get(B_MAP_HERE).SetText("ПОСТАВИТЬ ЗДЕСЬ");
+			m_MapHint.SetText("Двойной клик по карте ставит метку в точку. Метки видны только в КПК.");
+		}
+	}
+
+	// load the selected marker into the editor
+	protected void StartEdit(KPK_Marker mk)
+	{
+		m_EditId = mk.Id;
+		m_EditScope = mk.Scope;
+		m_NewType = mk.Type;
+		m_MarkerName.SetText(mk.Name);
+		UpdateMarkerEditor();
+	}
+
+	protected void StopEdit()
+	{
+		m_EditId = -1;
+		m_MarkerName.SetText("");
+		m_MarkerList.Select(-1);
+		UpdateMarkerEditor();
+	}
+
+	protected void SaveEdit(bool move, float x, float z)
+	{
+		KPK_Req req = new KPK_Req();
+		req.I1 = m_EditId;
+		req.I2 = m_EditScope;
+		req.S1 = m_MarkerName.GetText();
+		req.S2 = m_NewType.ToString();
+		req.F1 = x;
+		req.F2 = z;
+		if (move)
+			req.I3 = 1;
+		KPK_Client.Send(KPK_C.MARKER_EDIT, req);
 	}
 
 	protected void RefreshMap()
@@ -652,6 +708,27 @@ class KPK_Menu extends UIScriptedMenu
 			colors.Insert(KPK_Const.MarkerColor(mk.Type));
 		}
 		m_MarkerList.Set(names, colors);
+
+		// keep the edited marker selected; leave edit mode if it is gone
+		if (m_EditId >= 0)
+		{
+			int found = -1;
+			for (int ei = 0; ei < m_MarkerRows.Count(); ei++)
+			{
+				if (m_MarkerRows[ei].Id == m_EditId && m_MarkerRows[ei].Scope == m_EditScope)
+					found = ei;
+			}
+			if (found >= 0)
+			{
+				m_MarkerList.Select(found);
+			}
+			else
+			{
+				m_EditId = -1;
+				m_MarkerName.SetText("");
+				UpdateMarkerEditor();
+			}
+		}
 		RedrawMapMarks();
 	}
 
@@ -701,7 +778,10 @@ class KPK_Menu extends UIScriptedMenu
 		if (!m_Map)
 			return;
 		vector pos = m_Map.ScreenToMap(Vector(x, y, 0));
-		AddMarker(pos[0], pos[2]);
+		if (m_EditId >= 0)
+			SaveEdit(true, pos[0], pos[2]);
+		else
+			AddMarker(pos[0], pos[2]);
 	}
 
 	protected void AddMarker(float x, float z)
@@ -1515,8 +1595,12 @@ class KPK_Menu extends UIScriptedMenu
 		else if (list == m_MarkerList)
 		{
 			KPK_Marker mk = SelectedMarker();
-			if (mk && m_Map)
-				m_Map.SetMapPos(Vector(mk.X, 0, mk.Z));
+			if (mk)
+			{
+				StartEdit(mk);
+				if (m_Map)
+					m_Map.SetMapPos(Vector(mk.X, 0, mk.Z));
+			}
 		}
 	}
 
@@ -1560,12 +1644,20 @@ class KPK_Menu extends UIScriptedMenu
 				break;
 			case B_MAP_HERE:
 			{
+				if (m_EditId >= 0)
+				{
+					SaveEdit(false, 0, 0);
+					break;
+				}
 				if (!player)
 					break;
 				vector here = player.GetPosition();
 				AddMarker(here[0], here[2]);
 				break;
 			}
+			case B_MAP_NEW:
+				StopEdit();
+				break;
 			case B_MAP_SELF:
 				if (player && m_Map)
 					m_Map.SetMapPos(player.GetPosition());
@@ -1581,7 +1673,10 @@ class KPK_Menu extends UIScriptedMenu
 			{
 				KPK_Marker dm = SelectedMarker();
 				if (dm)
+				{
 					KPK_Client.SendText(KPK_C.MARKER_DEL, "", "", dm.Id, dm.Scope);
+					StopEdit();
+				}
 				else
 					SetStatus("Выберите метку в списке");
 				break;
