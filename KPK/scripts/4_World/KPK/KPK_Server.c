@@ -325,9 +325,9 @@ class KPK_Server
 		view.Battery = -1;
 		if (m_Settings.RequireBattery)
 		{
-			KPK_Device device = KPK_Device.FindOn(player, true);
+			EntityAI device = KPK_Device.FindOn(player, true);
 			if (device)
-				view.Battery = device.GetBatteryLevel();
+				view.Battery = KPK_Device.GetBatteryLevel(device);
 		}
 
 		KPK_Account acc = GetAccount(steamId);
@@ -738,10 +738,10 @@ class KPK_Server
 			// battery drain while the KPK is open
 			if (m_Open.Contains(steamId) && m_Settings.RequireBattery)
 			{
-				KPK_Device device = KPK_Device.FindOn(player, true);
+				EntityAI device = KPK_Device.FindOn(player, true);
 				float level = -1;
 				if (device)
-					level = device.Drain(m_Settings.BatteryDrainPercentPerMinute * dt / 60.0);
+					level = KPK_Device.Drain(device, m_Settings.BatteryDrainPercentPerMinute * dt / 60.0);
 				if (level <= 0)
 				{
 					m_Open.Remove(steamId);
@@ -893,7 +893,7 @@ class KPK_Server
 		if (!player.IsAlive())
 			return;
 
-		KPK_Device device = KPK_Device.FindOn(player, true);
+		EntityAI device = KPK_Device.FindOn(player, true);
 		if (!device)
 		{
 			SendRaw(player, KPK_S.DENIED, "КПК НЕ НАЙДЕН");
@@ -901,7 +901,7 @@ class KPK_Server
 		}
 		if (m_Settings.RequireBattery)
 		{
-			float level = device.GetBatteryLevel();
+			float level = KPK_Device.GetBatteryLevel(device);
 			if (level < 0)
 			{
 				SendRaw(player, KPK_S.DENIED, "НЕТ ПИТАНИЯ: вставьте батарейку 9V");

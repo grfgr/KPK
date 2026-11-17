@@ -1,3 +1,6 @@
+// The KPK config class inherits the vanilla GPS. Depending on how the engine resolves the script class,
+// the item may run as KPK_Device or as GPSReceiver, so everything here works on any EntityAI and
+// recognises the device by its config class (IsKindOf), never by a script cast.
 class KPK_Device extends ItemBase
 {
 	override void SetActions()
@@ -6,12 +9,19 @@ class KPK_Device extends ItemBase
 		AddAction(ActionKPKOpen);
 	}
 
-	Battery9V GetBattery()
+	static bool IsKPK(EntityAI item)
 	{
-		int count = GetInventory().AttachmentCount();
+		return item && item.IsKindOf("KPK_Device");
+	}
+
+	static Battery9V GetBattery(EntityAI device)
+	{
+		if (!device || !device.GetInventory())
+			return null;
+		int count = device.GetInventory().AttachmentCount();
 		for (int i = 0; i < count; i++)
 		{
-			Battery9V battery = Battery9V.Cast(GetInventory().GetAttachmentFromIndex(i));
+			Battery9V battery = Battery9V.Cast(device.GetInventory().GetAttachmentFromIndex(i));
 			if (battery)
 				return battery;
 		}
@@ -19,9 +29,9 @@ class KPK_Device extends ItemBase
 	}
 
 	// 0..1, -1 = no battery
-	float GetBatteryLevel()
+	static float GetBatteryLevel(EntityAI device)
 	{
-		Battery9V battery = GetBattery();
+		Battery9V battery = GetBattery(device);
 		if (!battery || !battery.HasEnergyManager())
 			return -1;
 
@@ -32,29 +42,29 @@ class KPK_Device extends ItemBase
 	}
 
 	// server: drain a share of the battery capacity, returns the level left
-	float Drain(float percent)
+	static float Drain(EntityAI device, float percent)
 	{
-		Battery9V battery = GetBattery();
+		Battery9V battery = GetBattery(device);
 		if (!battery || !battery.HasEnergyManager())
 			return -1;
 
 		float amount = battery.GetCompEM().GetEnergyMax() * percent / 100.0;
 		if (amount > 0)
 			battery.GetCompEM().AddEnergy(-amount);
-		return GetBatteryLevel();
+		return GetBatteryLevel(device);
 	}
 
 	// hands first, then the whole inventory; with needPower the first device with a charged battery wins
-	static KPK_Device FindOn(PlayerBase player, bool needPower = false)
+	static EntityAI FindOn(PlayerBase player, bool needPower = false)
 	{
 		if (!player)
 			return null;
 
-		KPK_Device best = null;
-		KPK_Device inHands = KPK_Device.Cast(player.GetHumanInventory().GetEntityInHands());
-		if (inHands)
+		EntityAI best = null;
+		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
+		if (IsKPK(inHands))
 		{
-			if (!needPower || inHands.GetBatteryLevel() > 0)
+			if (!needPower || GetBatteryLevel(inHands) > 0)
 				return inHands;
 			best = inHands;
 		}
@@ -63,14 +73,23 @@ class KPK_Device extends ItemBase
 		player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
 		foreach (EntityAI item : items)
 		{
-			KPK_Device device = KPK_Device.Cast(item);
-			if (!device || device.IsRuined())
+			if (!IsKPK(item) || item.IsRuined())
 				continue;
-			if (!needPower || device.GetBatteryLevel() > 0)
-				return device;
+			if (!needPower || GetBatteryLevel(item) > 0)
+				return item;
 			if (!best)
-				best = device;
+				best = item;
 		}
 		return best;
+	}
+};
+
+// in case the engine runs the KPK with the GPS script: the action checks IsKPK, plain GPS units never show it
+modded class GPSReceiver
+{
+	override void SetActions()
+	{
+		super.SetActions();
+		AddAction(ActionKPKOpen);
 	}
 };

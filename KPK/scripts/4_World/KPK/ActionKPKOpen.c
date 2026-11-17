@@ -25,7 +25,7 @@ class ActionKPKOpen : ActionSingleUseBase
 
 	override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
 	{
-		return KPK_Device.Cast(item) != null;
+		return KPK_Device.IsKPK(item);
 	}
 
 	override void OnExecuteClient(ActionData action_data)
