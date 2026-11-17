@@ -70,6 +70,16 @@ class KPK_UI
 		return t;
 	}
 
+	// small centred text (hardware key captions, window controls)
+	static TextWidget TextC(Widget parent, string text, float x, float y, float w, float h, int color)
+	{
+		Widget box = Make("kpk_text13c.layout", parent, x, y, w, h);
+		TextWidget t = TextWidget.Cast(box.FindAnyWidget("text"));
+		t.SetText(text);
+		t.SetColor(color);
+		return t;
+	}
+
 	static MultilineTextWidget MText(Widget parent, float x, float y, float w, float h, int size = 15, int color = 0xFF9EE084)
 	{
 		MultilineTextWidget t = MultilineTextWidget.Cast(Make("kpk_mtext.layout", parent, x, y, w, h));

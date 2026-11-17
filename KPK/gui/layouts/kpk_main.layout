@@ -8,7 +8,7 @@ FrameWidgetClass KPK_Root {
  {
   PanelWidgetClass Dim {
    ignorepointer 1
-   color 0 0 0 0.6
+   color 0 0 0 0.65
    position 0 0
    size 1 1
    hexactpos 0
@@ -18,9 +18,9 @@ FrameWidgetClass KPK_Root {
    style rover_sim_colorable
   }
   PanelWidgetClass Device {
-   color 0.13 0.14 0.11 1
+   color 0.165 0.172 0.141 1
    position 0 0
-   size 0.8 0.86
+   size 0.82 0.88
    halign center_ref
    valign center_ref
    hexactpos 0
@@ -31,9 +31,9 @@ FrameWidgetClass KPK_Root {
    {
     PanelWidgetClass Bezel {
      ignorepointer 1
-     color 0.07 0.075 0.06 1
-     position 0.012 0.045
-     size 0.976 0.91
+     color 0.04 0.043 0.035 1
+     position 0.014 0.059
+     size 0.972 0.863
      hexactpos 0
      vexactpos 0
      hexactsize 0
@@ -41,72 +41,15 @@ FrameWidgetClass KPK_Root {
      style rover_sim_colorable
     }
     PanelWidgetClass Screen {
-     color 0.03 0.065 0.04 1
-     position 0.02 0.06
-     size 0.96 0.88
+     color 0.022 0.05 0.03 1
+     position 0.022 0.07
+     size 0.956 0.842
      hexactpos 0
      vexactpos 0
      hexactsize 0
      vexactsize 0
      clipchildren 1
      style rover_sim_colorable
-    }
-    TextWidgetClass Brand {
-     ignorepointer 1
-     color 0.55 0.52 0.42 1
-     position 0.02 0.006
-     size 0.5 0.034
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     text "КПК-7 «ВЕСТНИК»   ·   НИИ ЧАЗ"
-     font "gui/fonts/sdf_MetronBook24"
-     "exact text" 1
-     "exact text size" 14
-     "text valign" center
-    }
-    TextWidgetClass Serial {
-     ignorepointer 1
-     color 0.45 0.43 0.35 1
-     position 0.5 0.006
-     size 0.48 0.034
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     text "S/N 0000-000"
-     font "gui/fonts/sdf_MetronBook24"
-     "exact text" 1
-     "exact text size" 12
-     "text halign" right
-     "text valign" center
-    }
-    PanelWidgetClass Led {
-     ignorepointer 1
-     color 0.3 0.9 0.3 1
-     position 0.02 0.962
-     size 0.012 0.018
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     style rover_sim_colorable
-    }
-    TextWidgetClass LedText {
-     ignorepointer 1
-     color 0.45 0.43 0.35 1
-     position 0.04 0.955
-     size 0.6 0.034
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     text "ПИТ  ·  СЕТЬ  ·  GPS"
-     font "gui/fonts/sdf_MetronBook24"
-     "exact text" 1
-     "exact text size" 12
-     "text valign" center
     }
    }
   }

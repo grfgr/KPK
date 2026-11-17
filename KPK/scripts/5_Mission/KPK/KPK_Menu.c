@@ -69,14 +69,21 @@ class KPK_Menu extends UIScriptedMenu
 	protected float m_BlinkTime;
 	protected bool m_Blink;
 	protected float m_MapRedrawTime;
-	protected bool m_MapCentered;
 
 	protected Widget m_Screen;
 	protected TextWidget m_HeaderLeft;
 	protected TextWidget m_HeaderRight;
 	protected TextWidget m_Footer;
-	protected TextWidget m_Serial;
-	protected Widget m_Led;
+	protected ref KPK_Skin m_Skin;
+	protected TextWidget m_StatusRight;
+	protected MultilineTextWidget m_SideInfo;
+	protected float m_SessionTime;
+	protected int m_Signal = 4;
+	protected float m_SignalTime;
+	protected Widget m_MapHolder;
+	protected float m_MapScale = 0.3;
+	protected vector m_MapPos;
+	protected bool m_HasMapPos;
 	protected string m_Status = "";
 
 	// boot
@@ -200,8 +207,8 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		layoutRoot = GetGame().GetWorkspace().CreateWidgets(KPK_UI.DIR + "kpk_main.layout");
 		m_Screen = layoutRoot.FindAnyWidget("Screen");
-		m_Serial = TextWidget.Cast(layoutRoot.FindAnyWidget("Serial"));
-		m_Led = layoutRoot.FindAnyWidget("Led");
+		m_Skin = new KPK_Skin();
+		m_Skin.BuildDevice(layoutRoot.FindAnyWidget("Device"));
 
 		BuildChrome();
 		m_Pages.Insert(BuildProfile());
@@ -212,6 +219,9 @@ class KPK_Menu extends UIScriptedMenu
 		m_Pages.Insert(BuildNotes());
 		m_Pages.Insert(BuildLogin());
 		m_Pages.Insert(BuildBoot());
+
+		// CRT effects go last so they lie on top of every page
+		m_Skin.BuildScreenFx(m_Screen);
 
 		KPK_Client.s_OnView.Insert(OnView);
 		KPK_Client.s_OnStatus.Insert(OnStatus);
@@ -262,31 +272,64 @@ class KPK_Menu extends UIScriptedMenu
 		return b;
 	}
 
+	static string PageName(int page)
+	{
+		switch (page)
+		{
+			case P_PROFILE: return "Профиль";
+			case P_MAP: return "Карта";
+			case P_PARTY: return "Группа";
+			case P_FACTIONS: return "Группировки";
+			case P_TASKS: return "Задания";
+			case P_NOTES: return "Заметки";
+			case P_LOGIN: return "Вход в сеть";
+		}
+		return "Загрузка";
+	}
+
+	// an old program window: title bar, menu bar, sidebar with modules, segmented status bar
 	protected void BuildChrome()
 	{
-		KPK_UI.Panel(m_Screen, 0, 0, 1, 0.06, 0xFF0B1A0D);
-		KPK_UI.Panel(m_Screen, 0, 0.06, 1, 0.003, KPK_UI.C_EDGE);
-		m_HeaderLeft = KPK_UI.Text(m_Screen, "КПК", 0.015, 0, 0.5, 0.06, 17, KPK_UI.C_ACCENT);
-		m_HeaderRight = KPK_UI.Text(m_Screen, "", 0.45, 0, 0.48, 0.06, 15, KPK_UI.C_TEXT);
-		m_HeaderRight.SetTextOffset(0, 0);
-		AddButton(m_Screen, B_CLOSE, "X", 0.955, 0.008, 0.035, 0.045);
+		// title bar
+		KPK_UI.Panel(m_Screen, 0, 0, 1, 0.045, 0xFF15301A);
+		KPK_UI.Panel(m_Screen, 0, 0, 1, 0.004, 0x40C8FFC0);
+		KPK_UI.Panel(m_Screen, 0.008, 0.012, 0.012, 0.022, KPK_UI.C_ACCENT);
+		m_HeaderLeft = KPK_UI.Text(m_Screen, "", 0.026, 0, 0.7, 0.045, 15, 0xFFD8E8C8);
+		KPK_UI.TextC(m_Screen, "_", 0.885, 0.004, 0.03, 0.037, KPK_UI.C_DIM);
+		KPK_UI.TextC(m_Screen, "[]", 0.917, 0.004, 0.03, 0.037, KPK_UI.C_DIM);
+		AddButton(m_Screen, B_CLOSE, "X", 0.952, 0.005, 0.04, 0.035);
 
-		string names[6] = {"ПРОФИЛЬ", "КАРТА", "ГРУППА", "ГРУППИРОВКИ", "ЗАДАНИЯ", "ЗАМЕТКИ"};
+		// menu bar
+		KPK_UI.Panel(m_Screen, 0, 0.045, 1, 0.035, 0xFF0C1C0F);
+		KPK_UI.Text(m_Screen, "Файл     Сеть     Карта     Сервис     Справка", 0.015, 0.045, 0.6, 0.035, 13, KPK_UI.C_DIM);
+		m_HeaderRight = KPK_UI.Text(m_Screen, "", 0.62, 0.045, 0.37, 0.035, 13, KPK_UI.C_TEXT);
+		KPK_UI.Panel(m_Screen, 0, 0.08, 1, 0.003, KPK_UI.C_EDGE);
+
+		// sidebar
+		KPK_UI.Panel(m_Screen, 0, 0.083, 0.165, 0.852, 0xFF081509);
+		KPK_UI.Text(m_Screen, "МОДУЛИ", 0.012, 0.09, 0.15, 0.03, 13, KPK_UI.C_ACCENT);
+		string names[6] = {"[1] ПРОФИЛЬ", "[2] КАРТА", "[3] ГРУППА", "[4] ГРУППИРОВКИ", "[5] ЗАДАНИЯ", "[6] ЗАМЕТКИ"};
 		for (int i = 0; i < TAB_COUNT; i++)
 		{
-			KPK_Button tab = new KPK_Button(m_Screen, B_TAB + i, names[i], 0.01, 0.085 + i * 0.075, 0.15, 0.065);
+			KPK_Button tab = new KPK_Button(m_Screen, B_TAB + i, names[i], 0.008, 0.125 + i * 0.065, 0.15, 0.056, true);
 			m_Tabs.Insert(tab);
 			m_Buttons.Insert(tab);
 		}
-		KPK_UI.Panel(m_Screen, 0.17, 0.075, 0.002, 0.85, KPK_UI.C_LINE);
+		KPK_UI.Panel(m_Screen, 0.012, 0.73, 0.14, 0.002, KPK_UI.C_LINE);
+		m_SideInfo = KPK_UI.MText(m_Screen, 0.012, 0.74, 0.15, 0.19, 12, KPK_UI.C_DIM);
+		KPK_UI.Panel(m_Screen, 0.165, 0.083, 0.002, 0.852, KPK_UI.C_LINE);
 
-		KPK_UI.Panel(m_Screen, 0, 0.94, 1, 0.003, KPK_UI.C_LINE);
-		m_Footer = KPK_UI.Text(m_Screen, "", 0.015, 0.945, 0.97, 0.05, 14, KPK_UI.C_DIM);
+		// status bar
+		KPK_UI.Panel(m_Screen, 0, 0.935, 1, 0.065, 0xFF0B1A0D);
+		KPK_UI.Panel(m_Screen, 0, 0.935, 1, 0.003, KPK_UI.C_EDGE);
+		m_Footer = KPK_UI.Text(m_Screen, "", 0.012, 0.94, 0.6, 0.055, 14, KPK_UI.C_TEXT);
+		KPK_UI.Panel(m_Screen, 0.62, 0.945, 0.002, 0.045, KPK_UI.C_LINE);
+		m_StatusRight = KPK_UI.Text(m_Screen, "", 0.632, 0.94, 0.36, 0.055, 13, KPK_UI.C_DIM);
 	}
 
 	protected Widget Content()
 	{
-		return KPK_UI.Frame(m_Screen, 0.18, 0.075, 0.81, 0.855);
+		return KPK_UI.Frame(m_Screen, 0.178, 0.095, 0.812, 0.83);
 	}
 
 	protected void ShowTabs(bool show)
@@ -304,23 +347,48 @@ class KPK_Menu extends UIScriptedMenu
 			m_Tabs[t].SetActive(t == page);
 		if (page < TAB_COUNT)
 			m_LastTab = page;
-		if (page == P_MAP && !m_MapCentered)
-		{
-			m_MapCentered = true;
-			PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-			m_Map.SetScale(0.3);
-			if (player)
-				m_Map.SetMapPos(player.GetPosition());
-		}
+		// the map widget only exists while its page is shown: a hidden MapWidget
+		// sometimes bleeds through other widgets (map tiles inside text fields)
+		if (page == P_MAP)
+			CreateMap();
+		else
+			DestroyMap();
 		ShowTabs(page < TAB_COUNT);
 		RefreshPage();
+		if (m_HeaderLeft)
+			RefreshHeader();
+	}
+
+	protected void CreateMap()
+	{
+		if (m_Map)
+			return;
+		m_Map = MapWidget.Cast(KPK_UI.Make("kpk_map.layout", m_MapHolder, 0, 0, 1, 1));
+		m_Map.SetHandler(m_MapHandler);
+		m_Map.SetScale(m_MapScale);
+		PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+		if (m_HasMapPos)
+			m_Map.SetMapPos(m_MapPos);
+		else if (player)
+			m_Map.SetMapPos(player.GetPosition());
+	}
+
+	protected void DestroyMap()
+	{
+		if (!m_Map)
+			return;
+		m_MapScale = m_Map.GetScale();
+		m_MapPos = m_Map.GetMapPos();
+		m_HasMapPos = true;
+		m_Map.Unlink();
+		m_Map = null;
 	}
 
 	// =================================================================== boot
 
 	protected Widget BuildBoot()
 	{
-		Widget page = KPK_UI.Frame(m_Screen, 0.03, 0.09, 0.94, 0.84);
+		Widget page = KPK_UI.Frame(m_Screen, 0.19, 0.11, 0.78, 0.8);
 		m_BootText = KPK_UI.MText(page, 0, 0, 1, 1, 17, KPK_UI.C_TEXT);
 		return page;
 	}
@@ -514,8 +582,13 @@ class KPK_Menu extends UIScriptedMenu
 		Widget page = Content();
 
 		Widget mapBox = KPK_UI.Panel(page, 0, 0, 0.71, 1, 0xFF000000, true);
-		m_Map = MapWidget.Cast(KPK_UI.Make("kpk_map.layout", mapBox, 0.004, 0.004, 0.992, 0.992));
-		m_Map.SetHandler(m_MapHandler);
+		m_MapHolder = KPK_UI.Frame(mapBox, 0.004, 0.004, 0.992, 0.992);
+		// grid of a field map over the paper
+		for (int gl = 1; gl < 10; gl++)
+		{
+			KPK_UI.Panel(mapBox, gl * 0.1, 0, 0.0015, 1, 0x1890FF90);
+			KPK_UI.Panel(mapBox, 0, gl * 0.1, 1, 0.002, 0x1890FF90);
+		}
 		// green phosphor tint over the paper map
 		KPK_UI.Panel(mapBox, 0, 0, 1, 1, 0x2230FF50);
 		KPK_UI.Panel(mapBox, 0, 0, 1, 0.004, KPK_UI.C_EDGE);
@@ -625,6 +698,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	void OnMapDoubleClick(int x, int y)
 	{
+		if (!m_Map)
+			return;
 		vector pos = m_Map.ScreenToMap(Vector(x, y, 0));
 		AddMarker(pos[0], pos[2]);
 	}
@@ -1245,27 +1320,40 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		KPK_View v = KPK_Client.s_View;
 		string net = "СЕТЬ ЗОНЫ";
-		string who = "";
-		string battery = "ПИТ —";
+		string user = "гость";
+		string battery = "ПИТ --";
+		bool low = false;
 		if (v)
 		{
 			if (v.ServerName != "")
 				net = v.ServerName;
 			if (v.LoggedIn)
-				who = "  ·  " + v.Callsign;
+				user = v.Callsign;
 			if (v.Battery >= 0)
+			{
 				battery = "ПИТ " + KPK_UI.Percent(v.Battery, 1);
-			m_Serial.SetText("S/N " + v.SteamId);
-			if (v.Battery >= 0 && v.Battery < 0.15)
-				m_Led.SetColor(KPK_UI.C_DANGER);
-			else
-				m_Led.SetColor(0xFF4DE64D);
+				low = v.Battery < 0.15;
+			}
+			m_Skin.m_Serial.SetText("S/N " + v.SteamId);
 		}
-		m_HeaderLeft.SetText("КПК  ·  " + net + who);
+		m_Skin.SetLed(low);
+		m_HeaderLeft.SetText("ВЕСТНИК ОС 2.11  —  " + PageName(m_Page));
 
 		int year, month, day, hour, minute;
 		GetGame().GetWorld().GetDate(year, month, day, hour, minute);
-		m_HeaderRight.SetText(string.Format("%1:%2   ·   %3   ·   GPS", hour.ToStringLen(2), minute.ToStringLen(2), battery));
+		string clock = hour.ToStringLen(2) + ":" + minute.ToStringLen(2);
+		m_HeaderRight.SetText(string.Format("%1.%2.%3   %4", day.ToStringLen(2), month.ToStringLen(2), year, clock));
+
+		string bars = "||||";
+		if (m_Signal == 3) bars = "|||.";
+		if (m_Signal == 2) bars = "||..";
+		if (m_Signal <= 1) bars = "|...";
+		m_StatusRight.SetText("СИГН " + bars + "   " + battery + "   GPS: OK");
+
+		int sec = m_SessionTime;
+		int mins = sec / 60;
+		int secs = sec % 60;
+		m_SideInfo.SetText("ПОЛЬЗ.: " + user + "\nУЗЕЛ: " + net + "\nСЕАНС: " + mins.ToStringLen(2) + ":" + secs.ToStringLen(2) + "\nПАМ: 640 КБ");
 	}
 
 	protected void RefreshFooter()
@@ -1296,8 +1384,18 @@ class KPK_Menu extends UIScriptedMenu
 			RefreshFooter();
 		}
 
+		m_Skin.Update(timeslice);
+		m_SessionTime += timeslice;
+
+		m_SignalTime -= timeslice;
+		if (m_SignalTime <= 0)
+		{
+			m_SignalTime = Math.RandomFloat(2, 6);
+			m_Signal = Math.RandomInt(2, 5);
+		}
+
 		m_Clock += timeslice;
-		if (m_Clock > 5)
+		if (m_Clock > 1)
 		{
 			m_Clock = 0;
 			RefreshHeader();
@@ -1417,7 +1515,7 @@ class KPK_Menu extends UIScriptedMenu
 		else if (list == m_MarkerList)
 		{
 			KPK_Marker mk = SelectedMarker();
-			if (mk)
+			if (mk && m_Map)
 				m_Map.SetMapPos(Vector(mk.X, 0, mk.Z));
 		}
 	}
@@ -1469,13 +1567,13 @@ class KPK_Menu extends UIScriptedMenu
 				break;
 			}
 			case B_MAP_SELF:
-				if (player)
+				if (player && m_Map)
 					m_Map.SetMapPos(player.GetPosition());
 				break;
 			case B_MAP_GOTO:
 			{
 				KPK_Marker gm = SelectedMarker();
-				if (gm)
+				if (gm && m_Map)
 					m_Map.SetMapPos(Vector(gm.X, 0, gm.Z));
 				break;
 			}
@@ -1547,7 +1645,8 @@ class KPK_Menu extends UIScriptedMenu
 				if (f && f.HasLocationPos)
 				{
 					ShowPage(P_MAP);
-					m_Map.SetMapPos(Vector(f.LocX, 0, f.LocZ));
+					if (m_Map)
+						m_Map.SetMapPos(Vector(f.LocX, 0, f.LocZ));
 				}
 				break;
 
