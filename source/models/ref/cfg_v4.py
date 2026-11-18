@@ -109,6 +109,28 @@ PARTS = {
         dict(t="blabel", r=(928, 566, 1022, 662), h=0.95, draw="radiation", bg="body", fg=(200, 160, 50), round=True),
     ],
 }
+# broken KPK: the brick, smashed
+_b = []
+for _p in PARTS["brick"]:
+    _p = dict(_p)
+    ic = _p.get("icon", "")
+    if ic in ("t:5", "t:*", "t:ВЫХ", "t:9"):
+        continue                                  # keys knocked out
+    if ic in ("t:2", "t:0", "t:7"):
+        _p["h"] = 0.5                             # keys pushed in
+    if _p["t"] == "guard" and _p["r"] == (352, 610, 418, 666):
+        continue                                  # bumper torn off
+    if _p["t"] == "led":
+        _p["color"] = (40, 44, 40)                # dead LED
+    if _p["t"] == "label" and "ПРОВЕРЕНО ОТК-4" in _p.get("lines", []):
+        _p["r"] = (172, 614, 290, 652)            # sticker half torn off
+        _p["lines"] = ["ПРОВЕРЕНО", "НИИ ЧАЗ"]
+    _b.append(_p)
+_b.append(dict(t="blabel", r=(180, 524, 332, 566), h=0.82, draw="scratch", bg="body", fg=(205, 198, 178), flat=True, lines=["ZloyDed.dll"]))
+PARTS["broken"] = _b
+CFG["broken"]["parts"] = _b
+CFG["broken"]["edge"] = 4.5
+
 CFG["m1"]["D"] = 20
 CFG["mil"]["D"] = 28
 CFG["nii"]["D"] = 22

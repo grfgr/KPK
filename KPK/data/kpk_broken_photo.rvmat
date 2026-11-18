@@ -2,14 +2,14 @@ ambient[] = {1, 1, 1, 1};
 diffuse[] = {1, 1, 1, 1};
 forcedDiffuse[] = {0, 0, 0, 0};
 emmisive[] = {0, 0, 0, 0};
-specular[] = {0.6, 0.6, 0.6, 1};
+specular[] = {0.3, 0.3, 0.3, 1};
 specularPower = 60;
 PixelShaderID = "Super";
 VertexShaderID = "Super";
 
 class Stage1
 {
-	texture = "KPK\data\kpk_broken_nohq.paa";
+	texture = "KPK\data\kpk_broken_photo_nohq.paa";
 	uvSource = "tex";
 	class uvTransform
 	{
@@ -57,7 +57,7 @@ class Stage4
 };
 class Stage5
 {
-	texture = "KPK\data\kpk_broken_smdi.paa";
+	texture = "KPK\data\kpk_broken_photo_smdi.paa";
 	uvSource = "tex";
 	class uvTransform
 	{

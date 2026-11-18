@@ -6,6 +6,8 @@ import bpy, sys, json, math, os
 args = sys.argv[sys.argv.index("--") + 1:]
 name, out = args[0], args[1]; RES = int(args[2]) if len(args) > 2 else 2048
 RUSTK = float(args[3]) if len(args) > 3 else 1.0
+WEARK = float(args[4]) if len(args) > 4 else 1.0
+SOOT = float(args[5]) if len(args) > 5 else 0.0
 bpy.ops.wm.open_mainfile(filepath=out + "/kpk.blend")
 ob = bpy.data.objects["KPK"]; me = ob.data
 bpy.context.view_layer.objects.active = ob; ob.select_set(True)
@@ -82,6 +84,9 @@ def setup(mat, target, mode):
     emi = N.new("ShaderNodeEmission")
     L.new(emi.outputs[0], outn.inputs[0])
     key = mat.name.split(".")[0]
+    is_mark = key == "photo"
+    if key == "photo" and name == "broken":
+        key = "body"          # flat marks on the broken case get the paint colour under them
     rubber = KINDS.get(key) == "rubber"
     if tex:
         L.new(uvn.outputs[0], tex[0].inputs[0]); base = tex[0].outputs[0]
@@ -93,7 +98,7 @@ def setup(mat, target, mode):
     dot = N.new("ShaderNodeVectorMath"); dot.operation = 'DOT_PRODUCT'
     L.new(bev.outputs[0], dot.inputs[0]); L.new(geo.outputs["Normal"], dot.inputs[1])
     inv = N.new("ShaderNodeMath"); inv.operation = 'SUBTRACT'; inv.inputs[0].default_value = 1.0; L.new(dot.outputs["Value"], inv.inputs[1])
-    amp = N.new("ShaderNodeMath"); amp.operation = 'MULTIPLY'; amp.inputs[1].default_value = 4.0; amp.use_clamp = True; L.new(inv.outputs[0], amp.inputs[0])
+    amp = N.new("ShaderNodeMath"); amp.operation = 'MULTIPLY'; amp.inputs[1].default_value = 4.0 * WEARK; amp.use_clamp = True; L.new(inv.outputs[0], amp.inputs[0])
     # chipping noise breaks the edge line
     tc = N.new("ShaderNodeTexCoord")
     noi = N.new("ShaderNodeTexNoise"); noi.inputs["Scale"].default_value = 70.0; noi.inputs["Detail"].default_value = 10.0; noi.inputs["Roughness"].default_value = 0.65
@@ -132,7 +137,7 @@ def setup(mat, target, mode):
     r3 = N.new("ShaderNodeMapRange"); r3.inputs[1].default_value = 0.52; r3.inputs[2].default_value = 0.6; L.new(noi3.outputs["Fac"], r3.inputs[0])
     edge2 = N.new("ShaderNodeMapRange"); edge2.inputs[1].default_value = 0.04; edge2.inputs[2].default_value = 0.22; L.new(inv.outputs[0], edge2.inputs[0])
     big = N.new("ShaderNodeMath"); big.operation = 'MULTIPLY'; big.use_clamp = True; L.new(r3.outputs[0], big.inputs[0]); L.new(edge2.outputs[0], big.inputs[1])
-    bigw = N.new("ShaderNodeMath"); bigw.operation = 'MULTIPLY'; bigw.inputs[1].default_value = w3; L.new(big.outputs[0], bigw.inputs[0])
+    bigw = N.new("ShaderNodeMath"); bigw.operation = 'MULTIPLY'; bigw.inputs[1].default_value = min(1.0, w3 * WEARK); L.new(big.outputs[0], bigw.inputs[0])
     chips = N.new("ShaderNodeMixRGB"); L.new(bigw.outputs[0], chips.inputs[0]); L.new(grime.outputs[0], chips.inputs[1]); chips.inputs[2].default_value = (0.13, 0.12, 0.11, 1)
     # rust streaks: from cavities, stretched downwards (object Y)
     mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (28.0, 5.0, 28.0); L.new(tc.outputs["Object"], mp.inputs["Vector"])
@@ -146,7 +151,7 @@ def setup(mat, target, mode):
     pmw = N.new("ShaderNodeMath"); pmw.operation = 'MULTIPLY'; pmw.inputs[1].default_value = 0.0; L.new(pm.outputs[0], pmw.inputs[0])
     mx = N.new("ShaderNodeMath"); mx.operation = 'MAXIMUM'; L.new(cavs.outputs[0], mx.inputs[0]); L.new(pmw.outputs[0], mx.inputs[1])
     L.new(mx.outputs[0], rmask.inputs[1])
-    rw = N.new("ShaderNodeMath"); rw.operation = 'MULTIPLY'; rw.inputs[1].default_value = 0.5 * RUST.get(key, 0.0) * RUSTK * (0.0 if rubber else 1.0); L.new(rmask.outputs[0], rw.inputs[0])
+    rw = N.new("ShaderNodeMath"); rw.operation = 'MULTIPLY'; rw.inputs[1].default_value = 0.5 * RUST.get(key, 0.0) * RUSTK * (0.0 if rubber else 1.0) * (0.2 if is_mark else 1.0); L.new(rmask.outputs[0], rw.inputs[0])
     rust = N.new("ShaderNodeMixRGB"); L.new(rw.outputs[0], rust.inputs[0]); L.new(chips.outputs[0], rust.inputs[1]); rust.inputs[2].default_value = (0.30, 0.13, 0.05, 1)
     # fine scratches: thin voronoi cell borders
     vor = N.new("ShaderNodeTexVoronoi"); vor.feature = 'DISTANCE_TO_EDGE'; vor.inputs["Scale"].default_value = 140.0
@@ -163,8 +168,14 @@ def setup(mat, target, mode):
     gp = N.new("ShaderNodeMapRange"); gp.inputs[1].default_value = 0.074; gp.inputs[2].default_value = 0.09; L.new(ax_.outputs[0], gp.inputs[0])
     gpn = N.new("ShaderNodeMath"); gpn.operation = 'MULTIPLY'; gpn.inputs[1].default_value = 0.07 * w3; L.new(gp.outputs[0], gpn.inputs[0])
     pol = N.new("ShaderNodeMixRGB"); pol.blend_type = 'SCREEN'; L.new(gpn.outputs[0], pol.inputs[0]); L.new(scc.outputs[0], pol.inputs[1]); pol.inputs[2].default_value = (0.35, 0.33, 0.30, 1)
+    # soot: scorched blotches (broken KPK)
+    sootn = N.new("ShaderNodeTexNoise"); sootn.inputs["Scale"].default_value = 7.0; sootn.inputs["Detail"].default_value = 6.0
+    L.new(tc.outputs["Object"], sootn.inputs["Vector"])
+    sr = N.new("ShaderNodeMapRange"); sr.inputs[1].default_value = 0.44; sr.inputs[2].default_value = 0.66; L.new(sootn.outputs["Fac"], sr.inputs[0])
+    sw_ = N.new("ShaderNodeMath"); sw_.operation = 'MULTIPLY'; sw_.inputs[1].default_value = 0.95 * SOOT * (0.15 if is_mark else 1.0); L.new(sr.outputs[0], sw_.inputs[0])
+    soot = N.new("ShaderNodeMixRGB"); L.new(sw_.outputs[0], soot.inputs[0]); L.new(pol.outputs[0], soot.inputs[1]); soot.inputs[2].default_value = (0.025, 0.022, 0.02, 1)
     if mode == "color":
-        L.new(pol.outputs[0], emi.inputs[0])
+        L.new(soot.outputs[0], emi.inputs[0])
     else:
         sh = N.new("ShaderNodeMath"); sh.operation = 'MAXIMUM'; L.new(chip.outputs[0], sh.inputs[0]); L.new(bigw.outputs[0], sh.inputs[1])
         sh2 = N.new("ShaderNodeMath"); sh2.operation = 'MAXIMUM'; L.new(sh.outputs[0], sh2.inputs[0]); L.new(gpn.outputs[0], sh2.inputs[1])

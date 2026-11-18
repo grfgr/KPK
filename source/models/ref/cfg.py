@@ -31,6 +31,7 @@ CFG = {
                   back=(100, 100, 412, 660), left=(0, 0, 10, 10), right=(0, 0, 10, 10),
                   top=(0, 0, 10, 10), bottom=(0, 0, 10, 10)),
 }
+CFG["broken"] = dict(CFG["brick"])
 
 # Volume details (sheet px; h in mm). Types:
 #  btn   - button: flat bezel + pillowed cap (shape round / rect / cross), texture from the front view
@@ -103,9 +104,9 @@ PARTS = {
     ],
 }
 # the case alone on the back view (no handles / straps sticking out): the back texture is fitted to it
-BACKBODY = {"brick": (100, 100, 412, 660), "mil": (645, 487, 1060, 712), "mono": (647, 480, 1047, 705), "nii": (655, 520, 1080, 735), "m1": (650, 507, 1047, 722)}
+BACKBODY = {"brick": (100, 100, 412, 660), "broken": (100, 100, 412, 660), "mil": (645, 487, 1060, 712), "mono": (647, 480, 1047, 705), "nii": (655, 520, 1080, 735), "m1": (650, 507, 1047, 722)}
 # edge rounding of the case (mm) and corner radius bump, like a rugged tablet
-EDGE = {"brick": 4.5, "mil": 7.0, "mono": 5.8, "nii": 5.8, "m1": 5.2}
+EDGE = {"brick": 4.5, "broken": 4.5, "mil": 7.0, "mono": 5.8, "nii": 5.8, "m1": 5.2}
 for _k in CFG:
     CFG[_k].setdefault("parts", [])
     CFG[_k]["backbody"] = BACKBODY[_k]

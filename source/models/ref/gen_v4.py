@@ -1,7 +1,8 @@
 # v4 decals, all drawn here (no photo cut-outs): button icons, LEDs, labels, emblems, stripes,
 # radiation signs, barcodes, on a background cut from the very material they sit on.
 # The only photo piece is the screen picture. usage: gen_v4.py <sheet.png> <name> <v3 dir>
-import json, sys, math, random
+import json, sys, math, random, os
+from PIL import ImageFilter as _IF
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from cfg_v4 import CFG
@@ -180,6 +181,39 @@ def make(pt, wmm, hmm):
                     on = fin and not (1 <= i_ % 14 <= 5 and 1 <= j_ % 14 <= 5 and not (2 <= i_ % 14 <= 4 and 2 <= j_ % 14 <= 4)) if fin else rnd.random() > 0.55
                     if on:
                         d.rectangle([q0 + j_ * cell, q1 + i_ * cell, q0 + (j_ + 1) * cell, q1 + (i_ + 1) * cell], fill=fg)
+        elif dr == "scratch":
+            # scratched in with a knife: thin wobbly strokes, each letter cut two or three times
+            txt = pt["lines"][0]
+            size = H_ * 0.8
+            while size > 8:
+                f = font("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size)
+                tb = d.textbbox((0, 0), txt, font=f)
+                if tb[2] - tb[0] <= W_ * 0.9 and tb[3] - tb[1] <= H_ * 0.8:
+                    break
+                size *= 0.93
+            tb = d.textbbox((0, 0), txt, font=f); tx = (W_ - (tb[2] - tb[0])) / 2 - tb[0]; ty = (H_ - (tb[3] - tb[1])) / 2 - tb[1]
+            tmp = Image.new("L", (W_, H_), 0); td = ImageDraw.Draw(tmp)
+            rnd = random.Random(5)
+            for k in range(3):
+                td.text((tx + rnd.uniform(-1.5, 1.5) * 3, ty + rnd.uniform(-1.5, 1.5) * 3), txt, font=f, fill=255)
+            # keep only a thin core of the strokes (erode), break them a bit
+            core = tmp.filter(ImageFilter.MinFilter(3))
+            m_ = np.asarray(core).astype(np.float32) / 255
+            brk = np.asarray(Image.fromarray((np.random.default_rng(2).random((H_ // 6 + 1, W_ // 6 + 1)) * 255).astype(np.uint8)).resize((W_, H_))).astype(np.float32) / 255
+            m_ = m_ * np.clip((brk - 0.15) * 3, 0, 1)
+            base = np.asarray(im).astype(np.float32)
+            col_ = np.array(fg, np.float32)
+            sh_ = np.clip(np.roll(m_, 3, axis=0) - m_, 0, 1)[..., None]
+            out_ = base * (1 - m_[..., None]) + col_ * m_[..., None]
+            out_ = out_ * (1 - sh_ * 0.6)
+            im = Image.fromarray(np.clip(out_, 0, 255).astype(np.uint8)); d = ImageDraw.Draw(im)
+        elif dr == "finger":
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from fingerprint import mask as _fmask
+            base = np.asarray(im).astype(np.float32)
+            m_ = _fmask(W_, H_, 7, 15.0) * 0.85
+            col_ = np.array(fg, np.float32)
+            im = Image.fromarray(np.clip(base * (1 - m_[..., None]) + col_ * m_[..., None], 0, 255).astype(np.uint8)); d = ImageDraw.Draw(im)
         elif dr == "radiation":
             radiation(d, (W_ * 0.08, H_ * 0.08, W_ * 0.92, H_ * 0.92), fg)
     im = im.resize((wpx, hpx), Image.LANCZOS)

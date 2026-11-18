@@ -3,6 +3,8 @@ from cfg import CFG
 
 # materials: colour sampled from the sheet box (median), kind = procedural pattern
 MATS = {
+    "broken": {"body": dict(color=(70, 74, 56), kind="paint", scratch=0.7, rust=0.8, soft=True),
+               "trim": dict(color=(30, 30, 29), kind="rubber")},
     "brick": {"body": dict(color=(90, 97, 72), kind="paint", scratch=0.4, rust=0.3, soft=True),
               "trim": dict(color=(30, 31, 30), kind="rubber")},
     "mil":  {"body": dict(color=(80, 74, 50), kind="paint", scratch=0.4, rust=0.5, soft=True),
@@ -21,6 +23,7 @@ SHARED = {"kpk_metal": dict(color=(150, 148, 144), kind="metal", scratch=0.8, ru
 
 # printed / photographed bits put on thin plates (front view px); "back" = whole back panel
 DECALS = {
+    "broken": [],
     "brick": [],
     "mil":  [(380, 380, 462, 400)],
     "mono": [],
@@ -29,7 +32,7 @@ DECALS = {
 }
 
 # extra 3D: rubber port covers on the sides (y px of the front view, length px)
-PORTS = {"brick": [],"mil": [("right", 225, 60), ("left", 225, 40)], "mono": [("left", 300, 40)],
+PORTS = {"broken": [],"brick": [],"mil": [("right", 225, 60), ("left", 225, 40)], "mono": [("left", 300, 40)],
          "nii": [("left", 245, 60), ("right", 245, 60)], "m1": [("right", 250, 60), ("left", 260, 40)]}
 
 # Monolith cloth band around the right part of the case (front px x range) + emblem plate

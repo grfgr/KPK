@@ -213,7 +213,7 @@ for i, pt in enumerate(c["parts"]):
             z0_, z1_, dirn = -ZF - h, -ZF + 0.0003, -1
         shape = circle((x0 + x1) / 2, (y0 + y1) / 2, min(x1 - x0, y1 - y0) / 2, 24) if pt.get("round") else rounded(x0, y0, x1, y1, min(0.0012, min(x1 - x0, y1 - y0) * 0.2), 3)
         side = BODY if pt.get("bg") == "body" else TRIM
-        parts.append(paint(prism(nm, shape, z0_, z1_, min(0.0003, h * 0.4), 1), side, PHOTO, dec, dirn))
+        parts.append(paint(prism(nm, shape, z0_, z1_, 0.0 if pt.get("flat") else min(0.0003, h * 0.4), 1), side, PHOTO, dec, dirn))
     elif t == "buckle":
         # metal frame with a centre bar, over the back strap
         a, b, cc, d = pt["r"]; bb = c["backbody"]
@@ -314,6 +314,10 @@ if c.get("cloth"):
 extra = os.path.join(os.path.dirname(os.path.abspath(__file__)), name + "_extra.py")
 if os.path.exists(extra):
     exec(open(extra).read())
+    # faces made by booleans on the case (dents) get the body material
+    for p in case.data.polygons:
+        if case.data.attributes["mat"].data[p.index].value not in (BODY, PHOTO):
+            case.data.attributes["mat"].data[p.index].value = BODY
 
 # ------------------------------------------------------------------ join, materials, UVs
 bpy.ops.object.select_all(action='DESELECT')
