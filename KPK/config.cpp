@@ -68,6 +68,16 @@ class CfgVehicles
 		descriptionShort = "Базовый карманный компьютер «Вестник»: профиль, карта с метками, связь с группой. Работает от батарейки 9V.";
 		weight = 300;
 		itemSize[] = {1, 2};
+		// set by the script: 1 while the KPK is attached to a slot (backpack strap, vest)
+		class AnimationSources
+		{
+			class kpkStrap
+			{
+				source = "user";
+				initPhase = 0;
+				animPeriod = 0.001;
+			};
+		};
 	};
 
 	// Full models: everything the brick has plus factions, tasks, notes and reputation,

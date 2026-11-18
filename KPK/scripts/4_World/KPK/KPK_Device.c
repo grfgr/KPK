@@ -117,6 +117,30 @@ modded class GPSReceiver
 		AddAction(ActionKPKBroken);
 	}
 
+	// landscape models turn along the strap when attached to a slot (model.cfg animation "kpkStrap")
+	override void EEItemLocationChanged(notnull InventoryLocation oldLoc, notnull InventoryLocation newLoc)
+	{
+		super.EEItemLocationChanged(oldLoc, newLoc);
+		if (KPK_Device.IsKPK(this))
+			KPK_UpdateStrap();
+	}
+
+	override void EEInit()
+	{
+		super.EEInit();
+		if (KPK_Device.IsKPK(this))
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(KPK_UpdateStrap, 500, false);
+	}
+
+	void KPK_UpdateStrap()
+	{
+		InventoryLocation loc = new InventoryLocation();
+		float phase = 0;
+		if (GetInventory().GetCurrentInventoryLocation(loc) && loc.GetType() == InventoryLocationType.ATTACHMENT)
+			phase = 1;
+		SetAnimationPhase("kpkStrap", phase);
+	}
+
 	override void OnWorkStart()
 	{
 		if (KPK_Device.IsKPK(this) || KPK_Device.IsBroken(this))
