@@ -77,6 +77,12 @@ class CfgVehicles
 				initPhase = 0;
 				animPeriod = 0.001;
 			};
+			class kpkHand
+			{
+				source = "user";
+				initPhase = 1;
+				animPeriod = 0.001;
+			};
 		};
 	};
 

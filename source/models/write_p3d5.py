@@ -25,8 +25,8 @@ PITCH = math.radians(float(sys.argv[9]) if len(sys.argv) > 9 else 0.0)
 ZOFF = float(sys.argv[10]) if len(sys.argv) > 10 else 0.0
 
 
-# strap pose (attached to a backpack / vest slot): the model.cfg animation "kpkStrap" moves the hand pose
-# to: centred on the slot, long side along the strap (roll), back against it (ZBACK towards the outside)
+# strap pose (attached to a backpack / vest slot): a second copy of the mesh, centred on the slot,
+# long side along the strap (roll), back against it (ZBACK towards the outside)
 ROLL = math.radians(float(sys.argv[11]) if len(sys.argv) > 11 else 90.0)
 ZBACK = float(sys.argv[12]) if len(sys.argv) > 12 else -0.02
 
@@ -91,25 +91,44 @@ def to_p3d(v):
     return (x, y, z + ZOFF)
 
 
+def strap_pose(v):
+    # attached to a strap / vest slot: centred, long side along the strap (roll), back on the strap
+    x, y, z = v[0] - C[0], v[1] - C[1], -v[2] - C[2]
+    c, s_ = math.cos(ROLL), math.sin(ROLL)
+    return (x * c - y * s_, x * s_ + y * c, z + ZBACK)
+
+
+def strap_normal(n):
+    c, s_ = math.cos(ROLL), math.sin(ROLL)
+    return (n[0] * c - n[1] * s_, n[0] * s_ + n[1] * c, -n[2])
+
+
 def visual_lod(path, resolution):
+    """two copies of the mesh: as held in the hands ("kpk_hand") and as worn on a strap ("kpk_strap");
+    the model.cfg hide animations show one of them, the script sets the phases"""
     m = json.load(open(path))
-    points = [to_p3d(v) for v in m["verts"]]
+    nv = len(m["verts"])
+    points = [to_p3d(v) for v in m["verts"]] + [strap_pose(v) for v in m["verts"]]
     normals, faces = [], []
-    for tri in m["tris"]:
-        verts = []
-        corners = list(reversed(tri)) if REVERSE else list(tri)
-        for vi, n, uv in corners:
-            pn = turn(n[0], n[1], -n[2])
-            if INVERT:
-                pn = tuple(-c for c in pn)
-            normals.append(pn)
-            verts.append((vi, len(normals) - 1, uv[0], 1.0 - uv[1]))
-        faces.append((verts, TEX, MAT))
-    taggs = selection("camo", len(points), len(faces)) + selection("kpk_strap_r1", len(points), len(faces))
-    # the parent bones of the strap animation have no vertices of their own
-    taggs += selection("kpk_strap_r2", len(points), len(faces), points=[], faces=[])
-    taggs += selection("kpk_strap_move", len(points), len(faces), points=[], faces=[])
-    return lod(points, normals, faces, resolution, taggs), points
+    for copy in (0, 1):
+        for tri in m["tris"]:
+            verts = []
+            corners = list(reversed(tri)) if REVERSE else list(tri)
+            for vi, n, uv in corners:
+                if copy == 0:
+                    pn = turn(n[0], n[1], -n[2])
+                else:
+                    pn = strap_normal(n)
+                if INVERT:
+                    pn = tuple(-c for c in pn)
+                normals.append(pn)
+                verts.append((vi + nv * copy, len(normals) - 1, uv[0], 1.0 - uv[1]))
+            faces.append((verts, TEX, MAT))
+    nf = len(m["tris"])
+    taggs = selection("camo", len(points), len(faces))
+    taggs += selection("kpk_hand", len(points), len(faces), points=range(nv), faces=range(nf))
+    taggs += selection("kpk_strap", len(points), len(faces), points=range(nv, 2 * nv), faces=range(nf, 2 * nf))
+    return lod(points, normals, faces, resolution, taggs), points[:nv]
 
 
 def box_lod(mn, mx, resolution, mass=None, component=True, triangles=False):
@@ -129,11 +148,11 @@ def box_lod(mn, mx, resolution, mass=None, component=True, triangles=False):
         taggs += tag("#Mass#", struct.pack("<8f", *([mass / 8.0] * 8)))
     if component:
         taggs += selection("Component01", 8, len(faces))
-    else:
-        taggs += selection("kpk_strap_r1", 8, len(faces))
     return lod(pts, [(0.0, 1.0, 0.0)], faces, resolution, taggs)
 
 
+_src = json.load(open(src + "/mesh.json"))["verts"]
+C = tuple((min(v[i] * (-1 if i == 2 else 1) for v in _src) + max(v[i] * (-1 if i == 2 else 1) for v in _src)) / 2 for i in range(3))
 lod0, pts = visual_lod(src + "/mesh.json", 1.0)
 lod1, _ = visual_lod(src + "/mesh_lod1.json", 2.0)
 
@@ -153,75 +172,9 @@ vy = [p[1] for p in pts]
 c = ((min(vx) + max(vx)) / 2, (min(ys) + max(ys)) / 2, (min(zs) + max(zs)) / 2)
 memory_pts = [c, (c[0], c[1], -0.35), (min(vx), min(ys), min(zs)), (max(vx), max(ys), max(zs))]
 
-# ---- strap animation: hand pose q = R(p + T) + Z0  ->  strap pose Roll(p - C) + ZB
-# done as two half turns (child bone r1, then r2: a 180 degree turn looks the same either way round,
-# so the engine's rotation sign cannot flip it) and a translation (parent bone)
-def mat_turn():
-    cols = [turn(1, 0, 0), turn(0, 1, 0), turn(0, 0, 1)]
-    return [[cols[j][i] for j in range(3)] for i in range(3)]
-
-
-def mul(a, b):
-    return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
-
-
-def app(m, v):
-    return tuple(sum(m[i][k] * v[k] for k in range(3)) for i in range(3))
-
-
-def axis_rot(n, ang):
-    x, y, z = n
-    c, s_, t = math.cos(ang), math.sin(ang), 1 - math.cos(ang)
-    return [[t*x*x + c, t*x*y - s_*z, t*x*z + s_*y], [t*x*y + s_*z, t*y*y + c, t*y*z - s_*x], [t*x*z - s_*y, t*y*z + s_*x, t*z*z + c]]
-
-
-def norm(v):
-    l = math.sqrt(sum(c * c for c in v))
-    return tuple(c / l for c in v)
-
-
-def cross(a, b):
-    return (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
-
-
-R = mat_turn()
-RT = [[R[j][i] for j in range(3)] for i in range(3)]
-ROLLM = axis_rot((0, 0, 1), ROLL)
-M = mul(ROLLM, RT)
-src_pts = [(v[0], v[1], -v[2]) for v in json.load(open(src + "/mesh.json"))["verts"]]
-C = tuple((min(p[i] for p in src_pts) + max(p[i] for p in src_pts)) / 2 for i in range(3))
-T = (XOFF, YOFF, 0.0)
-Z0 = (0.0, 0.0, ZOFF)
-mz = app(M, Z0)
-rt = app(ROLLM, (T[0] + C[0], T[1] + C[1], T[2] + C[2]))
-CT = (-mz[0] - rt[0], -mz[1] - rt[1], -mz[2] - rt[2] + ZBACK)
-# axis-angle of M
-ang = math.acos(max(-1.0, min(1.0, (M[0][0] + M[1][1] + M[2][2] - 1) / 2)))
-if ang < 1e-6:
-    n = (0.0, 0.0, 1.0)
-else:
-    n = norm((M[2][1] - M[1][2], M[0][2] - M[2][0], M[1][0] - M[0][1]))
-helper = (1.0, 0.0, 0.0) if abs(n[0]) < 0.9 else (0.0, 1.0, 0.0)
-m1 = norm(cross(n, helper))
-m2 = app(axis_rot(n, ang / 2), m1)
-# check: half turn about m1, then about m2, then move = strap pose
-H1, H2 = axis_rot(m1, math.pi), axis_rot(m2, math.pi)
-err = 0.0
-for p in src_pts[::50]:
-    q = turn(p[0] + XOFF, p[1] + YOFF, p[2]); q = (q[0], q[1], q[2] + ZOFF)
-    r = app(H2, app(H1, q)); r = (r[0] + CT[0], r[1] + CT[1], r[2] + CT[2])
-    w = app(ROLLM, (p[0] - C[0], p[1] - C[1], p[2] - C[2])); w = (w[0], w[1], w[2] + ZBACK)
-    err = max(err, max(abs(r[i] - w[i]) for i in range(3)))
-print("strap check, max error", round(err, 6))
-assert err < 1e-5
-
-memory_pts += [(0, 0, 0), tuple(c * 0.1 for c in m1), (0, 0, 0), tuple(c * 0.1 for c in m2), (0, 0, 0), CT]
-NP = len(memory_pts)
 memory = lod(memory_pts, [(0.0, 1.0, 0.0)], [], 1e15,
-             selection("ce_center", NP, 0, points=[0]) + selection("invView", NP, 0, points=[1])
-             + selection("boundingbox_min", NP, 0, points=[2]) + selection("boundingbox_max", NP, 0, points=[3])
-             + selection("kpk_strap_r1_axis", NP, 0, points=[4, 5]) + selection("kpk_strap_r2_axis", NP, 0, points=[6, 7])
-             + selection("kpk_strap_move_axis", NP, 0, points=[8, 9]))
+             selection("ce_center", 4, 0, points=[0]) + selection("invView", 4, 0, points=[1])
+             + selection("boundingbox_min", 4, 0, points=[2]) + selection("boundingbox_max", 4, 0, points=[3]))
 view_geo = box_lod(mn, mx, 6e15)
 fire_geo = box_lod(mn, mx, 7e15)
 shadow = box_lod(mn, mx, 10000.0, component=False, triangles=True)

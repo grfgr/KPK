@@ -139,6 +139,7 @@ modded class GPSReceiver
 		if (GetInventory().GetCurrentInventoryLocation(loc) && loc.GetType() == InventoryLocationType.ATTACHMENT)
 			phase = 1;
 		SetAnimationPhase("kpkStrap", phase);
+		SetAnimationPhase("kpkHand", 1 - phase);
 	}
 
 	override void OnWorkStart()
