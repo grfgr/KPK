@@ -26,8 +26,8 @@ for n in ["m1", "mil", "nii", "mono", "brick"]:
     if "fade" in j:
         # in game the brick picture is 1.82 screen heights tall and runs off the bottom: fade out
         # just above the bottom edge of the screen (around the first key row)
-        top_ = 0.06 - 0.13158 * 1.8
-        f0, f1 = (0.9 - top_) / 1.8 * H, (1.0 - top_) / 1.8 * H
+        top_ = 0.0
+        f0, f1 = (0.88 - top_) / 1.3 * H, (1.0 - top_) / 1.3 * H
         yy = np.arange(H, dtype=np.float32)[:, None]
         alpha = alpha * np.clip((f1 - yy) / (f1 - f0), 0, 1)
     a[..., 3] = alpha

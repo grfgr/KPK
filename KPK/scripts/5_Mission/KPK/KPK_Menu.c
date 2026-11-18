@@ -331,19 +331,18 @@ class KPK_Menu extends UIScriptedMenu
 			wFrac = 0.97;
 			hFrac = wFrac * scrW / (aspect * scrH);
 		}
-		// the brick: the screen twice as big; the case runs off the bottom of the screen (the picture
-		// fades out there), the top label stays just inside
+		// the brick: a bigger screen; the case runs off the bottom of the screen and fades out there
 		if (model == KPK_Model.BRICK)
 		{
-			hFrac = 1.8;
+			hFrac = 1.3;
 			wFrac = hFrac * scrH * aspect / scrW;
-			float top = 0.06 - sv * hFrac;
+			float top = 0.0;
 			device.SetPos(0, top + hFrac * 0.5 - 0.5);
 		}
 		device.SetSize(wFrac, hFrac);
 
-		// the screen reaches a little under the case edge so no gap shows
-		float pad = 0.004;
+		// the case picture lies under the interface: the screen sits a hair inside the window edge
+		float pad = -0.003;
 		m_Screen.SetPos(su - pad, sv - pad * aspect);
 		m_Screen.SetSize(sw + pad * 2, sh + pad * 2 * aspect);
 
@@ -1833,6 +1832,8 @@ class KPK_Menu extends UIScriptedMenu
 		if (m_Theme.Glitch)
 			header = KPK_Theme.Noise(header, 0.3);
 		m_HeaderLeft.SetText(header);
+		// the module tabs sometimes vanished: show them again with every clock tick
+		ShowTabs(m_Page >= 0 && m_Page < TAB_COUNT);
 
 		int year, month, day, hour, minute;
 		GetGame().GetWorld().GetDate(year, month, day, hour, minute);
