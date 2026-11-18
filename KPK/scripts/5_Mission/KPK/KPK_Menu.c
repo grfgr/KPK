@@ -230,7 +230,6 @@ class KPK_Menu extends UIScriptedMenu
 		device.SetColor(m_Theme.Case);
 		layoutRoot.FindAnyWidget("Bezel").SetColor(m_Theme.Bezel);
 		m_Skin = new KPK_Skin();
-		m_Skin.BuildDevice(device, m_Theme);
 
 		BuildChrome();
 		m_Pages.Insert(BuildProfile());
@@ -242,7 +241,9 @@ class KPK_Menu extends UIScriptedMenu
 		m_Pages.Insert(BuildLogin());
 		m_Pages.Insert(BuildBoot());
 
-		// CRT effects go last so they lie on top of every page
+		// decoration last: the engine caps how many widgets a menu may create, and when the case and
+		// screen effects came first the buttons built after them failed ("could not create a button")
+		m_Skin.BuildDevice(device, m_Theme);
 		m_Skin.BuildScreenFx(m_Screen);
 
 		KPK_Client.s_OnView.Insert(OnView);
@@ -541,7 +542,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected Widget BuildProfile()
 	{
 		Widget page = Content();
-		Widget left = KPK_UI.Card(page, 0, 0, 0.49, 1, "ДОСЬЕ СТАЛКЕРА");
+		Widget left = KPK_UI.Card(page, 0, 0, 0.49, 1, m_Theme.ProfileTitle);
 		m_ProfileText = KPK_UI.MText(left, 0.04, 0.08, 0.92, 0.9, 15, KPK_UI.C_TEXT);
 
 		Widget right = KPK_UI.Card(page, 0.51, 0, 0.49, 0.47, "СОСТОЯНИЕ ОРГАНИЗМА");
@@ -561,14 +562,14 @@ class KPK_Menu extends UIScriptedMenu
 		m_RepCard.Show(m_Full);
 		KPK_Stats s = v.Stats;
 
-		string faction = "вольный сталкер";
+		string faction = m_Theme.NoFaction;
 		KPK_FactionView mine = MyFaction();
 		if (mine)
 			faction = mine.Name + " (" + KPK_Const.RoleName(v.MyRole) + ")";
 
 		string text = "";
 		text += "Позывной:  " + v.Callsign + "\n";
-		text += "Ранг:  " + v.Rank + "\n";
+		text += m_Theme.RankLabel + ":  " + m_Theme.RankName(v.Rank) + "\n";
 		if (m_Full)
 			text += "Группировка:  " + faction + "\n";
 		text += "Steam ID:  " + v.SteamId + "\n";
@@ -957,7 +958,7 @@ class KPK_Menu extends UIScriptedMenu
 		Widget page = Content();
 
 		Widget left = KPK_UI.Card(page, 0, 0, 0.27, 1, "ГРУППИРОВКИ ЗОНЫ");
-		m_FactionList = new KPK_List(left, 0.05, 0.06, 0.9, 0.6, 10, "— нет данных —");
+		m_FactionList = new KPK_List(left, 0.05, 0.06, 0.9, 0.6, 8, "— нет данных —");
 		m_Lists.Insert(m_FactionList);
 		m_FactionHint = KPK_UI.Text(left, "", 0.05, 0.68, 0.9, 0.04, 12, KPK_UI.C_DIM);
 
@@ -1239,7 +1240,7 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		Widget page = Content();
 		Widget left = KPK_UI.Card(page, 0, 0, 0.38, 1, "ЗАДАНИЯ");
-		m_TaskList = new KPK_List(left, 0.04, 0.06, 0.92, 0.9, 12, "— заданий нет —");
+		m_TaskList = new KPK_List(left, 0.04, 0.06, 0.92, 0.9, 10, "— заданий нет —");
 		m_Lists.Insert(m_TaskList);
 
 		Widget right = KPK_UI.Card(page, 0.4, 0, 0.6, 1, "ПОДРОБНОСТИ");
@@ -1300,7 +1301,7 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		Widget page = Content();
 		Widget left = KPK_UI.Card(page, 0, 0, 0.32, 1, "ЗАПИСИ");
-		m_NoteList = new KPK_List(left, 0.04, 0.06, 0.92, 0.8, 12, "— записей нет —");
+		m_NoteList = new KPK_List(left, 0.04, 0.06, 0.92, 0.8, 10, "— записей нет —");
 		m_Lists.Insert(m_NoteList);
 		AddButton(left, B_N_NEW, "НОВАЯ", 0.04, 0.9, 0.45, 0.06);
 		AddButton(left, B_N_DEL, "УДАЛИТЬ", 0.51, 0.9, 0.45, 0.06);
@@ -1460,7 +1461,8 @@ class KPK_Menu extends UIScriptedMenu
 				battery = "ПИТ " + KPK_UI.Percent(v.Battery, 1);
 				low = v.Battery < 0.15;
 			}
-			m_Skin.m_Serial.SetText("S/N " + v.SteamId);
+			if (m_Skin.m_Serial)
+				m_Skin.m_Serial.SetText("S/N " + v.SteamId);
 		}
 		m_Skin.SetLed(low);
 		string header = m_Theme.OsName + "  —  " + PageName(m_Page);
@@ -1501,6 +1503,13 @@ class KPK_Menu extends UIScriptedMenu
 	override void Update(float timeslice)
 	{
 		super.Update(timeslice);
+
+		// closing comes first: it must work even if part of the interface failed to build
+		if (GetUApi().GetInputByID(UAUIBack).LocalPress())
+		{
+			CloseIfOpen();
+			return;
+		}
 
 		if (m_Booting)
 		{

@@ -13,6 +13,8 @@ TEX = "kpk\\data\\" + NAME + "_co.paa"
 MAT = "kpk\\data\\" + NAME + ".rvmat"
 MASS = float(sys.argv[4])
 YMAX = float(sys.argv[5]) if len(sys.argv) > 5 else 9.0
+# lift landscape models so the hand (vanilla GPS hold) grips the bottom edge instead of the screen
+YOFF = float(sys.argv[6]) if len(sys.argv) > 6 else 0.0
 
 
 def asciiz(s):
@@ -65,7 +67,7 @@ def lod(points, normals, faces, resolution, taggs=b""):
 def to_p3d(v):
     # mesh.json: lying flat, screen +Z, antenna +Y (Blender). Held in hands the player looks at the
     # item's -Z side, so P3D: antenna up (+Y), screen towards -Z. One axis flips: P3D is left-handed.
-    return (v[0], v[1], -v[2])
+    return (v[0], v[1] + YOFF, -v[2])
 
 
 def visual_lod(path, resolution):

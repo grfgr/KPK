@@ -50,10 +50,10 @@ class KPK_Skin
 		m_Heavy = theme.Glitch;
 		m_GripColor = theme.Grip;
 		// soft vertical shading of the plastic
-		for (int band = 0; band < 6; band++)
-			Line(device, 0, band * 0.0125, 1, 0.0125, ((10 - band * 2) << 24) | 0xFFFFF0);
-		for (int band2 = 0; band2 < 6; band2++)
-			Line(device, 0, 0.925 + band2 * 0.0125, 1, 0.0125, ((band2 * 6 + 6) << 24));
+		for (int band = 0; band < 3; band++)
+			Line(device, 0, band * 0.025, 1, 0.025, ((10 - band * 3) << 24) | 0xFFFFF0);
+		for (int band2 = 0; band2 < 3; band2++)
+			Line(device, 0, 0.925 + band2 * 0.025, 1, 0.025, ((band2 * 12 + 8) << 24));
 
 		// outer edge of the case
 		Line(device, 0, 0, 1, 0.003, 0x60FFFFF0);
@@ -126,7 +126,7 @@ class KPK_Skin
 		Line(sticker, 0.15, 0.25, 0.3, 0.55, 0x14402810);
 
 		// a few fine scratches on the plastic strips (never over the screen)
-		for (int sc = 0; sc < 12; sc++)
+		for (int sc = 0; sc < 6; sc++)
 		{
 			float sx = Range(0.06, 0.9);
 			float sy;
@@ -146,11 +146,11 @@ class KPK_Skin
 		Line(grip, 0, 0.996, 1, 0.004, 0x30FFFFF0);
 		Line(grip, 0, 0, 0.1, 1, 0x60000000);
 		Line(grip, 0.9, 0, 0.1, 1, 0x18FFFFF0);
-		for (int r = 0; r < 38; r++)
+		for (int r = 0; r < 12; r++)
 		{
-			float ry = 0.02 + r * 0.0255;
-			Line(grip, 0.18, ry, 0.64, 0.008, 0xFF0F100D);
-			Line(grip, 0.18, ry + 0.008, 0.64, 0.003, 0x14FFFFFF);
+			float ry = 0.03 + r * 0.08;
+			Line(grip, 0.18, ry, 0.64, 0.03, 0xFF0F100D);
+			Line(grip, 0.18, ry + 0.03, 0.64, 0.008, 0x14FFFFFF);
 		}
 	}
 
@@ -168,14 +168,14 @@ class KPK_Skin
 	void BuildScreenFx(Widget screen)
 	{
 		// scanlines
-		int lines = 150;
+		int lines = 45;
 		for (int i = 0; i < lines; i++)
-			Line(screen, 0, i / (lines * 1.0), 1, 0.0022, 0x16000000);
+			Line(screen, 0, i / (lines * 1.0), 1, 0.006, 0x14000000);
 
 		// vignette: stacked translucent frames, darker towards the edges
-		for (int v = 1; v <= 6; v++)
+		for (int v = 1; v <= 3; v++)
 		{
-			float d = 0.012 * v;
+			float d = 0.024 * v;
 			Line(screen, 0, 0, 1, d, 0x0E000000);
 			Line(screen, 0, 1 - d, 1, d, 0x0E000000);
 			Line(screen, 0, 0, d * 0.6, 1, 0x0E000000);
@@ -266,6 +266,8 @@ class KPK_Skin
 
 	void SetLed(bool low)
 	{
+		if (!m_Led || !m_LedGlow)
+			return;
 		if (low)
 		{
 			m_Led.SetColor(0xFFE04030);

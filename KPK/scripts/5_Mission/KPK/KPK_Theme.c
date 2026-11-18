@@ -45,10 +45,17 @@ class KPK_Theme
 	string Welcome;              // %1 = callsign
 	bool Glitch;                 // Monolith: heavy interference, almost no plain text
 
+	// dossier
+	string ProfileTitle;
+	string RankLabel;
+	string NoFaction;            // shown when the player is in no faction
+	ref array<string> Ranks;     // 6 ranks, matching KPK_Const.Rank from the novice up
+
 	void KPK_Theme()
 	{
 		Tabs = new array<string>();
 		Boot = new array<string>();
+		Ranks = new array<string>();
 	}
 
 	static KPK_Theme Get(int model)
@@ -65,6 +72,22 @@ class KPK_Theme
 			default: t.Brick(); break;
 		}
 		return t;
+	}
+
+	protected void SetRanks(string a, string b, string c, string d, string e, string f)
+	{
+		Ranks.Clear();
+		Ranks.Insert(a); Ranks.Insert(b); Ranks.Insert(c); Ranks.Insert(d); Ranks.Insert(e); Ranks.Insert(f);
+	}
+
+	// the server sends the stalker rank; every model names it its own way
+	string RankName(string stalkerRank)
+	{
+		array<string> base = {"Новичок", "Сталкер", "Опытный", "Ветеран", "Мастер", "Легенда Зоны"};
+		int i = base.Find(stalkerRank);
+		if (i < 0 || i >= Ranks.Count())
+			return stalkerRank;
+		return Ranks[i];
 	}
 
 	protected void SetTabs(string a, string b, string c, string d, string e, string f)
@@ -94,6 +117,8 @@ class KPK_Theme
 		Boot.Insert("> Режим ................... базовый (карта, группа)");
 		Boot.Insert("> Загрузка профиля ........ OK");
 		Welcome = "Доступ разрешён. %1, на связи.";
+		ProfileTitle = "ДОСЬЕ"; RankLabel = "Ранг"; NoFaction = "сталкер";
+		SetRanks("Новичок", "Сталкер", "Опытный", "Ветеран", "Мастер", "Легенда Зоны");
 	}
 
 	// КПК-М1: amber / sepia, like the boot screen of the device
@@ -117,6 +142,8 @@ class KPK_Theme
 		Boot.Insert("> Счётчик Гейгера ......... фон в норме");
 		Boot.Insert("> Загрузка профиля ........ OK");
 		Welcome = "Добро пожаловать, сталкер %1. Удачной охоты.";
+		ProfileTitle = "ДОСЬЕ СТАЛКЕРА"; RankLabel = "Ранг"; NoFaction = "вольный сталкер";
+		SetRanks("Новичок", "Сталкер", "Опытный", "Ветеран", "Мастер", "Легенда Зоны");
 	}
 
 	// ВПК-7М, ОКСОП: khaki / olive, amber accent
@@ -140,6 +167,8 @@ class KPK_Theme
 		Boot.Insert("> Периметр ................ под контролем");
 		Boot.Insert("> Загрузка личного дела ... OK");
 		Welcome = "Боец %1, вход в закрытую сеть ОКСОП подтверждён. Доложите обстановку.";
+		ProfileTitle = "ЛИЧНОЕ ДЕЛО ВОЕННОСЛУЖАЩЕГО"; RankLabel = "Звание"; NoFaction = "военнослужащий ОКСОП";
+		SetRanks("Рядовой", "Ефрейтор", "Сержант", "Старшина", "Лейтенант", "Капитан");
 	}
 
 	// ПИК №ОС-031, Монолит: cyan glow, interference instead of words
@@ -163,6 +192,8 @@ class KPK_Theme
 		Boot.Insert("> ..::..::..::..::..");
 		Boot.Insert("> МОНОЛИТ ЖДЁТ");
 		Welcome = "%1 . . . МОНОЛИТ СЛЫШИТ ТЕБЯ";
+		ProfileTitle = "#  АДЕПТ  #"; RankLabel = "Посвящение"; NoFaction = "брат Монолита";
+		SetRanks("Послушник", "Адепт", "Брат", "Страж", "Апостол", "Пророк");
 		Glitch = true;
 	}
 
@@ -187,6 +218,8 @@ class KPK_Theme
 		Boot.Insert("> Синхронизация протоколов  OK");
 		Boot.Insert("> Карточка сотрудника ..... OK");
 		Welcome = "Сотрудник %1, сеанс открыт. Данные полевых наблюдений синхронизированы.";
+		ProfileTitle = "КАРТОЧКА СОТРУДНИКА НИИ"; RankLabel = "Должность"; NoFaction = "научный сотрудник";
+		SetRanks("Лаборант", "Мл. научный сотрудник", "Научный сотрудник", "Ст. научный сотрудник", "Ведущий научный сотрудник", "Профессор");
 	}
 
 	// Monolith interference: replace a share of the characters with noise
