@@ -56,10 +56,9 @@ PARTS = {
         dict(t="label", r=(238, 414, 302, 440), h=0.12, draw="text", bg="body", fg=(40, 40, 42), lines=["НИИ"], bold=True),
         dict(t="label", r=(488, 414, 642, 440), h=0.12, draw="stripes_text", bg="body", fg=(60, 60, 62), accent=(220, 110, 30), lines=["ПИК №042"]),
         dict(t="screw", c=(99, 106), rad=8), dict(t="screw", c=(208, 425), rad=8), dict(t="screw", c=(712, 410), rad=8),
-        dict(t="bgrille", r=(690, 588, 762, 702), h=0.8, n=7, dir="h"),
-        dict(t="blabel", r=(778, 552, 1052, 702), h=0.6, draw="plate", bg=(208, 206, 202), fg=(40, 40, 42),
-             lines=["@nii", "ПЕРСОНАЛЬНЫЙ", "ИССЛЕДОВАТЕЛЬСКИЙ", "КОМПЬЮТЕР №042", "@barcode"]),
-        dict(t="blabel", r=(1022, 598, 1050, 662), h=0.12, draw="stripes", bg="body", fg=(220, 110, 30)),
+        dict(t="bgrille", r=(700, 588, 762, 700), h=1.8, n=7, dir="h"),
+        dict(t="blabel", r=(780, 556, 1012, 698), h=1.3, draw="nii_back", bg=(214, 212, 208), fg=(38, 38, 40)),
+        dict(t="blabel", r=(1022, 598, 1050, 662), h=0.75, draw="stripes", bg="body", fg=(220, 110, 30)),
     ],
     "m1": [
         dict(t="btn", r=(668, 152, 702, 198), h=2.0, shape="rect", icon="call_c", mat="trim"),
@@ -85,6 +84,8 @@ PARTS = {
 }
 CFG["m1"]["D"] = 20
 CFG["mil"]["D"] = 28
+CFG["nii"]["D"] = 22
+CFG["nii"]["edge"] = 5.0
 CFG["mil"]["edge"] = 6.0
 CFG["mil"]["screen_kind"] = "chamfer"
 CFG["m1"]["edge"] = 4.6

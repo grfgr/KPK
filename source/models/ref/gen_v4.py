@@ -88,7 +88,8 @@ def bg_of(pt):
 
 def make(pt, wmm, hmm):
     S = 3   # supersampling
-    wpx, hpx = max(16, min(700, int(wmm * PXMM))), max(16, min(700, int(hmm * PXMM)))
+    k_ = min(1.0, 700.0 / max(wmm * PXMM, hmm * PXMM))      # keep the aspect when capping the size
+    wpx, hpx = max(16, int(wmm * PXMM * k_)), max(16, int(hmm * PXMM * k_))
     bgk = bg_of(pt)
     im = bg_from(bgk if isinstance(bgk, str) else "trim", wpx * S, hpx * S, None if isinstance(bgk, str) else bgk)
     if pt["t"] == "btn" and "color" in pt:
@@ -157,6 +158,26 @@ def make(pt, wmm, hmm):
                 d.polygon([(x, H_), (x + sw, H_), (x + sw + H_ * 0.6, 0), (x + H_ * 0.6, 0)], fill=acc); x += sw * 2.1
             if dr == "stripes_text":
                 fit_text(d, pt["lines"][0], (W_ * 0.38, H_ * 0.15, W_ * 0.98, H_ * 0.85), FB, fg)
+        elif dr == "nii_back":
+            # logo + institute name on top, three lines of text, barcode and QR code below, thin frame
+            d.rectangle([lw, lw, W_ - lw, H_ - lw], outline=(150, 150, 150), width=max(1, lw // 3))
+            sw = max(2, int(H_ * 0.012))
+            tower(d, (W_ * 0.06, H_ * 0.08, W_ * 0.22, H_ * 0.44), fg, sw)
+            fit_text(d, "НИИ", (W_ * 0.17, H_ * 0.2, W_ * 0.36, H_ * 0.46), FB, fg)
+            d.line([(W_ * 0.39, H_ * 0.1), (W_ * 0.39, H_ * 0.44)], fill=fg, width=max(1, sw // 2))
+            for k, t_ in enumerate(["НАУЧНО-", "ИССЛЕДОВАТЕЛЬСКИЙ", "ИНСТИТУТ"]):
+                fit_text(d, t_, (W_ * 0.42, H_ * (0.1 + k * 0.11), W_ * 0.78, H_ * (0.2 + k * 0.11)), FB, fg)
+            for k, t_ in enumerate(["ПЕРСОНАЛЬНЫЙ", "ИССЛЕДОВАТЕЛЬСКИЙ", "КОМПЬЮТЕР №042"]):
+                fit_text(d, t_, (W_ * 0.06, H_ * (0.56 + k * 0.11), W_ * 0.4, H_ * (0.65 + k * 0.11)), FB, fg)
+            barcode(d, (W_ * 0.45, H_ * 0.6, W_ * 0.7, H_ * 0.84), fg)
+            q0, q1 = W_ * 0.75, H_ * 0.56; qs = H_ * 0.3; cell = qs / 21
+            rnd = random.Random(42)
+            for i_ in range(21):
+                for j_ in range(21):
+                    fin = (i_ < 7 and j_ < 7) or (i_ < 7 and j_ > 13) or (i_ > 13 and j_ < 7)
+                    on = fin and not (1 <= i_ % 14 <= 5 and 1 <= j_ % 14 <= 5 and not (2 <= i_ % 14 <= 4 and 2 <= j_ % 14 <= 4)) if fin else rnd.random() > 0.55
+                    if on:
+                        d.rectangle([q0 + j_ * cell, q1 + i_ * cell, q0 + (j_ + 1) * cell, q1 + (i_ + 1) * cell], fill=fg)
         elif dr == "radiation":
             radiation(d, (W_ * 0.08, H_ * 0.08, W_ * 0.92, H_ * 0.92), fg)
     im = im.resize((wpx, hpx), Image.LANCZOS)

@@ -5,11 +5,26 @@
 import bpy, sys, json, math, os
 args = sys.argv[sys.argv.index("--") + 1:]
 name, out = args[0], args[1]; RES = int(args[2]) if len(args) > 2 else 2048
+RUSTK = float(args[3]) if len(args) > 3 else 1.0
 bpy.ops.wm.open_mainfile(filepath=out + "/kpk.blend")
 ob = bpy.data.objects["KPK"]; me = ob.data
 bpy.context.view_layer.objects.active = ob; ob.select_set(True)
 sc = bpy.context.scene; sc.render.engine = 'CYCLES'; sc.cycles.samples = 24; sc.cycles.device = 'CPU'
 PHOTO = [i for i, m in enumerate(me.materials) if m.name.startswith("photo")][0]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cfg_v4 import CFG
+KINDS = {k: v["kind"] for k, v in CFG[name]["mats"].items()}
+# only the screen keeps the sharp photo atlas; labels, icons and LEDs are baked with the case (same grime)
+u0_, v0_, w_, h_ = json.load(open(out + "/v3.json"))["regions"]["screen"]
+_uv = me.uv_layers["UV"]
+SCREENF = set()
+for p in me.polygons:
+    if p.material_index == PHOTO:
+        us = [_uv.data[li].uv for li in p.loop_indices]
+        cu = sum(u.x for u in us) / len(us); cv = sum(u.y for u in us) / len(us)
+        if u0_ - 1e-4 <= cu <= u0_ + w_ + 1e-4 and 1 - (v0_ + h_) - 1e-4 <= cv <= 1 - v0_ + 1e-4:
+            SCREENF.add(p.index)
+print("screen faces", len(SCREENF))
 
 # ---- bake UV for every face (photo faces get squeezed into a corner, unused)
 src = me.uv_layers["UV"]
@@ -25,7 +40,7 @@ bmv = _bm.new(); bmv.from_mesh(me); bmv.faces.ensure_lookup_table()
 tree = BVHTree.FromBMesh(bmv)
 hidden = set()
 for f in bmv.faces:
-    if f.material_index == PHOTO:
+    if f.index in SCREENF:
         hidden.add(f.index); continue
     c_ = f.calc_center_median(); n_ = f.normal
     hit = tree.ray_cast(c_ + n_ * 0.00002, n_, 0.0004)
@@ -51,9 +66,9 @@ bpy.ops.object.mode_set(mode='OBJECT')
 img = bpy.data.images.new("baked", RES, RES, alpha=False); img.colorspace_settings.name = "sRGB"
 edge_img = bpy.data.images.new("edge", RES, RES, alpha=False); edge_img.colorspace_settings.name = "Non-Color"
 WEAR = {"body": (0.50, 0.47, 0.43), "trim": (0.66, 0.63, 0.58), "metal": (0.78, 0.76, 0.72), "weave": (0.55, 0.52, 0.40), "cloth": (0.5, 0.46, 0.38)}
-WEATHER = {"body": 1.0, "trim": 0.8, "metal": 0.5, "weave": 0.3, "cloth": 0.3}
-RUST = {"body": 1.0, "trim": 0.6, "metal": 0.4, "weave": 0.0, "cloth": 0.0}
-DARK = {"body": 0.9, "trim": 0.85, "metal": 0.9, "weave": 0.85, "cloth": 0.85}
+WEATHER = {"photo": 0.5, "body": 1.0, "trim": 0.8, "metal": 0.5, "weave": 0.3, "cloth": 0.3}
+RUST = {"photo": 0.4, "body": 1.0, "trim": 0.6, "metal": 0.4, "weave": 0.0, "cloth": 0.0}
+DARK = {"photo": 0.95, "body": 0.9, "trim": 0.85, "metal": 0.9, "weave": 0.85, "cloth": 0.85}
 
 
 def setup(mat, target, mode):
@@ -67,6 +82,7 @@ def setup(mat, target, mode):
     emi = N.new("ShaderNodeEmission")
     L.new(emi.outputs[0], outn.inputs[0])
     key = mat.name.split(".")[0]
+    rubber = KINDS.get(key) == "rubber"
     if tex:
         L.new(uvn.outputs[0], tex[0].inputs[0]); base = tex[0].outputs[0]
     else:
@@ -100,13 +116,16 @@ def setup(mat, target, mode):
     bl2 = N.new("ShaderNodeMath"); bl2.operation = 'SUBTRACT'; bl2.use_clamp = True; L.new(bl.outputs[0], bl2.inputs[0]); bl2.inputs[1].default_value = 0.18
     L.new(bl2.outputs[0], blot.inputs[0])
     wear = N.new("ShaderNodeMixRGB"); wear.blend_type = 'MIX'
-    L.new(chip.outputs[0], wear.inputs[0]); L.new(blot.outputs[0], wear.inputs[1]); w = WEAR.get(key, (0.6, 0.6, 0.6)); wear.inputs[2].default_value = (*w, 1)
+    L.new(chip.outputs[0], wear.inputs[0]); L.new(blot.outputs[0], wear.inputs[1]); w = WEAR.get(key, (0.6, 0.6, 0.6))
+    if rubber:
+        w = (0.16, 0.16, 0.155)
+    wear.inputs[2].default_value = (*w, 1)
     grime = N.new("ShaderNodeMixRGB"); grime.blend_type = 'MIX'
     cav = N.new("ShaderNodeMath"); cav.operation = 'SUBTRACT'; cav.inputs[0].default_value = 1.0; L.new(ao.outputs["AO"], cav.inputs[1])
     cav2 = N.new("ShaderNodeMath"); cav2.operation = 'MULTIPLY'; cav2.inputs[1].default_value = 2.2; cav2.use_clamp = True; L.new(cav.outputs[0], cav2.inputs[0])
     L.new(cav2.outputs[0], grime.inputs[0]); L.new(wear.outputs[0], grime.inputs[1]); grime.inputs[2].default_value = (0.06, 0.05, 0.035, 1)
     # ---- layer 3: heavier wear
-    w3 = WEATHER.get(key, 1.0)
+    w3 = WEATHER.get(key, 1.0) * (0.25 if rubber else 1.0)
     # big paint chips on edges: bigger noise, shows dark primer / bare steel
     noi3 = N.new("ShaderNodeTexNoise"); noi3.inputs["Scale"].default_value = 22.0; noi3.inputs["Detail"].default_value = 12.0; noi3.inputs["Roughness"].default_value = 0.7
     L.new(tc.outputs["Object"], noi3.inputs["Vector"])
@@ -127,7 +146,7 @@ def setup(mat, target, mode):
     pmw = N.new("ShaderNodeMath"); pmw.operation = 'MULTIPLY'; pmw.inputs[1].default_value = 0.0; L.new(pm.outputs[0], pmw.inputs[0])
     mx = N.new("ShaderNodeMath"); mx.operation = 'MAXIMUM'; L.new(cavs.outputs[0], mx.inputs[0]); L.new(pmw.outputs[0], mx.inputs[1])
     L.new(mx.outputs[0], rmask.inputs[1])
-    rw = N.new("ShaderNodeMath"); rw.operation = 'MULTIPLY'; rw.inputs[1].default_value = 0.5 * RUST.get(key, 0.0); L.new(rmask.outputs[0], rw.inputs[0])
+    rw = N.new("ShaderNodeMath"); rw.operation = 'MULTIPLY'; rw.inputs[1].default_value = 0.5 * RUST.get(key, 0.0) * RUSTK * (0.0 if rubber else 1.0); L.new(rmask.outputs[0], rw.inputs[0])
     rust = N.new("ShaderNodeMixRGB"); L.new(rw.outputs[0], rust.inputs[0]); L.new(chips.outputs[0], rust.inputs[1]); rust.inputs[2].default_value = (0.30, 0.13, 0.05, 1)
     # fine scratches: thin voronoi cell borders
     vor = N.new("ShaderNodeTexVoronoi"); vor.feature = 'DISTANCE_TO_EDGE'; vor.inputs["Scale"].default_value = 140.0
@@ -157,11 +176,7 @@ def setup(mat, target, mode):
 
 for mode, target in (("color", img), ("edge", edge_img)):
     for i, mat in enumerate(me.materials):
-        if i != PHOTO:
-            setup(mat, target, mode)
-        else:
-            nt = mat.node_tree
-            t = nt.nodes.get("BAKE") or nt.nodes.new("ShaderNodeTexImage"); t.name = "BAKE"; t.image = target; nt.nodes.active = t
+        setup(mat, target, mode)
     sc.render.bake.margin = 8; sc.render.bake.use_clear = True
     bpy.ops.object.bake(type='EMIT')
     target.filepath_raw = out + "/baked_%s.png" % mode; target.file_format = 'PNG'; target.save()
@@ -171,10 +186,14 @@ for mode, target in (("color", img), ("edge", edge_img)):
 fin = me.uv_layers.new(name="FINAL")
 src = me.uv_layers["UV"]; bk = me.uv_layers["BAKE"]; fin = me.uv_layers["FINAL"]
 for p in me.polygons:
-    use = src if p.material_index == PHOTO else bk
+    use = src if p.index in SCREENF else bk
     for li in p.loop_indices:
         fin.data[li].uv = use.data[li].uv
 me.uv_layers.active = fin
+# labels / icons now live in the baked texture: only screen faces keep the photo slot
+for p in me.polygons:
+    if p.material_index == PHOTO and p.index not in SCREENF:
+        p.material_index = 0
 
 
 def dump(path, ratio=None):
