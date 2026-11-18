@@ -97,6 +97,13 @@ PARTS = {
         dict(t="bplate", r=(822, 620, 932, 664), h=0.8), dict(t="bplate", r=(722, 588, 772, 672), h=0.6),
     ],
 }
+# the case alone on the back view (no handles / straps sticking out): the back texture is fitted to it
+BACKBODY = {"mil": (645, 487, 1060, 712), "mono": (647, 480, 1047, 705), "nii": (655, 520, 1080, 735), "m1": (650, 507, 1047, 722)}
+# edge rounding of the case (mm) and corner radius bump, like a rugged tablet
+EDGE = {"mil": 5.0, "mono": 4.5, "nii": 5.5, "m1": 5.0}
+for _k in CFG:
+    CFG[_k]["backbody"] = BACKBODY[_k]
+    CFG[_k]["edge"] = EDGE[_k]
 for _k, _p in PARTS.items():
     CFG[_k]["parts"] = _p
     CFG[_k].pop("buttons", None)

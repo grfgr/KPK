@@ -42,7 +42,7 @@ def outline(x0, y0, x1, y1, kind, r):
     return pts
 
 
-def prism(name_, pts, z0, z1, bevel):
+def prism(name_, pts, z0, z1, bevel, segs=2):
     me = bpy.data.meshes.new(name_)
     bm = bmesh.new()
     vs = [bm.verts.new((x, y, z0)) for x, y in pts]
@@ -58,8 +58,8 @@ def prism(name_, pts, z0, z1, bevel):
     ob = bpy.data.objects.new(name_, me)
     bpy.context.scene.collection.objects.link(ob)
     if bevel > 0:
-        m = ob.modifiers.new("b", 'BEVEL'); m.width = bevel; m.segments = 2; m.limit_method = 'ANGLE'
-        m.angle_limit = math.radians(40)
+        m = ob.modifiers.new("b", 'BEVEL'); m.width = bevel; m.segments = segs; m.limit_method = 'ANGLE'
+        m.angle_limit = math.radians(40); m.profile = 0.5
     return ob
 
 
@@ -77,7 +77,8 @@ def apply_all(ob):
 # ---- case
 kind, rpx = c["corner"]
 x0, y0 = -W / 2, -H / 2
-case = prism("KPK", outline(x0, y0, -x0, -y0, kind, rpx * MPP), -D / 2, D / 2, 0.0022)
+# rounded edges all around (tablet-like): wide round bevel on the front and back rims
+case = prism("KPK", outline(x0, y0, -x0, -y0, kind, max(rpx * MPP, 0.009)), -D / 2, D / 2, c["edge"] / 1000.0, 5)
 apply_all(case)
 
 # ---- recessed screen
@@ -153,10 +154,8 @@ def circle(cx_, cy_, rad, n=14):
 
 def back_xy(bx, by):
     # back view pixel -> model x, y (the back view is mirrored left / right)
-    bb = c["back"]
-    fu = 1.0 - (bx - bb[0]) / (bb[2] - bb[0]); fv = (by - bb[1]) / (bb[3] - bb[1])
-    px = c["front"][0] + fu * (c["front"][2] - c["front"][0]); py = c["front"][1] + fv * (c["front"][3] - c["front"][1])
-    return P(px, py)
+    bb = c["backbody"]
+    return (W / 2 - (bx - bb[0]) / (bb[2] - bb[0]) * W, H / 2 - (by - bb[1]) / (bb[3] - bb[1]) * H)
 
 
 ZF = D / 2
@@ -184,7 +183,7 @@ for i, pt in enumerate(c.get("parts", [])):
         x0 = max(x0, -W / 2 - 0.0012); x1 = min(x1, W / 2 + 0.0012); y0 = max(y0, -H / 2 - 0.0012); y1 = min(y1, H / 2 + 0.0012)
         if t == "wrap":
             y0, y1 = -H / 2 - h, H / 2 + h
-        parts.append(solid(nm, rounded(x0, y0, x1, y1, min(x1 - x0, y1 - y0) * 0.2, 3), -ZF - h, ZF + h, 0.0012, 2, 0))
+        parts.append(solid(nm, rounded(x0, y0, x1, y1, min(x1 - x0, y1 - y0) * 0.3, 4), -ZF - h, ZF + h, 0.0028, 4, 0))
     elif t == "led":
         cx_, cy_ = P(*pt["c"]); rad = pt["rad"] * MPP
         parts.append(solid(nm, circle(cx_, cy_, rad), ZF - 0.0003, ZF + h, rad * 0.6, 3))
@@ -275,7 +274,7 @@ for poly in me.polygons:
         if ax == 2 and n.z > 0:
             fu, fv = front_uv(x, y); t = reg("front", fu, fv)
         elif ax == 2:
-            fu, fv = front_uv(x, y); t = reg("back", 1.0 - fu, fv)
+            t = reg("back", (W / 2 - x) / W, (H / 2 - y) / H)
         elif ax == 0:
             U = (H / 2 - y) / H
             if n.x < 0:
@@ -283,7 +282,7 @@ for poly in me.polygons:
             else:
                 t = reg("right", U, 1.0 - (D / 2 - z) / D)
         else:
-            fu = (x - FXL) / FXW
+            fu = (x + W / 2) / W
             if n.y > 0:
                 t = reg("top", fu, (z + D / 2) / D)
             else:

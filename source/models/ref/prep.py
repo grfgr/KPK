@@ -19,6 +19,25 @@ def place(key, im, box):
     regions[key] = [bx / S, by / S, bw / S, bh / S]
 
 
+A = np.asarray(img).astype(np.int32)
+
+
+def tight(box):
+    # trim the background around a small view: bbox of pixels that differ from the crop border
+    x0, y0, x1, y1 = box
+    sub = A[y0:y1, x0:x1]
+    border = np.concatenate([sub[0], sub[-1], sub[:, 0], sub[:, -1]])
+    m = np.abs(sub - np.median(border, axis=0)).sum(axis=2) > 45
+    rows = np.nonzero(m.sum(axis=1) > m.shape[1] * 0.15)[0]; cols = np.nonzero(m.sum(axis=0) > m.shape[0] * 0.15)[0]
+    if len(rows) < 4 or len(cols) < 4:
+        return box
+    return (x0 + cols[0], y0 + rows[0], x0 + cols[-1] + 1, y0 + rows[-1] + 1)
+
+
+for k in ("left", "right", "top", "bottom"):
+    c[k] = tight(c[k])
+    print(name, k, c[k])
+c["back"] = c["backbody"]
 front = img.crop(c["front"]); back = img.crop(c["back"]); top = img.crop(c["top"]); bottom = img.crop(c["bottom"])
 left = img.crop(c["left"]).transpose(Image.ROTATE_90); right = img.crop(c["right"]).transpose(Image.ROTATE_90)
 def hgt(im, w):
@@ -48,5 +67,5 @@ Image.fromarray(((n * 0.5 + 0.5) * 255).astype(np.uint8)).save(out + "/atlas_nor
 Lr = np.asarray(atlas.convert("L")).astype(np.float32)
 smdi = np.dstack([np.full_like(Lr, 255), np.clip(Lr * 0.45, 10, 140), np.clip(60 + Lr * 0.35, 60, 150)]).astype(np.uint8)
 Image.fromarray(smdi).save(out + "/atlas_smdi.png")
-json.dump(dict(name=name, regions=regions), open(out + "/prep.json", "w"))
+json.dump(dict(name=name, regions=regions, boxes={k: list(map(int, c[k])) for k in ("left", "right", "top", "bottom", "back")}), open(out + "/prep.json", "w"))
 print(name, "atlas ok, front width", FW)
