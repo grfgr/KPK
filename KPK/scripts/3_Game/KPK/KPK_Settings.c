@@ -49,6 +49,9 @@ class KPK_Settings
 	string MonolithFaction = "monolith";
 	string StalkerFaction = "";
 	bool AdminsBypassDeviceLock = true;
+	// factions listed in the reputation card of the profile (ids from factions.json), empty = all
+	ref array<string> ReputationFactions;
+	bool ReputationDefaultsAdded;   // set after the defaults went in once, so [] can mean "all"
 	float MonolithTrapDamage = 50;
 	bool MonolithTrapKnockout = true;
 
@@ -77,6 +80,7 @@ class KPK_Settings
 	void KPK_Settings()
 	{
 		Admins = new array<string>();
+		ReputationFactions = new array<string>();
 	}
 
 	static KPK_Settings Load()
@@ -92,6 +96,17 @@ class KPK_Settings
 
 		if (!settings.Admins)
 			settings.Admins = new array<string>();
+		if (!settings.ReputationFactions)
+			settings.ReputationFactions = new array<string>();
+		if (!settings.ReputationDefaultsAdded)
+		{
+			settings.ReputationFactions.Clear();
+			settings.ReputationFactions.Insert("loners");
+			settings.ReputationFactions.Insert("oksop");
+			settings.ReputationFactions.Insert("nii");
+			settings.ReputationFactions.Insert("monolith");
+			settings.ReputationDefaultsAdded = true;
+		}
 
 		if (settings.PasswordSalt == "")
 		{

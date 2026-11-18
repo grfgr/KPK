@@ -134,6 +134,7 @@
 | `AdminsBypassDeviceLock` | `1` | админы могут включать любые КПК |
 | `MonolithTrapDamage` / `MonolithTrapKnockout` | `50` / `1` | урон и потеря сознания от КПК Монолита в чужих руках |
 | `ChatHistory` / `ChatMaxLength` / `ChatCooldownSec` | `40` / `160` / `2` | сколько сообщений хранить, длина сообщения, пауза между сообщениями (с) |
+| `ReputationFactions` | `["loners","oksop","nii","monolith"]` | какие группировки показывать в репутации профиля (id из `factions.json`), `[]` — все |
 | `ChatNotifyClosed` | `1` | уведомление о сообщении, если КПК закрыт |
 | `MaxContacts` | `30` | лимит контактов |
 | `PasswordSalt` | генерируется | соль для хешей паролей. **Не меняйте**: все пароли перестанут подходить |

@@ -181,9 +181,6 @@ class KPK_Server
 	protected void CreateExampleFactions()
 	{
 		AddExampleFaction("loners", "Одиночки", "Вольные сталкеры. Каждый сам за себя, но своих не бросают.", 0, "Деревня новичков, Кордон", false);
-		AddExampleFaction("duty", "Долг", "Военизированная группировка. Цель: защитить мир от Зоны.", 1, "Бар «100 рентген», Росток", false);
-		AddExampleFaction("freedom", "Свобода", "Анархисты. Зона должна быть открыта для всех.", 2, "Военные склады", false);
-		AddExampleFaction("mercs", "Наёмники", "Работают за деньги. Заказчики неизвестны.", 3, "Неизвестно", true);
 	}
 
 	protected void AddExampleFaction(string id, string name, string desc, int color, string location, bool secret)
@@ -462,6 +459,8 @@ class KPK_Server
 			if (!full)
 				break;
 			if (rf.Hidden && !isAdmin && rf != myFaction)
+				continue;
+			if (m_Settings.ReputationFactions.Count() > 0 && m_Settings.ReputationFactions.Find(rf.Id) == -1)
 				continue;
 			KPK_RepView rep = new KPK_RepView();
 			rep.FactionName = rf.Name;

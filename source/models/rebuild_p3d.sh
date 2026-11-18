@@ -7,6 +7,6 @@ for spec in "$S/kpk5/final_mil:kpk_mil:0.7" "$S/kpk5/final_mono:kpk_mono:0.5" "$
   read xo yo < <(python3 -c "
 import json;v=json.load(open('$d/mesh.json'))['verts']
 x1=max(p[0] for p in v); y0=min(p[1] for p in v); y1=max(p[1] for p in v)
-print(round(-(x1-0.018),4), round(-(y0+y1)/2+0.015,4))")
+print(round(-(x1-0.018),4), round(-(y0+y1)/2-0.02,4))")
   python3 "$(dirname "$0")/write_p3d5.py" $d $R/$n.p3d $n $mass 9 $yo $xo
 done
