@@ -305,6 +305,10 @@ if c.get("cloth"):
     band = prism("cloth", rounded(xa, -H / 2 - 0.0014, W / 2 + 0.0014, H / 2 + 0.0014, 0.006, 4), -ZF - 0.0014, ZF + 0.0014, 0.0035, 4, 30)
     parts.append(paint(band, CLOTH))
 
+extra = os.path.join(os.path.dirname(os.path.abspath(__file__)), name + "_extra.py")
+if os.path.exists(extra):
+    exec(open(extra).read())
+
 # ------------------------------------------------------------------ join, materials, UVs
 bpy.ops.object.select_all(action='DESELECT')
 for ob in parts:

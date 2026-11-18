@@ -10,8 +10,8 @@ MATS = {
              "cloth": dict(color=(96, 85, 67), kind="cloth")},
     "nii":  {"body": dict(color=(196, 194, 190), kind="paint", scratch=0.6, rust=0.0),
              "trim": dict(color=(32, 33, 32), kind="rubber")},
-    "m1":   {"body": dict(color=(84, 74, 64), kind="metal", scratch=1.0, rust=0.6),
-             "trim": dict(color=(122, 114, 106), kind="metal", scratch=0.5, rust=0.2)},
+    "m1":   {"body": dict(color=(66, 60, 53), kind="metal", scratch=0.35, rust=0.45, soft=True),
+             "trim": dict(color=(96, 92, 86), kind="metal", scratch=0.25, rust=0.15, soft=True)},
 }
 # shared by all models
 SHARED = {"kpk_metal": dict(color=(150, 148, 144), kind="metal", scratch=0.8, rust=0.15),

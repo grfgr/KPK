@@ -71,18 +71,20 @@ PARTS = {
         dict(t="led", c=(109, 141), rad=8, h=1.4, color=(70, 210, 60)),
         dict(t="ring", c=(95, 355), rad=20, tube=6),
         dict(t="label", r=(688, 372, 728, 408), h=0.6, draw="radiation", bg=(196, 160, 50), fg=(30, 28, 24), round=True),
-        dict(t="label", r=(152, 70, 248, 102), h=0.4, draw="plate", bg=(196, 186, 160), fg=(50, 46, 40), lines=["НИГ-0473"]),
-        dict(t="label", r=(626, 70, 706, 98), h=0.12, draw="text", bg="body", fg=(196, 176, 140), lines=["КПК-М1"], bold=True),
+        dict(t="label", r=(152, 70, 248, 100), h=1.5, draw="plate", bg=(196, 186, 160), fg=(50, 46, 40), lines=["НИГ-0473"]),
+        dict(t="label", r=(626, 70, 706, 96), h=1.05, draw="text", bg="body", fg=(196, 176, 140), lines=["КПК-М1"], bold=True),
         dict(t="loop", r=(243, 408, 292, 444)), dict(t="loop", r=(478, 408, 527, 444)),
         dict(t="strap", r=(292, 414, 478, 442), h=1.4),
         dict(t="screw", c=(128, 78), rad=8), dict(t="screw", c=(705, 78), rad=8),
         dict(t="screw", c=(128, 420), rad=8), dict(t="screw", c=(705, 420), rad=8),
         dict(t="lip", w=8, h=0.8),
-        dict(t="bgrille", r=(722, 588, 772, 672), h=0.6, n=7, dir="h"),
-        dict(t="blabel", r=(822, 620, 932, 664), h=0.7, draw="plate", bg=(150, 140, 120), fg=(40, 36, 30), lines=["КПК-М1", "№0473-11", "@barcode"]),
-        dict(t="blabel", r=(928, 566, 1022, 662), h=0.12, draw="radiation", bg="body", fg=(200, 160, 50), round=True),
+        dict(t="bgrille", r=(700, 570, 760, 680), h=2.2, n=8, dir="h"),
+        dict(t="blabel", r=(822, 620, 932, 664), h=1.6, draw="plate", bg=(150, 140, 120), fg=(40, 36, 30), lines=["КПК-М1", "№0473-11", "@barcode"]),
+        dict(t="blabel", r=(928, 566, 1022, 662), h=0.95, draw="radiation", bg="body", fg=(200, 160, 50), round=True),
     ],
 }
+CFG["m1"]["D"] = 20
+CFG["m1"]["edge"] = 4.6
 for k in CFG:
     CFG[k]["parts"] = PARTS[k]
     CFG[k]["decals"] = []

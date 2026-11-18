@@ -70,13 +70,15 @@ def material(key, m, size=1024):
         rgb = col[None, None, :] * shade[..., None]
         spec, gloss = 12, 30
     else:
-        sc = scratches(size, int(260 * m.get("scratch", 0.5)), size * 0.12) if kind != "rubber" else np.zeros((size, size))
+        sc = scratches(size, int(260 * m.get("scratch", 0.5)), size * (0.06 if m.get("soft") else 0.12)) if kind != "rubber" else np.zeros((size, size))
+        if m.get("soft"):
+            sc = np.asarray(Image.fromarray((sc * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8))).astype(np.float32) / 255
         rust = np.clip((fbm(size, 6) - 0.62) * 4, 0, 1) * m.get("rust", 0)
         grime = np.clip((f - 0.45) * 1.6, 0, 1)
         shade = 0.88 + (fine - 0.5) * 0.18 + (f - 0.5) * 0.22 - grime * 0.12
         rgb = col[None, None, :] * shade[..., None]
         rgb = rgb * (1 - rust[..., None]) + np.array([95, 58, 34])[None, None, :] * rust[..., None]
-        bright = {"metal": 85, "paint": 60, "rubber": 15}[kind]
+        bright = {"metal": 85, "paint": 60, "rubber": 15}[kind] * (0.35 if m.get("soft") else 1.0)
         rgb = rgb + sc[..., None] * bright
         h = fine * 0.6 + f * 0.3 - sc * 0.5 + rust * 0.3
         spec = {"metal": 70, "paint": 40, "rubber": 10}[kind]

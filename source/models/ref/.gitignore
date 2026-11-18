@@ -7,3 +7,5 @@ v3_*/prev.log
 v3_shared/
 tiles.jpg
 out_*/
+v3_*/baked_*.png
+v3_*/kpk_baked.blend
