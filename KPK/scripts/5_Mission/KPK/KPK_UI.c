@@ -128,8 +128,14 @@ class KPK_UI
 	{
 		if (color == 0)
 			color = C_TEXT;
-		MultilineTextWidget t = MultilineTextWidget.Cast(Make("kpk_mtext.layout", parent, x, y, w, h));
-		t.SetTextExactSize(size);
+		// the size is baked into the layout: setting it at runtime made the text render as empty boxes
+		// once a menu used many different sizes (the font cache overflowed)
+		string file = "kpk_mtext17.layout";
+		if (size <= 13)
+			file = "kpk_mtext13.layout";
+		else if (size <= 15)
+			file = "kpk_mtext15.layout";
+		MultilineTextWidget t = MultilineTextWidget.Cast(Make(file, parent, x, y, w, h));
 		t.SetColor(color);
 		return t;
 	}
