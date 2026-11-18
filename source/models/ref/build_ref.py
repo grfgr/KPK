@@ -89,14 +89,6 @@ apply_all(case)
 bpy.data.objects.remove(cut)
 
 parts = [case]
-# ---- raised buttons
-for i, (a, b, cc, d) in enumerate(c.get("buttons", [])):
-    ob = box("btn%d" % i, a, b, cc, d, D / 2 - 0.001, D / 2 + 0.0013)
-    apply_all(ob); parts.append(ob)
-# ---- clips on the top edge (NII)
-for i, (a, b, cc, d) in enumerate(c.get("clips", [])):
-    ob = box("clip%d" % i, a, b, cc, d + 30, -D * 0.3, D * 0.42, 0.001)
-    apply_all(ob); parts.append(ob)
 
 
 def tube(name_, pts_px, radius, z=0.0):
@@ -121,10 +113,117 @@ def cylinder(name_, px, py0, py1, radius):
     return ob
 
 
+
+
+def tag(ob, mode):
+    # uvmode per face: 0 = by normal, 1 = front view, 2 = back view
+    at = ob.data.attributes.get("uvmode") or ob.data.attributes.new("uvmode", 'INT', 'FACE')
+    for d in at.data:
+        d.value = mode
+    return ob
+
+
+def rounded(x0, y0, x1, y1, r, steps=5):
+    pts = []
+    for cx_, cy_, a0 in ((x1 - r, y0 + r, -90), (x1 - r, y1 - r, 0), (x0 + r, y1 - r, 90), (x0 + r, y0 + r, 180)):
+        for i in range(steps + 1):
+            a = math.radians(a0 + 90.0 * i / steps)
+            pts.append((cx_ + r * math.cos(a), cy_ + r * math.sin(a)))
+    return pts
+
+
+def rect_m(r, grow=0):
+    a, b, cc, d = r
+    x0, y0 = P(a - grow, d + grow); x1, y1 = P(cc + grow, b - grow)
+    return x0, y0, x1, y1
+
+
+def solid(name_, pts, z0, z1, bevel, segs=2, mode=1):
+    ob = prism(name_, pts, z0, z1, 0)
+    if bevel > 0:
+        m = ob.modifiers.new("b", 'BEVEL'); m.width = bevel; m.segments = segs; m.limit_method = 'ANGLE'
+        m.angle_limit = math.radians(30)
+    apply_all(ob)
+    return tag(ob, mode)
+
+
+def circle(cx_, cy_, rad, n=14):
+    return [(cx_ + rad * math.cos(2 * math.pi * i / n), cy_ + rad * math.sin(2 * math.pi * i / n)) for i in range(n)]
+
+
+def back_xy(bx, by):
+    # back view pixel -> model x, y (the back view is mirrored left / right)
+    bb = c["back"]
+    fu = 1.0 - (bx - bb[0]) / (bb[2] - bb[0]); fv = (by - bb[1]) / (bb[3] - bb[1])
+    px = c["front"][0] + fu * (c["front"][2] - c["front"][0]); py = c["front"][1] + fv * (c["front"][3] - c["front"][1])
+    return P(px, py)
+
+
+ZF = D / 2
+for i, pt in enumerate(c.get("parts", [])):
+    t = pt["t"]; h = pt.get("h", 1.0) / 1000.0; nm = "%s%d" % (t, i)
+    if t == "btn":
+        x0, y0, x1, y1 = rect_m(pt["r"])
+        w_, h_ = x1 - x0, y1 - y0; m_ = min(w_, h_)
+        if pt.get("base", True):
+            parts.append(solid(nm + "b", rounded(x0 - 0.0008, y0 - 0.0008, x1 + 0.0008, y1 + 0.0008, m_ * 0.22), ZF - 0.0005, ZF + 0.0006, 0.0002))
+        if pt["shape"] == "cross":
+            cx_, cy_ = (x0 + x1) / 2, (y0 + y1) / 2; aw = m_ * 0.2
+            cross = [(cx_ - aw, y0), (cx_ + aw, y0), (cx_ + aw, cy_ - aw), (x1, cy_ - aw), (x1, cy_ + aw), (cx_ + aw, cy_ + aw),
+                     (cx_ + aw, y1), (cx_ - aw, y1), (cx_ - aw, cy_ + aw), (x0, cy_ + aw), (x0, cy_ - aw), (cx_ - aw, cy_ - aw)]
+            parts.append(solid(nm, cross, ZF - 0.0003, ZF + h, m_ * 0.06, 3))
+        else:
+            rr = m_ * (0.42 if pt["shape"] == "round" else 0.16)
+            ins = m_ * 0.08
+            parts.append(solid(nm, rounded(x0 + ins, y0 + ins, x1 - ins, y1 - ins, rr), ZF - 0.0003, ZF + h, min(m_ * 0.14, h * 0.7), 3))
+    elif t == "plate":
+        x0, y0, x1, y1 = rect_m(pt["r"])
+        parts.append(solid(nm, rounded(x0, y0, x1, y1, min(x1 - x0, y1 - y0) * 0.15, 2), ZF - 0.0004, ZF + h, 0.0004))
+    elif t == "guard" or t == "wrap":
+        x0, y0, x1, y1 = rect_m(pt["r"], 3)
+        x0 = max(x0, -W / 2 - 0.0012); x1 = min(x1, W / 2 + 0.0012); y0 = max(y0, -H / 2 - 0.0012); y1 = min(y1, H / 2 + 0.0012)
+        if t == "wrap":
+            y0, y1 = -H / 2 - h, H / 2 + h
+        parts.append(solid(nm, rounded(x0, y0, x1, y1, min(x1 - x0, y1 - y0) * 0.2, 3), -ZF - h, ZF + h, 0.0012, 2, 0))
+    elif t == "led":
+        cx_, cy_ = P(*pt["c"]); rad = pt["rad"] * MPP
+        parts.append(solid(nm, circle(cx_, cy_, rad), ZF - 0.0003, ZF + h, rad * 0.6, 3))
+    elif t == "screw":
+        cx_, cy_ = P(*pt["c"]); rad = pt["rad"] * MPP
+        parts.append(solid(nm, circle(cx_, cy_, rad, 10), ZF - 0.0003, ZF + 0.0006, 0.0002, 1))
+    elif t == "lip":
+        a, b, cc, d = c["screen"]; g = pt["w"]
+        ox0, oy0, ox1, oy1 = rect_m((a, b, cc, d), g); ix0, iy0, ix1, iy1 = rect_m((a, b, cc, d), 0)
+        frame = [(ox0, oy0, ox1, iy0), (ox0, iy1, ox1, oy1), (ox0, iy0, ix0, iy1), (ix1, iy0, ox1, iy1)]
+        for k, (q0, q1, q2, q3) in enumerate(frame):
+            parts.append(solid(nm + str(k), [(q0, q1), (q2, q1), (q2, q3), (q0, q3)], ZF - 0.0004, ZF + h, 0.0003, 1))
+    elif t == "clip":
+        x0, y0, x1, y1 = rect_m(pt["r"])
+        parts.append(solid(nm, rounded(x0, y0 - 0.004, x1, y1, (x1 - x0) * 0.12, 2), -D * 0.32, D * 0.42, 0.0008, 2, 0))
+    elif t == "ring":
+        cx_, cy_ = P(*pt["c"])
+        bpy.ops.mesh.primitive_torus_add(major_radius=pt["rad"] * MPP, minor_radius=pt["tube"] * MPP, major_segments=18, minor_segments=8,
+                                         location=(cx_, cy_, ZF + pt["tube"] * MPP * 0.4))
+        parts.append(tag(bpy.context.active_object, 1))
+    elif t == "loop":
+        a, b, cc, d = pt["r"]
+        lp = tube(nm, [(a, b), (a, d - 4), (a + 4, d), (cc - 4, d), (cc, d - 4), (cc, b)], 0.0016, ZF - 0.002)
+        parts.append(tag(lp, 1))
+    elif t in ("bplate", "bstrap"):
+        a, b, cc, d = pt["r"]
+        xa, ya = back_xy(a, d); xb, yb = back_xy(cc, b)
+        x0, x1 = min(xa, xb), max(xa, xb); y0, y1 = min(ya, yb), max(ya, yb)
+        if t == "bstrap":
+            y0, y1 = -H / 2 - h, H / 2 + h
+            parts.append(solid(nm, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], -ZF - h, -ZF + 0.004, 0.0005, 1, 2))
+        else:
+            parts.append(solid(nm, rounded(x0, y0, x1, y1, min(x1 - x0, y1 - y0) * 0.12, 2), -ZF - h, -ZF + 0.0004, 0.0004, 2, 2))
+
+
 if c.get("handles"):
     mx = 2 * CX
     left = [(88, 92), (60, 92), (46, 112), (46, 352), (60, 374), (88, 374)]
-    parts.append(tube("hl", left, 0.0024))
+    parts.append(tag(tube("hl", left, 0.0024), 0))
     parts.append(tube("hr", [(mx - x, y) for x, y in left], 0.0024))
     parts.append(cylinder("gl", 57, 150, 300, 0.0058))
     parts.append(cylinder("gr", mx - 57, 150, 300, 0.0058))
@@ -161,9 +260,15 @@ def front_uv(x, y):
 
 FXW = (fx1 - fx0) * MPP
 FXL = (fx0 - CX) * MPP
+modes = me.attributes.get("uvmode")
 for poly in me.polygons:
     n = poly.normal
     ax = max(range(3), key=lambda i: abs(n[i]))
+    mode = modes.data[poly.index].value if modes else 0
+    if mode == 1:
+        ax = 2; n = Vector((0, 0, 1))
+    elif mode == 2:
+        ax = 2; n = Vector((0, 0, -1))
     for li in poly.loop_indices:
         co = me.vertices[me.loops[li].vertex_index].co
         x, y, z = co
