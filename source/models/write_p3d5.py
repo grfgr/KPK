@@ -32,6 +32,8 @@ ZBACK = float(sys.argv[12]) if len(sys.argv) > 12 else -0.02
 STRAP_UP = float(sys.argv[13]) if len(sys.argv) > 13 else 0.0
 # "same": on a strap the model looks as in the hands (portrait models: brick, broken)
 STRAP_SAME = len(sys.argv) > 14 and sys.argv[14] == "same"
+import os as _os
+UI_TEX = _os.environ.get("KPK_UI_TEX", "")
 
 
 def turn(x, y, z):
@@ -142,10 +144,18 @@ def visual_lod(path, resolution):
             else:
                 faces.append((verts, TEX, MAT))
     nf = len(m["tris"])
+    free_pts = points[2 * nv:3 * nv]
+    if UI_TEX:
+        # a 0.1 mm triangle hidden in the middle of the case: it only makes Binarize pack the
+        # interface picture of this model (no model uses it otherwise)
+        b = len(points)
+        points = points + [(0.0, 0.0, 0.0), (0.0001, 0.0, 0.0), (0.0, 0.0001, 0.0)]
+        normals.append((0.0, 0.0, -1.0))
+        faces.append(([(b, len(normals) - 1, 0.5, 0.5), (b + 1, len(normals) - 1, 0.5, 0.5), (b + 2, len(normals) - 1, 0.5, 0.5)], UI_TEX, ""))
     taggs = selection("camo", len(points), len(faces))
     for k, name in enumerate(("kpk_hand", "kpk_strap", "kpk_free")):
         taggs += selection(name, len(points), len(faces), points=range(nv * k, nv * (k + 1)), faces=range(nf * k, nf * (k + 1)))
-    return lod(points, normals, faces, resolution, taggs), points[2 * nv:], points[:nv], points[nv:2 * nv]
+    return lod(points, normals, faces, resolution, taggs), free_pts, points[:nv], points[nv:2 * nv]
 
 
 def box_lod(mn, mx, resolution, mass=None, component=True, triangles=False):

@@ -263,11 +263,21 @@ class KPK_Menu extends UIScriptedMenu
 		m_Pages.Insert(BuildProfile());
 		m_Pages.Insert(BuildMap());
 		m_Pages.Insert(BuildParty());
-		m_Pages.Insert(BuildFactions());
-		m_Pages.Insert(BuildTasks());
-		m_Pages.Insert(BuildNotes());
-		m_Pages.Insert(BuildChat());
-		m_Pages.Insert(BuildContacts());
+		// the brick never shows these pages: not building them keeps the menu far below the engine's
+		// widget limit (the login boxes failed to build on the brick)
+		if (m_Full)
+		{
+			m_Pages.Insert(BuildFactions());
+			m_Pages.Insert(BuildTasks());
+			m_Pages.Insert(BuildNotes());
+			m_Pages.Insert(BuildChat());
+			m_Pages.Insert(BuildContacts());
+		}
+		else
+		{
+			for (int skip = 0; skip < 5; skip++)
+				m_Pages.Insert(KPK_UI.Frame(m_Screen, 0, 0, 0.01, 0.01));
+		}
 		m_Pages.Insert(BuildLogin());
 		m_Pages.Insert(BuildBoot());
 
@@ -613,6 +623,11 @@ class KPK_Menu extends UIScriptedMenu
 		if (!v)
 			return;
 
+		if (!m_LoginSteam || !m_LoginCallsign || !m_LoginCallsignFixed || !m_LoginRepeatBox || !m_LoginButton)
+		{
+			Print("[KPK] login page incomplete (widget limit)");
+			return;
+		}
 		m_LoginSteam.SetText(v.SteamId);
 		bool newPassword = !v.Registered || v.NeedNewPassword;
 		m_LoginRepeatLabel.Show(newPassword);
@@ -1181,7 +1196,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected KPK_FactionView SelectedFaction()
 	{
 		KPK_View v = KPK_Client.s_View;
-		if (!v)
+		if (!v || !m_FactionList)
 			return null;
 		int i = m_FactionList.Selected();
 		if (i < 0 || i >= v.Factions.Count())
@@ -1209,6 +1224,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void RefreshFactions()
 	{
+		if (!m_FactionList)
+			return;
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
@@ -1247,6 +1264,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void RefreshFactionDetails()
 	{
+		if (!m_FactionText)
+			return;
 		KPK_View v = KPK_Client.s_View;
 		KPK_FactionView f = SelectedFaction();
 		if (!v || !f)
@@ -1416,6 +1435,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void RefreshTasks()
 	{
+		if (!m_TaskList)
+			return;
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
@@ -1476,6 +1497,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void RefreshNotes()
 	{
+		if (!m_NoteList)
+			return;
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
@@ -1563,6 +1586,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void RefreshChat()
 	{
+		if (!m_ChatLog)
+			return;
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
@@ -1643,6 +1668,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void RefreshContacts()
 	{
+		if (!m_ContactList)
+			return;
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
