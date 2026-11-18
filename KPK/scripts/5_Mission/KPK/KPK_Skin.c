@@ -209,6 +209,27 @@ class KPK_Skin
 		}
 	}
 
+	// glass in front of the interface: the case shades the top and left edge of the window, a soft
+	// reflection runs across, a faint glare at the top. All translucent, all ignore the mouse.
+	void BuildGlass(Widget screen)
+	{
+		Line(screen, 0, 0, 1, 0.022, 0x50000000);
+		Line(screen, 0, 0.022, 1, 0.02, 0x24000000);
+		Line(screen, 0, 0, 0.012, 1, 0x40000000);
+		Line(screen, 0.988, 0, 0.012, 1, 0x18000000);
+		Line(screen, 0, 0.975, 1, 0.025, 0x20000000);
+		// broad diagonal reflection and a thin bright streak beside it
+		Line(screen, 0.08, -0.6, 0.30, 2.2, 0x0BFFFFFF, -28);
+		Line(screen, 0.46, -0.6, 0.035, 2.2, 0x0DFFFFFF, -28);
+		Line(screen, 0.52, -0.6, 0.012, 2.2, 0x09FFFFFF, -28);
+		// glare at the top of the glass
+		for (int g = 0; g < 4; g++)
+			Line(screen, 0, g * 0.035, 1, 0.035, ((7 - g * 2) << 24) | 0xFFFFFF);
+		// fingerprint smudges
+		Line(screen, 0.72, 0.62, 0.07, 0.11, 0x07FFFFFF, 18);
+		Line(screen, 0.15, 0.7, 0.05, 0.08, 0x06FFFFFF, -12);
+	}
+
 	void Update(float dt)
 	{
 		if (!m_RollBand)

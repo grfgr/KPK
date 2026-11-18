@@ -141,7 +141,7 @@ class CfgVehicles
 		descriptionShort = "Персональный терминал связи с Осознанием. От экрана веет холодом. Батарейка 9V.";
 		model = "\KPK\data\kpk_mono.p3d";
 		weight = 500;
-		itemSize[] = {2, 2};
+		itemSize[] = {3, 2};
 	};
 	class KPK_Science: KPK_Base
 	{
@@ -150,7 +150,7 @@ class CfgVehicles
 		descriptionShort = "Персональный исследовательский компьютер научно-исследовательского института. Батарейка 9V.";
 		model = "\KPK\data\kpk_nii.p3d";
 		weight = 550;
-		itemSize[] = {2, 2};
+		itemSize[] = {3, 2};
 	};
 
 	// Broken KPK: not a working device. Switched on once with a battery it shows a random grid square,

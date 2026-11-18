@@ -256,8 +256,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_Screen = layoutRoot.FindAnyWidget("Screen");
 		m_Screen.SetColor(m_Theme.Screen);
 		Widget device = layoutRoot.FindAnyWidget("Device");
-		device.SetColor(m_Theme.Case);
-		layoutRoot.FindAnyWidget("Bezel").SetColor(m_Theme.Bezel);
+		FitDevice(device, model);
 		m_Skin = new KPK_Skin();
 
 		BuildChrome();
@@ -274,8 +273,8 @@ class KPK_Menu extends UIScriptedMenu
 
 		// decoration last: the engine caps how many widgets a menu may create, and when the case and
 		// screen effects came first the buttons built after them failed ("could not create a button")
-		m_Skin.BuildDevice(device, m_Theme);
 		m_Skin.BuildScreenFx(m_Screen);
+		m_Skin.BuildGlass(m_Screen);
 
 		KPK_Client.s_OnView.Insert(OnView);
 		KPK_Client.s_OnStatus.Insert(OnStatus);
@@ -284,6 +283,57 @@ class KPK_Menu extends UIScriptedMenu
 
 		StartBoot();
 		return layoutRoot;
+	}
+
+	// The case around the screen is a front render of the model itself (KPK/data/kpk_ui_<model>_ca.paa,
+	// the screen window cut out). The interface sits in that window, the case lies on top of it.
+	protected void FitDevice(Widget device, int model)
+	{
+		string art = "kpk_ui_brick";
+		float aspect = 1.0;
+		float su = 0.24561;
+		float sv = 0.13158;
+		float sw = 0.50877;
+		float sh = 0.43860;
+		switch (model)
+		{
+			case KPK_Model.STALKER:
+				art = "kpk_ui_m1"; aspect = 2.0; su = 0.19655; sv = 0.15384; sw = 0.58656; sh = 0.64162;
+				break;
+			case KPK_Model.MILITARY:
+				art = "kpk_ui_mil"; aspect = 2.0; su = 0.21803; sv = 0.20196; sw = 0.56519; sh = 0.62245;
+				break;
+			case KPK_Model.SCIENCE:
+				art = "kpk_ui_nii"; aspect = 2.0; su = 0.22051; sv = 0.19430; sw = 0.59730; sh = 0.65590;
+				break;
+			case KPK_Model.MONOLITH:
+				art = "kpk_ui_mono"; aspect = 2.0; su = 0.21961; sv = 0.15973; sw = 0.53653; sh = 0.67036;
+				break;
+		}
+
+		// keep the render's proportions on any screen: as large as fits
+		int scrW, scrH;
+		GetScreenSize(scrW, scrH);
+		float hFrac = 0.92;
+		float wFrac = hFrac * scrH * aspect / scrW;
+		if (wFrac > 0.97)
+		{
+			wFrac = 0.97;
+			hFrac = wFrac * scrW / (aspect * scrH);
+		}
+		device.SetSize(wFrac, hFrac);
+
+		// the screen reaches a little under the case edge so no gap shows
+		float pad = 0.004;
+		m_Screen.SetPos(su - pad, sv - pad * aspect);
+		m_Screen.SetSize(sw + pad * 2, sh + pad * 2 * aspect);
+
+		ImageWidget img = ImageWidget.Cast(layoutRoot.FindAnyWidget("Art"));
+		if (img)
+		{
+			img.LoadImageFile(0, "KPK\\data\\" + art + "_ca.paa");
+			img.SetImage(0);
+		}
 	}
 
 	override void OnShow()
