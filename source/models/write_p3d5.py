@@ -124,7 +124,7 @@ def visual_lod(path, resolution):
     for copy in (0, 1, 2):
         for tri in m["tris"]:
             verts = []
-            corners = list(reversed(tri)) if REVERSE else list(tri)
+            corners = list(reversed(tri[:3])) if REVERSE else list(tri[:3])
             for vi, n, uv in corners:
                 if copy == 0 or (copy == 1 and STRAP_SAME):
                     pn = turn(n[0], n[1], -n[2])
@@ -136,7 +136,11 @@ def visual_lod(path, resolution):
                     pn = tuple(-c for c in pn)
                 normals.append(pn)
                 verts.append((vi + nv * copy, len(normals) - 1, uv[0], 1.0 - uv[1]))
-            faces.append((verts, TEX, MAT))
+            if "mats" in m and len(tri) > 3:
+                mn = m["mats"][tri[3]]
+                faces.append((verts, "kpk\\data\\" + mn + "_co.paa", "kpk\\data\\" + mn + ".rvmat"))
+            else:
+                faces.append((verts, TEX, MAT))
     nf = len(m["tris"])
     taggs = selection("camo", len(points), len(faces))
     for k, name in enumerate(("kpk_hand", "kpk_strap", "kpk_free")):

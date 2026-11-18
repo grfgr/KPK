@@ -2,3 +2,8 @@ out_*/preview_*.png
 out_*/prev.log
 __pycache__/
 out_*/atlas_*.png
+v3_*/*.png
+v3_*/prev.log
+v3_shared/
+tiles.jpg
+out_*/
