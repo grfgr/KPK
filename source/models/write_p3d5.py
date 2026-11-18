@@ -29,6 +29,7 @@ ZOFF = float(sys.argv[10]) if len(sys.argv) > 10 else 0.0
 # long side along the strap (roll), back against it (ZBACK towards the outside)
 ROLL = math.radians(float(sys.argv[11]) if len(sys.argv) > 11 else 90.0)
 ZBACK = float(sys.argv[12]) if len(sys.argv) > 12 else -0.02
+STRAP_UP = float(sys.argv[13]) if len(sys.argv) > 13 else 0.0
 
 
 def turn(x, y, z):
@@ -95,7 +96,7 @@ def strap_pose(v):
     # attached to a strap / vest slot: centred, long side along the strap (roll), back on the strap
     x, y, z = v[0] - C[0], v[1] - C[1], -v[2] - C[2]
     c, s_ = math.cos(ROLL), math.sin(ROLL)
-    return (x * c - y * s_, x * s_ + y * c, z + ZBACK)
+    return (x * c - y * s_, x * s_ + y * c + STRAP_UP, z + ZBACK)
 
 
 def strap_normal(n):
