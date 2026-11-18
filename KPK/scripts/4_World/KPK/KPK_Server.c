@@ -722,7 +722,7 @@ class KPK_Server
 		int gx = x / 100;
 		int gz = z / 100;
 		string grid = gx.ToStringLen(3) + " " + gz.ToStringLen(3);
-		Notify(player, "Разбитый КПК", "…последняя запись… квадрат " + grid + " …СБОЙ…");
+		Notify(player, "Разбитый КПК", "…последняя запись… квадрат " + grid + " …СБОЙ… КОРОТКОЕ ЗАМЫКАНИЕ");
 
 		// the coordinate also lands in the player's own KPK, if they have one
 		if (player.GetIdentity())
@@ -745,12 +745,17 @@ class KPK_Server
 			}
 		}
 
-		// burns out: battery drained, device ruined, the shock hurts
+		// it blows up in the hands: a small grenade-like blast (visual only), battery drained,
+		// device ruined, 10-20 damage and 50 shock to the one holding it
+		vector blastPos = device.GetPosition();
+		GetGame().RPCSingleParam(player, KPK_RPC_FX, new Param1<vector>(blastPos), true);
 		Battery9V battery = KPK_Device.GetBattery(device);
 		if (battery && battery.HasEnergyManager())
 			battery.GetCompEM().SetEnergy(0);
 		device.SetHealth("", "", 0);
-		player.AddHealth("", "Health", -10);
+		float blastDamage = Math.RandomFloat(10.0, 20.0);
+		player.AddHealth("", "Health", -blastDamage);
+		player.AddHealth("", "Shock", -50);
 		Print("[KPK] broken KPK burnt out, grid " + grid);
 	}
 

@@ -4,6 +4,14 @@ modded class PlayerBase
 	{
 		super.OnRPC(sender, rpc_type, ctx);
 
+		if (rpc_type == KPK_RPC_FX && !GetGame().IsDedicatedServer())
+		{
+			Param1<vector> fx = new Param1<vector>(vector.Zero);
+			if (ctx.Read(fx))
+				KPK_Fx.SmallBlast(fx.param1);
+			return;
+		}
+
 		if (rpc_type != KPK_RPC)
 			return;
 

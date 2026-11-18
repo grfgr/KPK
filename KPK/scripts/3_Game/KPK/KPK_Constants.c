@@ -1,5 +1,7 @@
 // One RPC id for the whole mod. Payload: Param2<int action, string json>.
 const int KPK_RPC = 0x4B504B01;
+// broken KPK blast, sent to every client: Param1<vector position>
+const int KPK_RPC_FX = 0x4B504B02;
 
 // client -> server
 enum KPK_C
