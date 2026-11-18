@@ -90,6 +90,7 @@ class KPK_Settings
 	const static string FILE = "$profile:KPK/settings.json";
 	const static string FACTIONS_FILE = "$profile:KPK/factions.json";
 	static bool s_LoadFailed;
+	const static string SALT_FILE = "$profile:KPK/password_salt.txt";
 	const static string ADMINS_FILE = "$profile:KPK/admins.txt";
 	const static string INDEX_FILE = "$profile:KPK/accounts_index.json";
 
@@ -146,16 +147,44 @@ class KPK_Settings
 			settings.ReputationDefaultsAdded = true;
 		}
 
+		// the salt is also kept in its own file: if settings.json is broken or reset, passwords still match
+		string savedSalt = ReadSalt();
+		if (broken || settings.PasswordSalt == "")
+			settings.PasswordSalt = savedSalt;
 		if (settings.PasswordSalt == "")
 		{
 			Math.Randomize(-1);
 			settings.PasswordSalt = string.Format("%1%2%3", Math.RandomInt(100000, 999999), GetGame().GetTime(), Math.RandomInt(100000, 999999));
 		}
+		if (savedSalt != settings.PasswordSalt)
+			WriteSalt(settings.PasswordSalt);
 
 		settings.LoadAdminsTxt();
 		if (!broken)
 			JsonFileLoader<KPK_Settings>.JsonSaveFile(FILE, settings);
 		return settings;
+	}
+
+	static string ReadSalt()
+	{
+		if (!FileExist(SALT_FILE))
+			return "";
+		FileHandle handle = OpenFile(SALT_FILE, FileMode.READ);
+		if (handle == 0)
+			return "";
+		string salt;
+		FGets(handle, salt);
+		CloseFile(handle);
+		return salt.Trim();
+	}
+
+	static void WriteSalt(string salt)
+	{
+		FileHandle handle = OpenFile(SALT_FILE, FileMode.WRITE);
+		if (handle == 0)
+			return;
+		FPrintln(handle, salt);
+		CloseFile(handle);
 	}
 
 	// $profile:KPK/admins.txt: one Steam64 ID per line, a simpler alternative to the JSON list
