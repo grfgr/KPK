@@ -30,6 +30,8 @@ ZOFF = float(sys.argv[10]) if len(sys.argv) > 10 else 0.0
 ROLL = math.radians(float(sys.argv[11]) if len(sys.argv) > 11 else 90.0)
 ZBACK = float(sys.argv[12]) if len(sys.argv) > 12 else -0.02
 STRAP_UP = float(sys.argv[13]) if len(sys.argv) > 13 else 0.0
+# "same": on a strap the model looks as in the hands (portrait models: brick, broken)
+STRAP_SAME = len(sys.argv) > 14 and sys.argv[14] == "same"
 
 
 def turn(x, y, z):
@@ -104,22 +106,32 @@ def strap_normal(n):
     return (n[0] * c - n[1] * s_, n[0] * s_ + n[1] * c, -n[2])
 
 
+def free_pose(v):
+    # in the inventory, on the ground, in a bag: centred on the origin, so the inspect view turns it
+    # around its middle (the preview always rotates around the model origin)
+    return (v[0] - C[0], v[1] - C[1], -v[2] - C[2])
+
+
 def visual_lod(path, resolution):
-    """two copies of the mesh: as held in the hands ("kpk_hand") and as worn on a strap ("kpk_strap");
-    the model.cfg hide animations show one of them, the script sets the phases"""
+    """three copies of the mesh: in the hands ("kpk_hand", origin at the grip), on a strap ("kpk_strap")
+    and free ("kpk_free", centred); the model.cfg hide animations show one, the script sets the phases"""
     m = json.load(open(path))
     nv = len(m["verts"])
-    points = [to_p3d(v) for v in m["verts"]] + [strap_pose(v) for v in m["verts"]]
+    hand = [to_p3d(v) for v in m["verts"]]
+    strap = hand if STRAP_SAME else [strap_pose(v) for v in m["verts"]]
+    points = hand + strap + [free_pose(v) for v in m["verts"]]
     normals, faces = [], []
-    for copy in (0, 1):
+    for copy in (0, 1, 2):
         for tri in m["tris"]:
             verts = []
             corners = list(reversed(tri)) if REVERSE else list(tri)
             for vi, n, uv in corners:
-                if copy == 0:
+                if copy == 0 or (copy == 1 and STRAP_SAME):
                     pn = turn(n[0], n[1], -n[2])
-                else:
+                elif copy == 1:
                     pn = strap_normal(n)
+                else:
+                    pn = (n[0], n[1], -n[2])
                 if INVERT:
                     pn = tuple(-c for c in pn)
                 normals.append(pn)
@@ -127,9 +139,9 @@ def visual_lod(path, resolution):
             faces.append((verts, TEX, MAT))
     nf = len(m["tris"])
     taggs = selection("camo", len(points), len(faces))
-    taggs += selection("kpk_hand", len(points), len(faces), points=range(nv), faces=range(nf))
-    taggs += selection("kpk_strap", len(points), len(faces), points=range(nv, 2 * nv), faces=range(nf, 2 * nf))
-    return lod(points, normals, faces, resolution, taggs), points[:nv]
+    for k, name in enumerate(("kpk_hand", "kpk_strap", "kpk_free")):
+        taggs += selection(name, len(points), len(faces), points=range(nv * k, nv * (k + 1)), faces=range(nf * k, nf * (k + 1)))
+    return lod(points, normals, faces, resolution, taggs), points[2 * nv:]
 
 
 def box_lod(mn, mx, resolution, mass=None, component=True, triangles=False):
@@ -162,12 +174,11 @@ xs = [p[0] for p in pts]
 ys = [p[1] for p in pts]
 zs = [p[2] for p in pts]
 mn = (min(xs), min(ys), min(zs))
-mx = (max(xs), min(max(ys), YMAX), max(zs))   # antenna (above y=0.074) left out
+mx = (max(xs), min(max(ys), YMAX - C[1]), max(zs))   # antenna (above YMAX in mesh units) left out
 print("bbox", [round(c, 4) for c in mn], [round(c, 4) for c in mx], "points", len(pts))
 
 # memory points: centre, and "invView" - the side the inventory preview camera looks from (the screen, -Z)
-# boundingbox_min/max frame the inventory / inspect preview: it centres on them and rotates around
-# their middle, so the model turns around its own centre even though its origin is at the grip
+# boundingbox_min/max frame the inventory / inspect preview (around the free, centred copy)
 vx = [p[0] for p in pts]
 vy = [p[1] for p in pts]
 c = ((min(vx) + max(vx)) / 2, (min(ys) + max(ys)) / 2, (min(zs) + max(zs)) / 2)

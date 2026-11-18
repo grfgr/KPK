@@ -68,20 +68,19 @@ class CfgVehicles
 		descriptionShort = "Базовый карманный компьютер «Вестник»: профиль, карта с метками, связь с группой. Работает от батарейки 9V.";
 		weight = 300;
 		itemSize[] = {1, 2};
-		// set by the script: 1 while the KPK is attached to a slot (backpack strap, vest)
+		// set by the script (pose copies in the model): 0 for where the KPK is, 1 for the rest
 		class AnimationSources
 		{
-			class kpkStrap
-			{
-				source = "user";
-				initPhase = 0;
-				animPeriod = 0.001;
-			};
-			class kpkHand
+			class kpkNotHand
 			{
 				source = "user";
 				initPhase = 1;
 				animPeriod = 0.001;
+			};
+			class kpkNotStrap: kpkNotHand {};
+			class kpkNotFree: kpkNotHand
+			{
+				initPhase = 0;
 			};
 		};
 	};
@@ -134,5 +133,19 @@ class CfgVehicles
 		hiddenSelectionsMaterials[] = {};
 		weight = 280;
 		itemSize[] = {1, 2};
+		class AnimationSources
+		{
+			class kpkNotHand
+			{
+				source = "user";
+				initPhase = 1;
+				animPeriod = 0.001;
+			};
+			class kpkNotStrap: kpkNotHand {};
+			class kpkNotFree: kpkNotHand
+			{
+				initPhase = 0;
+			};
+		};
 	};
 };

@@ -117,29 +117,47 @@ modded class GPSReceiver
 		AddAction(ActionKPKBroken);
 	}
 
-	// landscape models turn along the strap when attached to a slot (model.cfg animation "kpkStrap")
+	// every KPK model holds three copies of its mesh (model.cfg): in the hands, on a strap and free
+	// (inventory, ground, bag: centred, so the inspect view turns it around its middle)
 	override void EEItemLocationChanged(notnull InventoryLocation oldLoc, notnull InventoryLocation newLoc)
 	{
 		super.EEItemLocationChanged(oldLoc, newLoc);
-		if (KPK_Device.IsKPK(this))
-			KPK_UpdateStrap();
+		if (KPK_Device.IsKPK(this) || KPK_Device.IsBroken(this))
+			KPK_UpdatePose();
 	}
 
 	override void EEInit()
 	{
 		super.EEInit();
-		if (KPK_Device.IsKPK(this))
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(KPK_UpdateStrap, 500, false);
+		if (KPK_Device.IsKPK(this) || KPK_Device.IsBroken(this))
+		{
+			KPK_UpdatePose();
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(KPK_UpdatePose, 500, false);
+		}
 	}
 
-	void KPK_UpdateStrap()
+	void KPK_UpdatePose()
 	{
 		InventoryLocation loc = new InventoryLocation();
-		float phase = 0;
-		if (GetInventory().GetCurrentInventoryLocation(loc) && loc.GetType() == InventoryLocationType.ATTACHMENT)
-			phase = 1;
-		SetAnimationPhase("kpkStrap", phase);
-		SetAnimationPhase("kpkHand", 1 - phase);
+		int locType = InventoryLocationType.UNKNOWN;
+		if (GetInventory().GetCurrentInventoryLocation(loc))
+			locType = loc.GetType();
+		float hideHand = 1;
+		float hideStrap = 1;
+		float hideFree = 0;
+		if (locType == InventoryLocationType.HANDS)
+		{
+			hideHand = 0;
+			hideFree = 1;
+		}
+		else if (locType == InventoryLocationType.ATTACHMENT)
+		{
+			hideStrap = 0;
+			hideFree = 1;
+		}
+		SetAnimationPhase("kpkNotHand", hideHand);
+		SetAnimationPhase("kpkNotStrap", hideStrap);
+		SetAnimationPhase("kpkNotFree", hideFree);
 	}
 
 	override void OnWorkStart()
