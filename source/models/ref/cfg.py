@@ -25,6 +25,11 @@ CFG = {
                buttons=[(668, 152, 702, 198), (666, 205, 746, 275), (668, 285, 702, 330)],
                back=(648, 512, 1050, 728), left=(50, 512, 107, 744), right=(172, 512, 240, 744),
                top=(265, 535, 607, 600), bottom=(265, 665, 607, 730)),
+    # КПК-7 «Вестник»: no sheet, a virtual one at 4 px per mm (body 78 x 140 mm, portrait)
+    "brick": dict(W=78, D=28, corner=("round", 26), front=(90, 90, 422, 670), body=(100, 100, 412, 660),
+                  screen=(140, 152, 372, 352),
+                  back=(100, 100, 412, 660), left=(0, 0, 10, 10), right=(0, 0, 10, 10),
+                  top=(0, 0, 10, 10), bottom=(0, 0, 10, 10)),
 }
 
 # Volume details (sheet px; h in mm). Types:
@@ -98,13 +103,16 @@ PARTS = {
     ],
 }
 # the case alone on the back view (no handles / straps sticking out): the back texture is fitted to it
-BACKBODY = {"mil": (645, 487, 1060, 712), "mono": (647, 480, 1047, 705), "nii": (655, 520, 1080, 735), "m1": (650, 507, 1047, 722)}
+BACKBODY = {"brick": (100, 100, 412, 660), "mil": (645, 487, 1060, 712), "mono": (647, 480, 1047, 705), "nii": (655, 520, 1080, 735), "m1": (650, 507, 1047, 722)}
 # edge rounding of the case (mm) and corner radius bump, like a rugged tablet
-EDGE = {"mil": 7.0, "mono": 5.8, "nii": 5.8, "m1": 5.2}
+EDGE = {"brick": 4.5, "mil": 7.0, "mono": 5.8, "nii": 5.8, "m1": 5.2}
 for _k in CFG:
+    CFG[_k].setdefault("parts", [])
     CFG[_k]["backbody"] = BACKBODY[_k]
     CFG[_k]["edge"] = EDGE[_k]
 for _k, _p in PARTS.items():
+    if _k not in CFG:
+        continue
     CFG[_k]["parts"] = _p
     CFG[_k].pop("buttons", None)
     CFG[_k].pop("clips", None)

@@ -121,6 +121,8 @@ def make(pt, wmm, hmm):
                 px, py = cx + ca * W_ * k / 2 * 0.9, cy + sa * H_ * k / 2 * 0.9
                 d.polygon([(px + ca * a, py + sa * a), (px - sa * a - ca * a * 0.4, py + ca * a - sa * a * 0.4), (px + sa * a - ca * a * 0.4, py - ca * a - sa * a * 0.4)], fill=g)
             d.ellipse([cx - a, cy - a, cx + a, cy + a], fill=g)
+        elif ic.startswith("t:"):
+            fit_text(d, ic[2:], (W_ * 0.12, H_ * 0.14, W_ * 0.88, H_ * 0.86), FB, g)
         elif ic == "call_c":
             fit_text(d, "С", (cx - r * 1.6, cy - r * 1.6, cx + r * 1.6, cy + r * 1.6), FB, (200, 50, 40))
         elif ic == "call_ok":

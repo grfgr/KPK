@@ -3,6 +3,33 @@ from cfg_v3 import CFG
 
 # btn icons: power sun menu up down left right square dpad call_c call_ok none
 PARTS = {
+    "brick": [
+        dict(t="plate", r=(140, 382, 372, 606), h=0.6),
+        dict(t="btn", r=(144, 393, 208, 415), h=1.6, shape="rect", icon="menu"),
+        dict(t="btn", r=(224, 393, 288, 415), h=1.6, shape="rect", icon="t:OK"),
+        dict(t="btn", r=(304, 393, 368, 415), h=1.6, shape="rect", icon="t:ВЫХ"),
+        dict(t="btn", r=(168, 432, 216, 464), h=1.8, shape="rect", icon="t:1"),
+        dict(t="btn", r=(232, 432, 280, 464), h=1.8, shape="rect", icon="t:2"),
+        dict(t="btn", r=(296, 432, 344, 464), h=1.8, shape="rect", icon="t:3"),
+        dict(t="btn", r=(168, 476, 216, 508), h=1.8, shape="rect", icon="t:4"),
+        dict(t="btn", r=(232, 476, 280, 508), h=1.8, shape="rect", icon="t:5"),
+        dict(t="btn", r=(296, 476, 344, 508), h=1.8, shape="rect", icon="t:6"),
+        dict(t="btn", r=(168, 520, 216, 552), h=1.8, shape="rect", icon="t:7"),
+        dict(t="btn", r=(232, 520, 280, 552), h=1.8, shape="rect", icon="t:8"),
+        dict(t="btn", r=(296, 520, 344, 552), h=1.8, shape="rect", icon="t:9"),
+        dict(t="btn", r=(168, 564, 216, 596), h=1.8, shape="rect", icon="t:*"),
+        dict(t="btn", r=(232, 564, 280, 596), h=1.8, shape="rect", icon="t:0"),
+        dict(t="btn", r=(296, 564, 344, 596), h=1.8, shape="rect", icon="t:#"),
+        dict(t="guard", r=(94, 94, 160, 150), h=2.6), dict(t="guard", r=(352, 94, 418, 150), h=2.6),
+        dict(t="guard", r=(94, 610, 160, 666), h=2.6), dict(t="guard", r=(352, 610, 418, 666), h=2.6),
+        dict(t="lip", w=8, h=1.0),
+        dict(t="label", r=(170, 104, 342, 128), h=0.12, draw="text", bg="body", fg=(226, 220, 196), lines=["КПК-7 «ВЕСТНИК»"], bold=True),
+        dict(t="label", r=(172, 614, 340, 652), h=0.35, draw="plate", bg=(222, 214, 192), fg=(60, 30, 26), lines=["ПРОВЕРЕНО ОТК-4", "НИИ ЧАЗ 1986"]),
+        dict(t="led", c=(388, 124), rad=6, h=1.2, color=(90, 230, 90)),
+        dict(t="screw", c=(152, 372), rad=7), dict(t="screw", c=(360, 372), rad=7),
+        dict(t="bgrille", r=(160, 150, 352, 250), h=1.4, n=7, dir="h"),
+        dict(t="blabel", r=(170, 430, 342, 510), h=1.5, draw="plate", bg=(176, 172, 160), fg=(40, 38, 34), lines=["КПК-7 «ВЕСТНИК»", "ЗАВ. № 04173", "ПИТАНИЕ 9 В", "@barcode"]),
+    ],
     "mil": [
         dict(t="btn", r=(110, 145, 150, 185), h=2.2, shape="round", icon="power"),
         dict(t="btn", r=(110, 197, 150, 238), h=2.2, shape="round", icon="sun"),
@@ -85,6 +112,7 @@ PARTS = {
 CFG["m1"]["D"] = 20
 CFG["mil"]["D"] = 28
 CFG["nii"]["D"] = 22
+CFG["brick"]["edge"] = 4.5
 CFG["mono"]["D"] = 22
 CFG["mono"]["edge"] = 5.5
 CFG["mono"]["screen_kind"] = "chamfer"
