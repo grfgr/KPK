@@ -141,7 +141,7 @@ def visual_lod(path, resolution):
     taggs = selection("camo", len(points), len(faces))
     for k, name in enumerate(("kpk_hand", "kpk_strap", "kpk_free")):
         taggs += selection(name, len(points), len(faces), points=range(nv * k, nv * (k + 1)), faces=range(nf * k, nf * (k + 1)))
-    return lod(points, normals, faces, resolution, taggs), points[2 * nv:]
+    return lod(points, normals, faces, resolution, taggs), points[2 * nv:], points[:nv], points[nv:2 * nv]
 
 
 def box_lod(mn, mx, resolution, mass=None, component=True, triangles=False):
@@ -166,8 +166,8 @@ def box_lod(mn, mx, resolution, mass=None, component=True, triangles=False):
 
 _src = json.load(open(src + "/mesh.json"))["verts"]
 C = tuple((min(v[i] * (-1 if i == 2 else 1) for v in _src) + max(v[i] * (-1 if i == 2 else 1) for v in _src)) / 2 for i in range(3))
-lod0, pts = visual_lod(src + "/mesh.json", 1.0)
-lod1, _ = visual_lod(src + "/mesh_lod1.json", 2.0)
+lod0, pts, hand_pts, strap_pts = visual_lod(src + "/mesh.json", 1.0)
+lod1 = visual_lod(src + "/mesh_lod1.json", 2.0)[0]
 
 # collision / view / fire geometry: the body with bumpers, without the antenna
 xs = [p[0] for p in pts]
@@ -184,9 +184,25 @@ vy = [p[1] for p in pts]
 c = ((min(vx) + max(vx)) / 2, (min(ys) + max(ys)) / 2, (min(zs) + max(zs)) / 2)
 memory_pts = [c, (c[0], c[1], -0.35), (min(vx), min(ys), min(zs)), (max(vx), max(ys), max(zs))]
 
-memory = lod(memory_pts, [(0.0, 1.0, 0.0)], [], 1e15,
-             selection("ce_center", 4, 0, points=[0]) + selection("invView", 4, 0, points=[1])
-             + selection("boundingbox_min", 4, 0, points=[2]) + selection("boundingbox_max", 4, 0, points=[3]))
+
+
+# preview views 1 and 2 (script GetViewIndex): in the hands and on a strap the preview frames that copy
+def view_points(ps, look):
+    lo = tuple(min(p[i] for p in ps) for i in range(3))
+    hi = tuple(max(p[i] for p in ps) for i in range(3))
+    cc = tuple((lo[i] + hi[i]) / 2 for i in range(3))
+    return [lo, hi, (cc[0] + look[0], cc[1] + look[1], cc[2] + look[2])]
+
+
+memory_pts += view_points(hand_pts, turn(0.0, 0.0, -0.35))
+memory_pts += view_points(strap_pts, (0.0, 0.0, -0.35))
+NP = len(memory_pts)
+names = ["ce_center", "invView", "boundingbox_min", "boundingbox_max",
+         "boundingbox_min2", "boundingbox_max2", "invView2", "boundingbox_min3", "boundingbox_max3", "invView3"]
+mtag = b""
+for k, nm in enumerate(names):
+    mtag += selection(nm, NP, 0, points=[k])
+memory = lod(memory_pts, [(0.0, 1.0, 0.0)], [], 1e15, mtag)
 view_geo = box_lod(mn, mx, 6e15)
 fire_geo = box_lod(mn, mx, 7e15)
 shadow = box_lod(mn, mx, 10000.0, component=False, triangles=True)

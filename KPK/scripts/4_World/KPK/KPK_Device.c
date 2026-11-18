@@ -136,6 +136,21 @@ modded class GPSReceiver
 		}
 	}
 
+	// inventory preview: frame the copy that is shown (model memory points boundingbox_min2 / invView2 ...)
+	override int GetViewIndex()
+	{
+		if (!(KPK_Device.IsKPK(this) || KPK_Device.IsBroken(this)) || !MemoryPointExists("invView2"))
+			return super.GetViewIndex();
+		InventoryLocation il = new InventoryLocation();
+		if (!GetInventory().GetCurrentInventoryLocation(il))
+			return 0;
+		if (il.GetType() == InventoryLocationType.HANDS)
+			return 1;
+		if (il.GetType() == InventoryLocationType.ATTACHMENT)
+			return 2;
+		return 0;
+	}
+
 	void KPK_UpdatePose()
 	{
 		InventoryLocation loc = new InventoryLocation();
