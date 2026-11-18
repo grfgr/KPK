@@ -69,6 +69,11 @@ class KPK_Settings
 	float MonolithTrapDamage = 50;
 	bool MonolithTrapKnockout = true;
 
+	// radio calls between bricks: both radios go to the same vanilla walkie-talkie channel.
+	// The game has few channels: an ordinary walkie-talkie on that channel hears the call too.
+	int CallChannels = 6;
+	float CallRingSec = 40;          // an unanswered call is dropped after this
+
 	// chat and contacts (not on the brick)
 	int ChatHistory = 40;            // messages the server keeps (until restart)
 	int ChatMaxLength = 160;

@@ -69,6 +69,9 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_K_WRITE = 702;
 	static const int B_K_PARTY = 703;
 	static const int CHAT_LINES = 11;
+	static const int B_R_CALL = 800;
+	static const int B_R_ANSWER = 801;
+	static const int B_R_END = 802;
 
 	protected ref array<ref KPK_Button> m_Buttons;
 	protected ref array<ref KPK_Button> m_Tabs;
@@ -148,6 +151,8 @@ class KPK_Menu extends UIScriptedMenu
 	protected EditBoxWidget m_PartyInviteName;
 	protected TextWidget m_PartyInfo;
 	protected ref KPK_Button m_LabelsButton;
+	protected MultilineTextWidget m_RadioText;
+	protected EditBoxWidget m_RadioName;
 	protected ref array<ref KPK_InviteView> m_InviteRows;
 
 	// factions
@@ -244,7 +249,7 @@ class KPK_Menu extends UIScriptedMenu
 		if (KPK_Client.s_View)
 			model = KPK_Client.s_View.DeviceModel;
 		m_Theme = KPK_Theme.Get(model);
-		m_Full = KPK_Const.FullAccess(model) || (KPK_Client.s_View && KPK_Client.s_View.IsAdmin);
+		m_Full = KPK_Const.FullAccess(model);
 		KPK_UI.Apply(m_Theme);
 
 		layoutRoot = GetGame().GetWorkspace().CreateWidgets(KPK_UI.DIR + "kpk_main.layout");
@@ -893,6 +898,18 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(right, B_INV_ACCEPT, "ПРИНЯТЬ", 0.04, 0.82, 0.45, 0.1);
 		AddButton(right, B_INV_DECLINE, "ОТКЛОНИТЬ", 0.51, 0.82, 0.45, 0.1);
 
+		// the brick has a radio here instead of the sensor card (labels still toggle with Ctrl + K)
+		if (!m_Full)
+		{
+			Widget radio = KPK_UI.Card(page, 0.51, 0.65, 0.49, 0.35, "РАЦИЯ");
+			m_RadioText = KPK_UI.MText(radio, 0.04, 0.1, 0.92, 0.27, 13, KPK_UI.C_TEXT);
+			m_RadioName = KPK_UI.Edit(radio, 0.04, 0.4, 0.6, 0.17);
+			AddButton(radio, B_R_CALL, "ВЫЗОВ", 0.66, 0.4, 0.3, 0.17);
+			AddButton(radio, B_R_ANSWER, "ОТВЕТИТЬ", 0.04, 0.68, 0.45, 0.2);
+			AddButton(radio, B_R_END, "ОТБОЙ", 0.51, 0.68, 0.45, 0.2);
+			return page;
+		}
+
 		Widget opts = KPK_UI.Card(page, 0.51, 0.65, 0.49, 0.35, "ДАТЧИКИ");
 		m_LabelsButton = AddButton(opts, B_LABELS, "", 0.04, 0.2, 0.92, 0.18);
 		m_PartyHint = KPK_UI.MText(opts, 0.04, 0.45, 0.92, 0.5, 13, KPK_UI.C_DIM);
@@ -953,11 +970,30 @@ class KPK_Menu extends UIScriptedMenu
 		}
 		m_InviteList.Set(inv, invColors);
 
+		if (m_RadioText)
+			RefreshRadio(v);
+		if (!m_LabelsButton)
+			return;
 		if (KPK_Client.s_LabelsEnabled)
 			m_LabelsButton.SetText("МЕТКИ В МИРЕ: ВКЛ");
 		else
 			m_LabelsButton.SetText("МЕТКИ В МИРЕ: ВЫКЛ");
 		m_LabelsButton.SetActive(KPK_Client.s_LabelsEnabled);
+	}
+
+	protected void RefreshRadio(KPK_View v)
+	{
+		string text = "Вызов другого «Вестника» по позывному.";
+		switch (v.CallState)
+		{
+			case KPK_CallState.OUTGOING: text = "Вызов: " + v.CallWith + " . . . ждём ответа"; break;
+			case KPK_CallState.INCOMING: text = "ВХОДЯЩИЙ ВЫЗОВ: " + v.CallWith; break;
+			case KPK_CallState.ACTIVE: text = "НА СВЯЗИ: " + v.CallWith + "\nговорите в голосовой чат"; break;
+		}
+		m_RadioText.SetText(text);
+		m_ById.Get(B_R_CALL).SetEnabled(v.CallState == KPK_CallState.NONE);
+		m_ById.Get(B_R_ANSWER).SetEnabled(v.CallState == KPK_CallState.INCOMING);
+		m_ById.Get(B_R_END).SetEnabled(v.CallState != KPK_CallState.NONE);
 	}
 
 	protected void RespondInvite(bool accept)
@@ -1569,8 +1605,6 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
-		// an admin gets the full set of tabs on any model (known only after login)
-		m_Full = KPK_Const.FullAccess(v.DeviceModel) || v.IsAdmin;
 
 		if (!v.LoggedIn)
 		{
@@ -2076,6 +2110,25 @@ class KPK_Menu extends UIScriptedMenu
 					ShowSelectedNote(true);
 				}
 				break;
+
+			// radio (brick)
+			case B_R_CALL:
+				KPK_Client.SendText(KPK_C.CALL_START, m_RadioName.GetText());
+				break;
+			case B_R_ANSWER:
+				KPK_Client.SendText(KPK_C.CALL_ANSWER, "", "", 1);
+				break;
+			case B_R_END:
+			{
+				int answerOrEnd = KPK_C.CALL_END;
+				if (v && v.CallState == KPK_CallState.INCOMING)
+				{
+					KPK_Client.SendText(KPK_C.CALL_ANSWER, "", "", 0);
+					break;
+				}
+				KPK_Client.Send(answerOrEnd);
+				break;
+			}
 
 			// chat
 			case B_C_SEND:

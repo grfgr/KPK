@@ -5,7 +5,7 @@ class CfgPatches
 		units[] = {"KPK_Device", "KPK_Stalker", "KPK_Military", "KPK_Monolith", "KPK_Science", "KPK_Broken"};
 		weapons[] = {};
 		requiredVersion = 0.1;
-		requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Gear_Navigation"};
+		requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Gear_Navigation", "DZ_Radio"};
 	};
 };
 
@@ -53,19 +53,48 @@ class CfgVehicles
 {
 	class GPSReceiver;
 
-	// Own model (KPK/data/kpk.p3d). The class still inherits the vanilla GPS for its 9V battery slot,
-	// energy manager and the way it is held in hands.
-	class KPK_Device: GPSReceiver
+	class PersonalRadio;
+
+	// Common base of the full models (KPK-M1, ВПК-7М, Монолит, НИИ): the vanilla GPS gives the 9V battery
+	// slot, energy manager and the way it is held in hands.
+	class KPK_Base: GPSReceiver
 	{
-		scope = 2;
-		model = "\KPK\data\kpk.p3d";
+		scope = 0;
 		// textures come from the model itself; no hiddenSelections on purpose: the inherited GPS
 		// script writes its display digits into hidden selection 0
 		hiddenSelections[] = {};
 		hiddenSelectionsTextures[] = {};
 		hiddenSelectionsMaterials[] = {};
+		weight = 450;
+		itemSize[] = {2, 2};
+		// set by the script (pose copies in the model): 0 for where the KPK is, 1 for the rest
+		class AnimationSources
+		{
+			class kpkNotHand
+			{
+				source = "user";
+				initPhase = 1;
+				animPeriod = 0.001;
+			};
+			class kpkNotStrap: kpkNotHand {};
+			class kpkNotFree: kpkNotHand
+			{
+				initPhase = 0;
+			};
+		};
+	};
+
+	// The brick (own model KPK/data/kpk.p3d): profile, map, party, and a radio for calls between bricks.
+	// It is a vanilla walkie-talkie underneath (9V battery, voice over the radio while a call is on).
+	class KPK_Device: PersonalRadio
+	{
+		scope = 2;
+		model = "\KPK\data\kpk.p3d";
+		hiddenSelections[] = {};
+		hiddenSelectionsTextures[] = {};
+		hiddenSelectionsMaterials[] = {};
 		displayName = "КПК сталкера";
-		descriptionShort = "Базовый карманный компьютер «Вестник»: профиль, карта с метками, связь с группой. Работает от батарейки 9V.";
+		descriptionShort = "Базовый карманный компьютер «Вестник»: профиль, карта с метками, связь с группой и рация для вызова другого «Вестника». Работает от батарейки 9V.";
 		weight = 300;
 		itemSize[] = {1, 2};
 		// set by the script (pose copies in the model): 0 for where the KPK is, 1 for the rest
@@ -87,32 +116,36 @@ class CfgVehicles
 
 	// Full models: everything the brick has plus factions, tasks, notes and reputation,
 	// each with its own interface theme (KPK_Theme in the scripts).
-	class KPK_Stalker: KPK_Device
+	class KPK_Stalker: KPK_Base
 	{
+		scope = 2;
 		displayName = "КПК-М1 сталкера";
 		descriptionShort = "Карманный персональный компьютер, модель 1. Полная версия сети сталкеров: карта, группа, группировки, задания, заметки. Батарейка 9V.";
 		model = "\KPK\data\kpk_m1.p3d";
 		weight = 450;
 		itemSize[] = {2, 2};
 	};
-	class KPK_Military: KPK_Device
+	class KPK_Military: KPK_Base
 	{
+		scope = 2;
 		displayName = "ВПК-7М (ОКСОП)";
 		descriptionShort = "Военный персональный компьютер Объединённого контингента сил охраны периметра. Закрытый канал связи. Батарейка 9V.";
 		model = "\KPK\data\kpk_mil.p3d";
 		weight = 700;
 		itemSize[] = {3, 2};
 	};
-	class KPK_Monolith: KPK_Device
+	class KPK_Monolith: KPK_Base
 	{
+		scope = 2;
 		displayName = "ПИК №ОС-031";
 		descriptionShort = "Персональный терминал связи с Осознанием. От экрана веет холодом. Батарейка 9V.";
 		model = "\KPK\data\kpk_mono.p3d";
 		weight = 500;
 		itemSize[] = {2, 2};
 	};
-	class KPK_Science: KPK_Device
+	class KPK_Science: KPK_Base
 	{
+		scope = 2;
 		displayName = "ПИК №042 (НИИ)";
 		descriptionShort = "Персональный исследовательский компьютер научно-исследовательского института. Батарейка 9V.";
 		model = "\KPK\data\kpk_nii.p3d";

@@ -27,7 +27,19 @@ enum KPK_C
 	MARKER_EDIT,     // I1 id, I2 scope, S1 name, S2 type, I3 = 1 -> move to F1/F2
 	CHAT_SEND,       // S1 text, S2 callsign for a private message ("" = general channel)
 	CONTACT_ADD,     // S1 callsign
-	CONTACT_DEL      // S1 callsign
+	CONTACT_DEL,     // S1 callsign
+	CALL_START,      // S1 callsign (brick only)
+	CALL_ANSWER,     // I1 = 1 accept, 0 decline
+	CALL_END
+};
+
+// radio call of the brick (KPK_View.CallState)
+enum KPK_CallState
+{
+	NONE = 0,
+	OUTGOING,    // ringing at the other side
+	INCOMING,    // somebody calls this player
+	ACTIVE       // on air: both radios on the same channel
 };
 
 // server -> client

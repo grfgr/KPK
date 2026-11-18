@@ -370,6 +370,9 @@ class KPK_View
 	ref array<ref KPK_ContactView> Contacts;
 	int ChatMaxLength;
 
+	int CallState;        // KPK_CallState (brick)
+	string CallWith;      // callsign of the other side
+
 	// settings the UI follows
 	bool ShowSelfOnMap;
 	int NoteMaxLength;
