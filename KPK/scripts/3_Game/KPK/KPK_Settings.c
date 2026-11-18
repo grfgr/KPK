@@ -89,6 +89,8 @@ class KPK_Settings
 	const static string ACCOUNTS_DIR = "$profile:KPK/accounts";
 	const static string FILE = "$profile:KPK/settings.json";
 	const static string FACTIONS_FILE = "$profile:KPK/factions.json";
+	static bool s_LoadFailed;
+	const static string ADMINS_FILE = "$profile:KPK/admins.txt";
 	const static string INDEX_FILE = "$profile:KPK/accounts_index.json";
 
 	void KPK_Settings()
@@ -106,8 +108,20 @@ class KPK_Settings
 			MakeDirectory(ACCOUNTS_DIR);
 
 		KPK_Settings settings = new KPK_Settings();
+		bool broken = false;
 		if (FileExist(FILE))
-			JsonFileLoader<KPK_Settings>.JsonLoadFile(FILE, settings);
+		{
+			// a typo in the file (missing comma or quote) used to give default settings, which were then
+			// written back over the file: the admin list was lost. Now a broken file is left untouched.
+			string error;
+			if (!JsonFileLoader<KPK_Settings>.LoadFile(FILE, settings, error))
+			{
+				broken = true;
+				settings = new KPK_Settings();
+				Print("[KPK] !!! settings.json has an error and was NOT loaded, defaults are used: " + error);
+				s_LoadFailed = true;
+			}
+		}
 
 		if (!settings.Admins)
 			settings.Admins = new array<string>();
@@ -138,8 +152,47 @@ class KPK_Settings
 			settings.PasswordSalt = string.Format("%1%2%3", Math.RandomInt(100000, 999999), GetGame().GetTime(), Math.RandomInt(100000, 999999));
 		}
 
-		JsonFileLoader<KPK_Settings>.JsonSaveFile(FILE, settings);
+		settings.LoadAdminsTxt();
+		if (!broken)
+			JsonFileLoader<KPK_Settings>.JsonSaveFile(FILE, settings);
 		return settings;
+	}
+
+	// $profile:KPK/admins.txt: one Steam64 ID per line, a simpler alternative to the JSON list
+	void LoadAdminsTxt()
+	{
+		if (!FileExist(ADMINS_FILE))
+		{
+			FileHandle created = OpenFile(ADMINS_FILE, FileMode.WRITE);
+			if (created != 0)
+			{
+				FPrintln(created, "// Steam64 ID администраторов КПК, по одному в строке. Строки с // не читаются.");
+				CloseFile(created);
+			}
+			return;
+		}
+		FileHandle handle = OpenFile(ADMINS_FILE, FileMode.READ);
+		if (handle == 0)
+			return;
+		string line;
+		string numbers = "0123456789";
+		while (FGets(handle, line) >= 0)
+		{
+			if (line.IndexOf("//") != -1)
+				continue;
+			// only the digits count: spaces, quotes, commas or an invisible BOM do not matter
+			string id = "";
+			for (int i = 0; i < line.Length(); i++)
+			{
+				string ch = line.Get(i);
+				if (numbers.IndexOf(ch) != -1)
+					id += ch;
+			}
+			if (id.Length() == 17 && Admins.Find(id) == -1)
+				Admins.Insert(id);
+		}
+		CloseFile(handle);
+		Print("[KPK] admins: " + Admins.Count());
 	}
 
 	protected void AddRosterExample(string faction, string role)
@@ -153,6 +206,8 @@ class KPK_Settings
 
 	void Save()
 	{
+		if (s_LoadFailed)
+			return;
 		JsonFileLoader<KPK_Settings>.JsonSaveFile(FILE, this);
 	}
 
