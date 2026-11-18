@@ -7,7 +7,7 @@ src, out = sys.argv[1], sys.argv[2]
 # tested in game: variant D (original winding, normals as they are) renders correctly
 REVERSE = False
 INVERT = False
-# usage: write_p3d5.py <dir> <out.p3d> <name> <mass> [ymax] [yoff] [xoff]   name -> kpk\data\<name>_co.paa / <name>.rvmat
+# usage: write_p3d5.py <dir> <out.p3d> <name> <mass> [ymax] [yoff] [xoff] [yaw] [pitch] [zoff]   name -> kpk\data\<name>_co.paa / <name>.rvmat
 NAME = sys.argv[3]
 TEX = "kpk\\data\\" + NAME + "_co.paa"
 MAT = "kpk\\data\\" + NAME + ".rvmat"
@@ -17,6 +17,18 @@ YMAX = float(sys.argv[5]) if len(sys.argv) > 5 else 9.0
 YOFF = float(sys.argv[6]) if len(sys.argv) > 6 else 0.0
 # shift sideways: landscape models are held by the side bezel, so the thumb rests beside the screen
 XOFF = float(sys.argv[7]) if len(sys.argv) > 7 else 0.0
+# turn the screen towards the player around the grip (degrees): yaw brings the far (left) side closer,
+# pitch tips the top away so the screen looks up at the eyes; keeps the fingers out of the screen
+import math
+YAW = math.radians(float(sys.argv[8]) if len(sys.argv) > 8 else 0.0)
+PITCH = math.radians(float(sys.argv[9]) if len(sys.argv) > 9 else 0.0)
+ZOFF = float(sys.argv[10]) if len(sys.argv) > 10 else 0.0
+
+
+def turn(x, y, z):
+    x, z = x * math.cos(YAW) - z * math.sin(YAW), x * math.sin(YAW) + z * math.cos(YAW)
+    y, z = y * math.cos(PITCH) - z * math.sin(PITCH), y * math.sin(PITCH) + z * math.cos(PITCH)
+    return (x, y, z)
 
 
 def asciiz(s):
@@ -69,7 +81,8 @@ def lod(points, normals, faces, resolution, taggs=b""):
 def to_p3d(v):
     # mesh.json: lying flat, screen +Z, antenna +Y (Blender). Held in hands the player looks at the
     # item's -Z side, so P3D: antenna up (+Y), screen towards -Z. One axis flips: P3D is left-handed.
-    return (v[0] + XOFF, v[1] + YOFF, -v[2])
+    x, y, z = turn(v[0] + XOFF, v[1] + YOFF, -v[2])
+    return (x, y, z + ZOFF)
 
 
 def visual_lod(path, resolution):
@@ -80,7 +93,7 @@ def visual_lod(path, resolution):
         verts = []
         corners = list(reversed(tri)) if REVERSE else list(tri)
         for vi, n, uv in corners:
-            pn = (n[0], n[1], -n[2])
+            pn = turn(n[0], n[1], -n[2])
             if INVERT:
                 pn = tuple(-c for c in pn)
             normals.append(pn)

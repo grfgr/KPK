@@ -2,6 +2,14 @@
 	$profile:KPK/settings.json, created with defaults on the first start.
 	Saved back after loading, so options added in newer versions appear automatically.
 */
+// faction membership set by the server owner: applied on every server start
+class KPK_RosterEntry
+{
+	string Faction;    // id from factions.json: oksop, nii, monolith, loners ...
+	string SteamId;    // Steam64 ID of the player
+	string Role;       // "leader", "deputy" or "member"
+};
+
 class KPK_Settings
 {
 	int ConfigVersion = 1;
@@ -49,6 +57,12 @@ class KPK_Settings
 	string MonolithFaction = "monolith";
 	string StalkerFaction = "";
 	bool AdminsBypassDeviceLock = true;
+	// leaders and deputies enrol a player at once (no invite to accept); the player must not be in another faction
+	bool FactionDirectAdd = true;
+	// leaders / members written by the server owner; entries with an invalid SteamId are skipped
+	ref array<ref KPK_RosterEntry> FactionRoster;
+	bool RosterExampleAdded;
+	bool OldExampleFactionsRemoved;   // Долг / Свобода / Наёмники from older versions removed once
 	// factions listed in the reputation card of the profile (ids from factions.json), empty = all
 	ref array<string> ReputationFactions;
 	bool ReputationDefaultsAdded;   // set after the defaults went in once, so [] can mean "all"
@@ -81,6 +95,7 @@ class KPK_Settings
 	{
 		Admins = new array<string>();
 		ReputationFactions = new array<string>();
+		FactionRoster = new array<ref KPK_RosterEntry>();
 	}
 
 	static KPK_Settings Load()
@@ -98,6 +113,15 @@ class KPK_Settings
 			settings.Admins = new array<string>();
 		if (!settings.ReputationFactions)
 			settings.ReputationFactions = new array<string>();
+		if (!settings.FactionRoster)
+			settings.FactionRoster = new array<ref KPK_RosterEntry>();
+		if (!settings.RosterExampleAdded)
+		{
+			settings.AddRosterExample("oksop", "leader");
+			settings.AddRosterExample("nii", "leader");
+			settings.AddRosterExample("monolith", "leader");
+			settings.RosterExampleAdded = true;
+		}
 		if (!settings.ReputationDefaultsAdded)
 		{
 			settings.ReputationFactions.Clear();
@@ -116,6 +140,20 @@ class KPK_Settings
 
 		JsonFileLoader<KPK_Settings>.JsonSaveFile(FILE, settings);
 		return settings;
+	}
+
+	protected void AddRosterExample(string faction, string role)
+	{
+		KPK_RosterEntry e = new KPK_RosterEntry();
+		e.Faction = faction;
+		e.SteamId = "STEAM64_ID";
+		e.Role = role;
+		FactionRoster.Insert(e);
+	}
+
+	void Save()
+	{
+		JsonFileLoader<KPK_Settings>.JsonSaveFile(FILE, this);
 	}
 
 	bool IsAdmin(string steamId)

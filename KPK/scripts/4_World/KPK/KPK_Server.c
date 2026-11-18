@@ -98,6 +98,8 @@ class KPK_Server
 		m_Settings = KPK_Settings.Load();
 		LoadIndex();
 		LoadFactions();
+		RemoveOldExampleFactions();
+		ApplyRoster();
 
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickStats, m_Settings.StatsTickSec * 1000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickMates, m_Settings.MatesUpdateSec * 1000, true);
@@ -158,6 +160,67 @@ class KPK_Server
 			added = true;
 		}
 		if (added)
+			SaveFactions();
+	}
+
+	// older versions created Долг, Свобода and Наёмники; only factions with their own KPK stay
+	protected void RemoveOldExampleFactions()
+	{
+		if (m_Settings.OldExampleFactionsRemoved)
+			return;
+		array<string> old = {"duty", "freedom", "mercs"};
+		for (int i = m_Factions.Factions.Count() - 1; i >= 0; i--)
+		{
+			if (old.Find(m_Factions.Factions[i].Id) != -1)
+				m_Factions.Factions.RemoveOrdered(i);
+		}
+		for (int m = m_Factions.FactionMarkers.Count() - 1; m >= 0; m--)
+		{
+			if (old.Find(m_Factions.FactionMarkers[m].FactionId) != -1)
+				m_Factions.FactionMarkers.RemoveOrdered(m);
+		}
+		SaveFactions();
+		m_Settings.OldExampleFactionsRemoved = true;
+		m_Settings.Save();
+	}
+
+	// FactionRoster from settings.json: the owner decides who leads and who belongs to a faction
+	protected void ApplyRoster()
+	{
+		bool changed = false;
+		foreach (KPK_RosterEntry e : m_Settings.FactionRoster)
+		{
+			KPK_Faction f = FindFaction(e.Faction);
+			if (!f || !IsSteamId(e.SteamId))
+				continue;
+			KPK_Faction current = FactionOf(e.SteamId);
+			if (current && current != f)
+				RemoveFromFaction(current, e.SteamId);
+			KPK_FactionMember member = f.Find(e.SteamId);
+			if (!member)
+			{
+				member = new KPK_FactionMember();
+				member.SteamId = e.SteamId;
+				f.Members.Insert(member);
+			}
+			string role = e.Role;
+			role.ToLower();
+			if (role == "leader")
+			{
+				foreach (KPK_FactionMember lm : f.Members)
+				{
+					if (lm.Role == KPK_Role.LEADER && lm != member)
+						lm.Role = KPK_Role.DEPUTY;
+				}
+				member.Role = KPK_Role.LEADER;
+			}
+			else if (role == "deputy")
+				member.Role = KPK_Role.DEPUTY;
+			else if (member.Role == KPK_Role.NONE)
+				member.Role = KPK_Role.MEMBER;
+			changed = true;
+		}
+		if (changed)
 			SaveFactions();
 	}
 
@@ -1983,6 +2046,23 @@ class KPK_Server
 		if (FactionOf(targetId))
 		{
 			Msg(player, CallsignOf(targetId) + " уже состоит в группировке");
+			return;
+		}
+
+		// direct enrolment: the player can use the faction KPK right away
+		if (m_Settings.FactionDirectAdd)
+		{
+			RemoveInvites(targetId, 2);
+			KPK_FactionMember added = new KPK_FactionMember();
+			added.SteamId = targetId;
+			added.Role = KPK_Role.MEMBER;
+			faction.Members.Insert(added);
+			SaveFactions();
+			Msg(player, CallsignOf(targetId) + " зачислен в «" + faction.Name + "»");
+			PlayerBase enrolled = FindOnline(targetId);
+			if (enrolled)
+				Notify(enrolled, "КПК: группировка", "Вы зачислены в «" + faction.Name + "». Доступ к КПК группировки открыт.");
+			RefreshAllOpen();
 			return;
 		}
 
