@@ -1419,7 +1419,7 @@ class KPK_Menu extends UIScriptedMenu
 		return page;
 	}
 
-	protected string ChatLine(KPK_ChatMessage m)
+	protected string KPK_ChatLineText(KPK_ChatMessage m)
 	{
 		string who = m.From;
 		if (m.Tag != "")
@@ -1453,7 +1453,7 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			if (text != "")
 				text += "\n";
-			text += ChatLine(v.Chat[i]);
+			text += KPK_ChatLineText(v.Chat[i]);
 		}
 		if (m_ChatOffset > 0)
 			text += "\n. . . (ещё " + m_ChatOffset.ToString() + " новее)";
