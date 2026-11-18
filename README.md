@@ -61,6 +61,8 @@
 | Sign output PBO | включено, в **OPTIONS** указан `KPK.biprivatekey` |
 | Add prefix | `KPK` |
 
+В **OPTIONS → List of files to copy directly** должно быть `*.paa` (картинки рамок интерфейса `kpk_ui_*_ca.paa` ни одна модель не использует, и без этой маски Binarize их не кладёт в PBO).
+
 Нажмите **PACK**. Должны получиться `KPK.pbo` и `KPK.pbo.KPK.bisign`. Если ошибка `code=1` — закройте игру и сервер (PBO занят).
 
 ### 4. Установить на сервер

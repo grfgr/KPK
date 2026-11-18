@@ -321,6 +321,15 @@ class KPK_Menu extends UIScriptedMenu
 			wFrac = 0.97;
 			hFrac = wFrac * scrW / (aspect * scrH);
 		}
+		// the brick: the screen twice as big; the case runs off the bottom of the screen (the picture
+		// fades out there), the top label stays just inside
+		if (model == KPK_Model.BRICK)
+		{
+			hFrac = 1.8;
+			wFrac = hFrac * scrH * aspect / scrW;
+			float top = 0.06 - sv * hFrac;
+			device.SetPos(0, top + hFrac * 0.5 - 0.5);
+		}
 		device.SetSize(wFrac, hFrac);
 
 		// the screen reaches a little under the case edge so no gap shows
@@ -415,6 +424,29 @@ class KPK_Menu extends UIScriptedMenu
 		m_HeaderRight = KPK_UI.Text(m_Screen, "", 0.62, 0.045, 0.37, 0.035, 13, KPK_UI.C_TEXT);
 		KPK_UI.Panel(m_Screen, 0, 0.08, 1, 0.003, KPK_UI.C_EDGE);
 
+		// the brick: square screen, its three modules as a row of tabs under the menu bar
+		if (!m_Full)
+		{
+			KPK_UI.Panel(m_Screen, 0, 0.083, 1, 0.07, KPK_UI.C_SIDE);
+			for (int bt = 0; bt < TAB_COUNT; bt++)
+			{
+				string bName = m_Theme.Tabs[bt];
+				int bNumber = bt + 1;
+				if (!m_Theme.Glitch)
+					bName = "[" + bNumber.ToString() + "] " + bName;
+				float bx = 0.01 + bt * 0.33;
+				if (bt > 2)
+					bx = 0.01;
+				KPK_Button btab = new KPK_Button(m_Screen, B_TAB + bt, bName, bx, 0.09, 0.32, 0.056, true);
+				m_Tabs.Insert(btab);
+				m_Buttons.Insert(btab);
+			}
+			KPK_UI.Panel(m_Screen, 0, 0.153, 1, 0.003, KPK_UI.C_LINE);
+			m_SideInfo = KPK_UI.MText(m_Screen, 0, 0, 0.01, 0.01, 12, KPK_UI.C_DIM);
+			m_SideInfo.Show(false);
+		}
+		else
+		{
 		// sidebar
 		KPK_UI.Panel(m_Screen, 0, 0.083, 0.165, 0.852, KPK_UI.C_SIDE);
 		string modules = "МОДУЛИ";
@@ -434,6 +466,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Panel(m_Screen, 0.012, 0.73, 0.14, 0.002, KPK_UI.C_LINE);
 		m_SideInfo = KPK_UI.MText(m_Screen, 0.012, 0.74, 0.15, 0.19, 12, KPK_UI.C_DIM);
 		KPK_UI.Panel(m_Screen, 0.165, 0.083, 0.002, 0.852, KPK_UI.C_LINE);
+		}
 
 		// status bar
 		KPK_UI.Panel(m_Screen, 0, 0.935, 1, 0.065, KPK_UI.C_MENUBAR);
@@ -445,6 +478,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected Widget Content()
 	{
+		if (!m_Full)
+			return KPK_UI.Frame(m_Screen, 0.012, 0.165, 0.976, 0.762);
 		return KPK_UI.Frame(m_Screen, 0.178, 0.095, 0.812, 0.83);
 	}
 
