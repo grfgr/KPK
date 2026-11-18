@@ -929,6 +929,8 @@ class KPK_Server
 		if (battery && battery.HasEnergyManager())
 			battery.GetCompEM().SetEnergy(0);
 		device.SetHealth("", "", 0);
+		// the blast knocks the player back: the same hit reaction as a tripwire
+		player.ProcessDirectDamage(DamageType.CLOSE_COMBAT, device, "", "TripWireHit", "0 0 0", 1);
 		float blastDamage = Math.RandomFloat(10.0, 20.0);
 		player.AddHealth("", "Health", -blastDamage);
 		player.AddHealth("", "Shock", -50);
@@ -1438,6 +1440,7 @@ class KPK_Server
 			Notify(player, KPK_Const.ModelName(model), "…ЧУЖОЙ… МОНОЛИТ НЕ ПРИНИМАЕТ ТЕБЯ…");
 			GetGame().RPCSingleParam(player, KPK_RPC_FX, new Param1<vector>(device.GetPosition()), true);
 			device.SetHealth("", "", 0);
+			player.ProcessDirectDamage(DamageType.CLOSE_COMBAT, device, "", "TripWireHit", "0 0 0", 1);
 			player.AddHealth("", "Health", -m_Settings.MonolithTrapDamage);
 			if (m_Settings.MonolithTrapKnockout)
 				player.SetHealth("", "Shock", 0);
