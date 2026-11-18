@@ -7,7 +7,7 @@ src, out = sys.argv[1], sys.argv[2]
 # tested in game: variant D (original winding, normals as they are) renders correctly
 REVERSE = False
 INVERT = False
-# usage: write_p3d5.py <dir> <out.p3d> <name> <mass> [ymax]   name -> kpk\data\<name>_co.paa / <name>.rvmat
+# usage: write_p3d5.py <dir> <out.p3d> <name> <mass> [ymax] [yoff] [xoff]   name -> kpk\data\<name>_co.paa / <name>.rvmat
 NAME = sys.argv[3]
 TEX = "kpk\\data\\" + NAME + "_co.paa"
 MAT = "kpk\\data\\" + NAME + ".rvmat"
@@ -15,6 +15,8 @@ MASS = float(sys.argv[4])
 YMAX = float(sys.argv[5]) if len(sys.argv) > 5 else 9.0
 # lift landscape models so the hand (vanilla GPS hold) grips the bottom edge instead of the screen
 YOFF = float(sys.argv[6]) if len(sys.argv) > 6 else 0.0
+# shift sideways: landscape models are held by the side bezel, so the thumb rests beside the screen
+XOFF = float(sys.argv[7]) if len(sys.argv) > 7 else 0.0
 
 
 def asciiz(s):
@@ -67,7 +69,7 @@ def lod(points, normals, faces, resolution, taggs=b""):
 def to_p3d(v):
     # mesh.json: lying flat, screen +Z, antenna +Y (Blender). Held in hands the player looks at the
     # item's -Z side, so P3D: antenna up (+Y), screen towards -Z. One axis flips: P3D is left-handed.
-    return (v[0], v[1] + YOFF, -v[2])
+    return (v[0] + XOFF, v[1] + YOFF, -v[2])
 
 
 def visual_lod(path, resolution):
@@ -78,7 +80,7 @@ def visual_lod(path, resolution):
         verts = []
         corners = list(reversed(tri)) if REVERSE else list(tri)
         for vi, n, uv in corners:
-            pn = to_p3d(n)
+            pn = (n[0], n[1], -n[2])
             if INVERT:
                 pn = tuple(-c for c in pn)
             normals.append(pn)
@@ -120,9 +122,15 @@ mx = (max(xs), min(max(ys), YMAX), max(zs))   # antenna (above y=0.074) left out
 print("bbox", [round(c, 4) for c in mn], [round(c, 4) for c in mx], "points", len(pts))
 
 # memory points: centre, and "invView" - the side the inventory preview camera looks from (the screen, -Z)
-memory_pts = [(0.0, 0.0, 0.0), (0.0, 0.0, -0.35)]
+# boundingbox_min/max frame the inventory / inspect preview: it centres on them and rotates around
+# their middle, so the model turns around its own centre even though its origin is at the grip
+vx = [p[0] for p in pts]
+vy = [p[1] for p in pts]
+c = ((min(vx) + max(vx)) / 2, (min(ys) + max(ys)) / 2, (min(zs) + max(zs)) / 2)
+memory_pts = [c, (c[0], c[1], -0.35), (min(vx), min(ys), min(zs)), (max(vx), max(ys), max(zs))]
 memory = lod(memory_pts, [(0.0, 1.0, 0.0)], [], 1e15,
-             selection("ce_center", 2, 0, points=[0]) + selection("invView", 2, 0, points=[1]))
+             selection("ce_center", 4, 0, points=[0]) + selection("invView", 4, 0, points=[1])
+             + selection("boundingbox_min", 4, 0, points=[2]) + selection("boundingbox_max", 4, 0, points=[3]))
 view_geo = box_lod(mn, mx, 6e15)
 fire_geo = box_lod(mn, mx, 7e15)
 shadow = box_lod(mn, mx, 10000.0, component=False, triangles=True)

@@ -40,6 +40,25 @@ class KPK_Settings
 	int MaxNotes = 20;
 	int NoteMaxLength = 1000;   // characters; the whole KPK state travels in one RPC, keep it modest
 
+	// faction-locked devices: the faction id (factions.json) whose members may use the model, "" = anyone.
+	// A stranger who switches on the ВПК-7М or ПИК №042 gets "ДОСТУП ЗАПРЕЩЁН" and the device wipes itself
+	// (ruined). The Monolith device blows up in the stranger's hands: damage and unconsciousness.
+	// Members are set by an admin (Factions tab -> "+ боец") or in factions.json.
+	string MilitaryFaction = "oksop";
+	string ScienceFaction = "nii";
+	string MonolithFaction = "monolith";
+	string StalkerFaction = "";
+	bool AdminsBypassDeviceLock = true;
+	float MonolithTrapDamage = 50;
+	bool MonolithTrapKnockout = true;
+
+	// chat and contacts (not on the brick)
+	int ChatHistory = 40;            // messages the server keeps (until restart)
+	int ChatMaxLength = 160;
+	float ChatCooldownSec = 2;
+	bool ChatNotifyClosed = true;    // a closed KPK in the inventory shows new messages as a notification
+	int MaxContacts = 30;
+
 	// stats
 	float StatsTickSec = 10;
 

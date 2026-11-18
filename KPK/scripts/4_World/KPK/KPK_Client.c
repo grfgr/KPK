@@ -14,6 +14,7 @@ class KPK_Client
 	static ref ScriptInvoker s_OnDenied = new ScriptInvoker();   // (string reason)
 	static ref ScriptInvoker s_OnStatus = new ScriptInvoker();   // (string text)
 	static ref ScriptInvoker s_OnMates = new ScriptInvoker();    // ()
+	static ref ScriptInvoker s_OnChat = new ScriptInvoker();     // (KPK_ChatMessage) new line arrived
 
 	static void Send(int action, KPK_Req req = null)
 	{
@@ -94,6 +95,20 @@ class KPK_Client
 			{
 				s_Status = json;
 				s_OnStatus.Invoke(json);
+				break;
+			}
+			case KPK_S.CHAT:
+			{
+				KPK_ChatMessage line = new KPK_ChatMessage();
+				if (!KPK_Json<KPK_ChatMessage>.From(json, line))
+					return;
+				if (s_View)
+				{
+					s_View.Chat.Insert(line);
+					while (s_View.Chat.Count() > 40)
+						s_View.Chat.RemoveOrdered(0);
+				}
+				s_OnChat.Invoke(line);
 				break;
 			}
 			case KPK_S.DENIED:

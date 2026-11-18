@@ -10,12 +10,14 @@ class KPK_Menu extends UIScriptedMenu
 	static const int P_FACTIONS = 3;
 	static const int P_TASKS = 4;
 	static const int P_NOTES = 5;
-	static const int P_LOGIN = 6;
-	static const int P_BOOT = 7;
-	static const int TAB_COUNT = 6;
+	static const int P_CHAT = 6;
+	static const int P_CONTACTS = 7;
+	static const int P_LOGIN = 8;
+	static const int P_BOOT = 9;
+	static const int TAB_COUNT = 8;
 
 	// button ids
-	static const int B_TAB = 1;          // 1..6
+	static const int B_TAB = 1;          // 1..8
 	static const int B_CLOSE = 90;
 	static const int B_LOGIN = 100;
 	static const int B_MAP_SELF = 200;
@@ -58,6 +60,15 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_N_NEW = 500;
 	static const int B_N_SAVE = 501;
 	static const int B_N_DEL = 502;
+	static const int B_C_SEND = 600;
+	static const int B_C_PUBLIC = 601;
+	static const int B_C_OLDER = 602;
+	static const int B_C_NEWER = 603;
+	static const int B_K_ADD = 700;
+	static const int B_K_DEL = 701;
+	static const int B_K_WRITE = 702;
+	static const int B_K_PARTY = 703;
+	static const int CHAT_LINES = 11;
 
 	protected ref array<ref KPK_Button> m_Buttons;
 	protected ref array<ref KPK_Button> m_Tabs;
@@ -164,6 +175,18 @@ class KPK_Menu extends UIScriptedMenu
 	protected bool m_SelectNewestNote;
 	protected int m_NoteShown = -2;
 
+	// chat
+	protected MultilineTextWidget m_ChatLog;
+	protected TextWidget m_ChatChannel;
+	protected EditBoxWidget m_ChatEdit;
+	protected string m_ChatTo = "";     // callsign for private messages, "" = general channel
+	protected int m_ChatOffset;          // lines scrolled back from the newest
+
+	// contacts
+	protected ref KPK_List m_ContactList;
+	protected EditBoxWidget m_ContactName;
+	protected MultilineTextWidget m_ContactText;
+
 	// =================================================================== open / close
 
 	static bool IsOpen()
@@ -209,6 +232,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Client.s_OnView.Remove(OnView);
 		KPK_Client.s_OnStatus.Remove(OnStatus);
 		KPK_Client.s_OnMates.Remove(OnMates);
+		KPK_Client.s_OnChat.Remove(OnChat);
 		if (layoutRoot)
 			layoutRoot.Unlink();
 	}
@@ -238,6 +262,8 @@ class KPK_Menu extends UIScriptedMenu
 		m_Pages.Insert(BuildFactions());
 		m_Pages.Insert(BuildTasks());
 		m_Pages.Insert(BuildNotes());
+		m_Pages.Insert(BuildChat());
+		m_Pages.Insert(BuildContacts());
 		m_Pages.Insert(BuildLogin());
 		m_Pages.Insert(BuildBoot());
 
@@ -249,6 +275,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Client.s_OnView.Insert(OnView);
 		KPK_Client.s_OnStatus.Insert(OnStatus);
 		KPK_Client.s_OnMates.Insert(OnMates);
+		KPK_Client.s_OnChat.Insert(OnChat);
 
 		StartBoot();
 		return layoutRoot;
@@ -1375,6 +1402,164 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Client.Send(KPK_C.NOTE_SAVE, req);
 	}
 
+	// =================================================================== chat
+
+	protected Widget BuildChat()
+	{
+		Widget page = Content();
+		Widget card = KPK_UI.Card(page, 0, 0, 1, 1, "ЭФИР");
+		m_ChatLog = KPK_UI.MText(card, 0.03, 0.08, 0.86, 0.72, 14, KPK_UI.C_TEXT);
+		AddButton(card, B_C_OLDER, "/\\", 0.91, 0.08, 0.06, 0.08);
+		AddButton(card, B_C_NEWER, "\\/", 0.91, 0.72, 0.06, 0.08);
+		KPK_UI.Panel(card, 0.03, 0.805, 0.94, 0.002, KPK_UI.C_LINE);
+		m_ChatChannel = KPK_UI.Text(card, "", 0.03, 0.815, 0.62, 0.055, 13, KPK_UI.C_DIM);
+		AddButton(card, B_C_PUBLIC, "ОБЩИЙ КАНАЛ", 0.67, 0.815, 0.3, 0.055);
+		m_ChatEdit = KPK_UI.Edit(card, 0.03, 0.885, 0.72, 0.065);
+		AddButton(card, B_C_SEND, "ПЕРЕДАТЬ", 0.77, 0.885, 0.2, 0.065);
+		return page;
+	}
+
+	protected string ChatLine(KPK_ChatMessage m)
+	{
+		string who = m.From;
+		if (m.Tag != "")
+			who = "[" + m.Tag + "] " + who;
+		if (m.To != "")
+			who = "ЛС " + who + " > " + m.To;
+		return "[" + m.Time + "] " + who + ": " + KPK_Util.FromWire(m.Text);
+	}
+
+	protected void RefreshChat()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v)
+			return;
+
+		int count = v.Chat.Count();
+		int maxOffset = count - CHAT_LINES;
+		if (maxOffset < 0)
+			maxOffset = 0;
+		if (m_ChatOffset > maxOffset)
+			m_ChatOffset = maxOffset;
+		int last = count - 1 - m_ChatOffset;
+		int first = last - CHAT_LINES + 1;
+		if (first < 0)
+			first = 0;
+
+		string text = "";
+		if (count == 0)
+			text = "В эфире тихо.\n\nСообщения общего канала видят все сталкеры с КПК в Зоне. Личное сообщение: вкладка контактов, кнопка «НАПИСАТЬ».";
+		for (int i = first; i <= last; i++)
+		{
+			if (text != "")
+				text += "\n";
+			text += ChatLine(v.Chat[i]);
+		}
+		if (m_ChatOffset > 0)
+			text += "\n. . . (ещё " + m_ChatOffset.ToString() + " новее)";
+		m_ChatLog.SetText(text);
+
+		if (m_ChatTo == "")
+			m_ChatChannel.SetText("Канал: ОБЩИЙ   (до " + v.ChatMaxLength + " символов)");
+		else
+			m_ChatChannel.SetText("Канал: ЛИЧНО > " + m_ChatTo);
+		m_ById.Get(B_C_PUBLIC).Show(m_ChatTo != "");
+	}
+
+	protected void SendChat()
+	{
+		string text = m_ChatEdit.GetText();
+		if (text.Trim() == "")
+			return;
+		KPK_Client.SendText(KPK_C.CHAT_SEND, text, m_ChatTo);
+		m_ChatEdit.SetText("");
+		m_ChatOffset = 0;
+	}
+
+	// =================================================================== contacts
+
+	protected Widget BuildContacts()
+	{
+		Widget page = Content();
+		Widget left = KPK_UI.Card(page, 0, 0, 0.42, 1, "КОНТАКТЫ");
+		m_ContactList = new KPK_List(left, 0.04, 0.06, 0.92, 0.7, 9, "— контактов нет —");
+		m_Lists.Insert(m_ContactList);
+		KPK_UI.Text(left, "Позывной", 0.04, 0.775, 0.5, 0.045, 13, KPK_UI.C_DIM);
+		m_ContactName = KPK_UI.Edit(left, 0.04, 0.825, 0.92, 0.06);
+		AddButton(left, B_K_ADD, "ДОБАВИТЬ", 0.04, 0.91, 0.45, 0.06);
+		AddButton(left, B_K_DEL, "УДАЛИТЬ", 0.51, 0.91, 0.45, 0.06);
+
+		Widget right = KPK_UI.Card(page, 0.44, 0, 0.56, 1, "СВЕДЕНИЯ");
+		m_ContactText = KPK_UI.MText(right, 0.04, 0.08, 0.92, 0.58, 15, KPK_UI.C_TEXT);
+		AddButton(right, B_K_WRITE, "НАПИСАТЬ", 0.04, 0.7, 0.44, 0.07);
+		AddButton(right, B_K_PARTY, "В ГРУППУ", 0.52, 0.7, 0.44, 0.07);
+		MultilineTextWidget hint = KPK_UI.MText(right, 0.04, 0.8, 0.92, 0.18, 12, KPK_UI.C_DIM);
+		hint.SetText("Знак <> - контакт взаимный. Статус «в сети» виден у всех контактов.");
+		if (m_Theme.Glitch)
+			hint.Show(false);
+		return page;
+	}
+
+	protected KPK_ContactView SelectedContact()
+	{
+		KPK_View v = KPK_Client.s_View;
+		int i = m_ContactList.Selected();
+		if (!v || i < 0 || i >= v.Contacts.Count())
+			return null;
+		return v.Contacts[i];
+	}
+
+	protected void RefreshContacts()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v)
+			return;
+
+		array<string> names = new array<string>();
+		array<int> colors = new array<int>();
+		foreach (KPK_ContactView c : v.Contacts)
+		{
+			string row = c.Callsign;
+			if (c.Mutual)
+				row += "  <>";
+			if (c.Online)
+			{
+				row += "  [в сети]";
+				colors.Insert(KPK_UI.C_ACCENT);
+			}
+			else
+				colors.Insert(KPK_UI.C_DIM);
+			names.Insert(row);
+		}
+		m_ContactList.Set(names, colors);
+
+		KPK_ContactView sel = SelectedContact();
+		if (!sel)
+		{
+			if (v.Contacts.Count() == 0)
+				m_ContactText.SetText("Список пуст.\n\nВпишите позывной сталкера слева и нажмите «ДОБАВИТЬ».");
+			else
+				m_ContactText.SetText("Выберите контакт из списка.");
+			return;
+		}
+		string text = sel.Callsign + "\n\n";
+		if (sel.Online)
+			text += "Статус:  в сети\n";
+		else
+			text += "Статус:  нет сигнала\n";
+		string faction = sel.Faction;
+		if (faction == "")
+			faction = "неизвестно";
+		text += "Группировка:  " + faction + "\n";
+		if (sel.LastSeen != "")
+			text += "Последний вход:  " + sel.LastSeen + "\n";
+		if (sel.Mutual)
+			text += "\nКонтакт взаимный.";
+		else
+			text += "\nВас нет в его контактах.";
+		m_ContactText.SetText(text);
+	}
+
 	// =================================================================== data events
 
 	void OnView()
@@ -1412,6 +1597,24 @@ class KPK_Menu extends UIScriptedMenu
 		RefreshHeader();
 	}
 
+	void OnChat(KPK_ChatMessage line)
+	{
+		if (m_Page == P_CHAT)
+		{
+			m_ChatOffset = 0;
+			RefreshChat();
+			return;
+		}
+		KPK_View v = KPK_Client.s_View;
+		if (v && line.From != v.Callsign && v.LoggedIn)
+		{
+			if (line.To != "")
+				SetStatus("Личное сообщение от " + line.From);
+			else
+				SetStatus("Сообщение в эфире: " + line.From);
+		}
+	}
+
 	void OnStatus(string text)
 	{
 		SetStatus(text);
@@ -1440,6 +1643,8 @@ class KPK_Menu extends UIScriptedMenu
 			case P_FACTIONS: RefreshFactions(); break;
 			case P_TASKS: RefreshTasks(); break;
 			case P_NOTES: RefreshNotes(); break;
+			case P_CHAT: RefreshChat(); break;
+			case P_CONTACTS: RefreshContacts(); break;
 		}
 	}
 
@@ -1573,6 +1778,12 @@ class KPK_Menu extends UIScriptedMenu
 			SubmitLogin();
 			return true;
 		}
+		// Enter in the chat line sends it
+		if (finished && w == m_ChatEdit && m_Page == P_CHAT)
+		{
+			SendChat();
+			return true;
+		}
 		return super.OnChange(w, x, y, finished);
 	}
 
@@ -1652,6 +1863,10 @@ class KPK_Menu extends UIScriptedMenu
 		else if (list == m_NoteList)
 		{
 			ShowSelectedNote(false);
+		}
+		else if (list == m_ContactList)
+		{
+			RefreshContacts();
 		}
 		else if (list == m_MarkerList)
 		{
@@ -1859,6 +2074,66 @@ class KPK_Menu extends UIScriptedMenu
 					ShowSelectedNote(true);
 				}
 				break;
+
+			// chat
+			case B_C_SEND:
+				SendChat();
+				break;
+			case B_C_PUBLIC:
+				m_ChatTo = "";
+				RefreshChat();
+				break;
+			case B_C_OLDER:
+				m_ChatOffset += 3;
+				RefreshChat();
+				break;
+			case B_C_NEWER:
+				m_ChatOffset -= 3;
+				if (m_ChatOffset < 0)
+					m_ChatOffset = 0;
+				RefreshChat();
+				break;
+
+			// contacts
+			case B_K_ADD:
+				KPK_Client.SendText(KPK_C.CONTACT_ADD, m_ContactName.GetText());
+				m_ContactName.SetText("");
+				break;
+			case B_K_DEL:
+			{
+				KPK_ContactView dc = SelectedContact();
+				if (dc)
+				{
+					KPK_Client.SendText(KPK_C.CONTACT_DEL, dc.Callsign);
+					m_ContactList.m_Selected = -1;
+				}
+				else
+					SetStatus("Выберите контакт в списке");
+				break;
+			}
+			case B_K_WRITE:
+			{
+				KPK_ContactView wc = SelectedContact();
+				if (!wc)
+				{
+					SetStatus("Выберите контакт в списке");
+					break;
+				}
+				m_ChatTo = wc.Callsign;
+				m_ChatOffset = 0;
+				ShowPage(P_CHAT);
+				SetFocus(m_ChatEdit);
+				break;
+			}
+			case B_K_PARTY:
+			{
+				KPK_ContactView pc = SelectedContact();
+				if (pc)
+					KPK_Client.SendText(KPK_C.PARTY_INVITE, pc.Callsign);
+				else
+					SetStatus("Выберите контакт в списке");
+				break;
+			}
 		}
 	}
 };

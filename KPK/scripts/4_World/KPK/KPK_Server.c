@@ -23,6 +23,14 @@ class KPK_Invite
 	int Time;
 };
 
+// chat line on the server: who may read it
+class KPK_ChatEntry
+{
+	string FromId;
+	string ToId;      // "" = general channel
+	ref KPK_ChatMessage Msg;
+};
+
 class KPK_Server
 {
 	protected static ref KPK_Server s_Instance;
@@ -36,6 +44,7 @@ class KPK_Server
 	ref map<string, bool> m_LoggedIn;
 	ref map<string, bool> m_Open;
 	ref map<string, int> m_OpenModel;               // steamId -> KPK_Model the KPK was opened with
+	ref map<string, EntityAI> m_OpenDevice;         // steamId -> the device itself
 	ref map<string, int> m_LoginFails;
 	ref map<string, int> m_LockedUntil;           // GetTime() ms
 	ref map<string, vector> m_LastPos;
@@ -46,6 +55,9 @@ class KPK_Server
 	int m_NextPartyId = 1;
 	ref array<ref KPK_Invite> m_Invites;
 	ref map<string, ref KPK_Assembler> m_Incoming;   // chunked client messages per sender
+	ref array<ref KPK_ChatEntry> m_Chat;
+	int m_ChatNextId = 1;
+	ref map<string, int> m_ChatLast;                // steamId -> GetTime() of the last message
 
 	static KPK_Server Get()
 	{
@@ -71,6 +83,7 @@ class KPK_Server
 		m_LoggedIn = new map<string, bool>();
 		m_Open = new map<string, bool>();
 		m_OpenModel = new map<string, int>();
+		m_OpenDevice = new map<string, EntityAI>();
 		m_LoginFails = new map<string, int>();
 		m_LockedUntil = new map<string, int>();
 		m_LastPos = new map<string, vector>();
@@ -79,6 +92,8 @@ class KPK_Server
 		m_PartyOf = new map<string, int>();
 		m_Invites = new array<ref KPK_Invite>();
 		m_Incoming = new map<string, ref KPK_Assembler>();
+		m_Chat = new array<ref KPK_ChatEntry>();
+		m_ChatLast = new map<string, int>();
 
 		m_Settings = KPK_Settings.Load();
 		LoadIndex();
@@ -120,6 +135,47 @@ class KPK_Server
 			CreateExampleFactions();
 			SaveFactions();
 		}
+		EnsureDeviceFactions();
+	}
+
+	// the factions the locked devices belong to must exist, also on servers with an older factions.json
+	protected void EnsureDeviceFactions()
+	{
+		bool added = false;
+		if (m_Settings.MilitaryFaction != "" && !FindFaction(m_Settings.MilitaryFaction))
+		{
+			AddExampleFaction(m_Settings.MilitaryFaction, "ОКСОП", "Объединённое командование специальных операций. Закрытая сеть ВПК-7М.", 7, "Блокпост на Кордоне", true);
+			added = true;
+		}
+		if (m_Settings.ScienceFaction != "" && !FindFaction(m_Settings.ScienceFaction))
+		{
+			AddExampleFaction(m_Settings.ScienceFaction, "НИИ «Агропром»", "Научная экспедиция. Полевые наблюдения, аномалии, артефакты.", 4, "Бункер учёных, Янтарь", false);
+			added = true;
+		}
+		if (m_Settings.MonolithFaction != "" && !FindFaction(m_Settings.MonolithFaction))
+		{
+			AddExampleFaction(m_Settings.MonolithFaction, "Монолит", "Братья Монолита. Чужим здесь не место.", 6, "Неизвестно", true);
+			added = true;
+		}
+		if (added)
+			SaveFactions();
+	}
+
+	// faction id whose members may use this model, "" = anyone
+	string DeviceFaction(int model)
+	{
+		string id = "";
+		switch (model)
+		{
+			case KPK_Model.STALKER: id = m_Settings.StalkerFaction; break;
+			case KPK_Model.MILITARY: id = m_Settings.MilitaryFaction; break;
+			case KPK_Model.MONOLITH: id = m_Settings.MonolithFaction; break;
+			case KPK_Model.SCIENCE: id = m_Settings.ScienceFaction; break;
+		}
+		// a lock on a faction that was removed would make the device useless for everyone
+		if (id != "" && !FindFaction(id))
+			return "";
+		return id;
 	}
 
 	protected void CreateExampleFactions()
@@ -199,6 +255,19 @@ class KPK_Server
 		SaveFactions();
 	}
 
+	static bool IsSteamId(string text)
+	{
+		if (text.Length() != 17)
+			return false;
+		string digits = "0123456789";
+		for (int i = 0; i < 17; i++)
+		{
+			if (digits.IndexOf(text.Get(i)) == -1)
+				return false;
+		}
+		return true;
+	}
+
 	string CallsignOf(string steamId)
 	{
 		foreach (KPK_IndexEntry e : m_Index.Accounts)
@@ -251,6 +320,7 @@ class KPK_Server
 		m_LoggedIn.Remove(steamId);
 		m_Open.Remove(steamId);
 		m_OpenModel.Remove(steamId);
+		m_OpenDevice.Remove(steamId);
 		m_LastPos.Remove(steamId);
 		m_LastMatesCount.Remove(steamId);
 		m_Incoming.Remove(steamId);
@@ -347,7 +417,7 @@ class KPK_Server
 		view.ShowSelfOnMap = m_Settings.ShowSelfOnMap;
 		view.NoteMaxLength = m_Settings.NoteMaxLength;
 		view.Battery = -1;
-		EntityAI device = KPK_Device.FindOn(player, true);
+		EntityAI device = OpenDevice(player, steamId);
 		if (m_Settings.RequireBattery && device)
 			view.Battery = KPK_Device.GetBatteryLevel(device);
 		int model = KPK_Device.ModelOf(device);
@@ -481,7 +551,50 @@ class KPK_Server
 		foreach (KPK_Note n : acc.Notes)
 			view.Notes.Insert(n);
 
+		// chat: the general channel and the player's own private messages, newest 30
+		view.ChatMaxLength = m_Settings.ChatMaxLength;
+		array<KPK_ChatMessage> visible = new array<KPK_ChatMessage>();
+		for (int ci = m_Chat.Count() - 1; ci >= 0 && visible.Count() < 30; ci--)
+		{
+			KPK_ChatEntry ce = m_Chat[ci];
+			if (ce.ToId == "" || ce.ToId == steamId || ce.FromId == steamId)
+				visible.Insert(ce.Msg);
+		}
+		for (int vi = visible.Count() - 1; vi >= 0; vi--)
+			view.Chat.Insert(visible[vi]);
+
+		foreach (string contactId : acc.Contacts)
+		{
+			KPK_ContactView cv = new KPK_ContactView();
+			cv.Callsign = CallsignOf(contactId);
+			cv.Online = online.Contains(contactId);
+			KPK_Account other = GetAccount(contactId);
+			if (other)
+			{
+				cv.Mutual = other.Contacts.Find(steamId) != -1;
+				cv.LastSeen = other.LastSeen;
+			}
+			string tagName;
+			int tagColor;
+			PublicFaction(contactId, tagName, tagColor);
+			cv.Faction = tagName;
+			cv.Color = tagColor;
+			view.Contacts.Insert(cv);
+		}
+
 		return view;
+	}
+
+	// the faction other players may see: none for hidden factions or ones with a secret member list
+	void PublicFaction(string steamId, out string name, out int color)
+	{
+		name = "";
+		color = 0;
+		KPK_Faction f = FactionOf(steamId);
+		if (!f || f.Hidden || f.EncryptMembers)
+			return;
+		name = f.Name;
+		color = KPK_Const.Palette(f.Color);
 	}
 
 	KPK_FactionView BuildFactionView(KPK_Faction f, bool insider, bool isAdmin, bool mine, map<string, PlayerBase> online)
@@ -838,7 +951,7 @@ class KPK_Server
 			// battery drain while the KPK is open
 			if (m_Open.Contains(steamId) && m_Settings.RequireBattery)
 			{
-				EntityAI device = KPK_Device.FindOn(player, true);
+				EntityAI device = OpenDevice(player, steamId);
 				float level = -1;
 				if (device)
 					level = KPK_Device.Drain(device, m_Settings.BatteryDrainPercentPerMinute * dt / 60.0);
@@ -974,6 +1087,7 @@ class KPK_Server
 			bool blocked = action == KPK_C.NOTE_SAVE || action == KPK_C.NOTE_DEL || action == KPK_C.ADMIN_FACTION;
 			blocked = blocked || action == KPK_C.FACTION_INVITE || action == KPK_C.FACTION_RESPOND || action == KPK_C.FACTION_LEAVE;
 			blocked = blocked || action == KPK_C.FACTION_KICK || action == KPK_C.FACTION_SETROLE;
+			blocked = blocked || action == KPK_C.CHAT_SEND || action == KPK_C.CONTACT_ADD || action == KPK_C.CONTACT_DEL;
 			blocked = blocked || ((action == KPK_C.MARKER_ADD || action == KPK_C.MARKER_EDIT || action == KPK_C.MARKER_DEL) && req.I2 == KPK_Scope.FACTION);
 			if (blocked)
 			{
@@ -999,7 +1113,148 @@ class KPK_Server
 			case KPK_C.FACTION_KICK: HandleFactionKick(player, acc, req); break;
 			case KPK_C.FACTION_SETROLE: HandleFactionSetRole(player, acc, req); break;
 			case KPK_C.ADMIN_FACTION: HandleAdmin(player, acc, req); break;
+			case KPK_C.CHAT_SEND: HandleChat(player, acc, req); break;
+			case KPK_C.CONTACT_ADD: HandleContact(player, acc, req, true); break;
+			case KPK_C.CONTACT_DEL: HandleContact(player, acc, req, false); break;
 		}
+	}
+
+	// =================================================================== chat and contacts
+
+	protected void HandleChat(PlayerBase player, KPK_Account acc, KPK_Req req)
+	{
+		string text = KPK_Util.Clean(req.S1, m_Settings.ChatMaxLength);
+		if (text == "")
+			return;
+
+		int now = GetGame().GetTime();
+		int last;
+		if (m_ChatLast.Find(acc.SteamId, last) && now - last < m_Settings.ChatCooldownSec * 1000)
+		{
+			Msg(player, "Передатчик перегрет, подождите");
+			return;
+		}
+
+		string toId = "";
+		string toName = KPK_Util.Clean(req.S2, 64);
+		if (toName != "")
+		{
+			toId = SteamIdOfCallsign(toName);
+			if (toId == "")
+			{
+				Msg(player, "Позывной «" + toName + "» не найден");
+				return;
+			}
+			if (toId == acc.SteamId)
+			{
+				Msg(player, "Нельзя писать самому себе");
+				return;
+			}
+			toName = CallsignOf(toId);
+		}
+		m_ChatLast.Set(acc.SteamId, now);
+
+		KPK_ChatMessage msg = new KPK_ChatMessage();
+		msg.Id = m_ChatNextId;
+		m_ChatNextId++;
+		int year, month, day, hour, minute;
+		GetGame().GetWorld().GetDate(year, month, day, hour, minute);
+		msg.Time = hour.ToStringLen(2) + ":" + minute.ToStringLen(2);
+		msg.From = acc.Callsign;
+		msg.To = toName;
+		msg.Text = text;
+		string tagName;
+		int tagColor;
+		PublicFaction(acc.SteamId, tagName, tagColor);
+		msg.Tag = tagName;
+		msg.Color = tagColor;
+
+		KPK_ChatEntry entry = new KPK_ChatEntry();
+		entry.FromId = acc.SteamId;
+		entry.ToId = toId;
+		entry.Msg = msg;
+		m_Chat.Insert(entry);
+		while (m_Chat.Count() > m_Settings.ChatHistory && m_Chat.Count() > 0)
+			m_Chat.RemoveOrdered(0);
+
+		Print("[KPK] chat " + acc.Callsign + " -> " + toName + ": " + text);
+		BroadcastChat(entry);
+	}
+
+	// open KPKs get the line, closed full KPKs in the inventory show it as a notification
+	protected void BroadcastChat(KPK_ChatEntry entry)
+	{
+		string json = KPK_Json<KPK_ChatMessage>.To(entry.Msg);
+		map<string, PlayerBase> online = OnlinePlayers();
+		foreach (string sid, PlayerBase p : online)
+		{
+			if (entry.ToId != "" && sid != entry.ToId && sid != entry.FromId)
+				continue;
+			if (!GetAccount(sid))
+				continue;
+
+			int openModel;
+			if (m_Open.Contains(sid) && m_OpenModel.Find(sid, openModel) && KPK_Const.FullAccess(openModel))
+			{
+				SendRaw(p, KPK_S.CHAT, json);
+				continue;
+			}
+			if (!m_Settings.ChatNotifyClosed || sid == entry.FromId || !p.IsAlive())
+				continue;
+			EntityAI device = KPK_Device.FindOn(p, true);
+			if (!device || !KPK_Const.FullAccess(KPK_Device.ModelOf(device)))
+				continue;
+			if (m_Settings.RequireBattery && KPK_Device.GetBatteryLevel(device) <= 0)
+				continue;
+			// a locked device of somebody else's faction stays silent
+			if (!MayUse(sid, KPK_Device.ModelOf(device)))
+				continue;
+			string title = "КПК: " + entry.Msg.From;
+			if (entry.ToId != "")
+				title = "КПК: личное от " + entry.Msg.From;
+			Notify(p, title, KPK_Util.FromWire(entry.Msg.Text));
+		}
+	}
+
+	protected void HandleContact(PlayerBase player, KPK_Account acc, KPK_Req req, bool add)
+	{
+		string name = KPK_Util.Clean(req.S1, 64);
+		string targetId = SteamIdOfCallsign(name);
+		if (targetId == "")
+		{
+			Msg(player, "Позывной «" + name + "» не найден");
+			return;
+		}
+		int index = acc.Contacts.Find(targetId);
+		if (add)
+		{
+			if (targetId == acc.SteamId)
+			{
+				Msg(player, "Это ваш собственный позывной");
+				return;
+			}
+			if (index != -1)
+			{
+				Msg(player, "Уже в контактах");
+				return;
+			}
+			if (acc.Contacts.Count() >= m_Settings.MaxContacts)
+			{
+				Msg(player, "Список контактов заполнен");
+				return;
+			}
+			acc.Contacts.Insert(targetId);
+			Msg(player, "Контакт «" + CallsignOf(targetId) + "» добавлен");
+		}
+		else
+		{
+			if (index == -1)
+				return;
+			acc.Contacts.RemoveOrdered(index);
+			Msg(player, "Контакт «" + CallsignOf(targetId) + "» удалён");
+		}
+		MarkDirty(acc.SteamId);
+		SendView(player);
 	}
 
 	// =================================================================== account
@@ -1009,10 +1264,15 @@ class KPK_Server
 		if (!player.IsAlive())
 			return;
 
-		EntityAI device = KPK_Device.FindOn(player, true);
+		EntityAI device = PickDevice(player, steamId);
 		if (!device)
 		{
 			SendRaw(player, KPK_S.DENIED, "КПК НЕ НАЙДЕН");
+			return;
+		}
+		if (device.IsRuined())
+		{
+			SendRaw(player, KPK_S.DENIED, "УСТРОЙСТВО НЕИСПРАВНО");
 			return;
 		}
 		if (m_Settings.RequireBattery)
@@ -1030,12 +1290,102 @@ class KPK_Server
 			}
 		}
 
+		// faction-locked models: strangers lose the device (and the Monolith one bites back)
+		int deviceModel = KPK_Device.ModelOf(device);
+		if (!MayUse(steamId, deviceModel))
+		{
+			PunishStranger(player, ItemBase.Cast(device), deviceModel);
+			return;
+		}
+
 		if (!m_Settings.PasswordOncePerSession && !m_Open.Contains(steamId))
 			m_LoggedIn.Remove(steamId);
 
 		m_Open.Set(steamId, true);
-		m_OpenModel.Set(steamId, KPK_Device.ModelOf(device));
+		m_OpenModel.Set(steamId, deviceModel);
+		m_OpenDevice.Set(steamId, device);
 		SendView(player);
+	}
+
+	bool MayUse(string steamId, int model)
+	{
+		string lockFaction = DeviceFaction(model);
+		if (lockFaction == "")
+			return true;
+		if (m_Settings.AdminsBypassDeviceLock && m_Settings.IsAdmin(steamId))
+			return true;
+		KPK_Faction f = FactionOf(steamId);
+		return f && f.Id == lockFaction;
+	}
+
+	// the device in the hands is always the one switched on. Otherwise from the inventory:
+	// an own powered one first, then an own unpowered one (power message), a foreign one last
+	EntityAI PickDevice(PlayerBase player, string steamId)
+	{
+		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
+		if (KPK_Device.IsKPK(inHands))
+			return inHands;
+
+		EntityAI unpowered = null;
+		EntityAI foreign = null;
+		array<EntityAI> items = new array<EntityAI>();
+		player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+		foreach (EntityAI item : items)
+		{
+			if (!KPK_Device.IsKPK(item) || item.IsRuined())
+				continue;
+			if (!MayUse(steamId, KPK_Device.ModelOf(item)))
+			{
+				if (!foreign)
+					foreign = item;
+				continue;
+			}
+			if (!m_Settings.RequireBattery || KPK_Device.GetBatteryLevel(item) > 0)
+				return item;
+			if (!unpowered)
+				unpowered = item;
+		}
+		if (unpowered)
+			return unpowered;
+		return foreign;
+	}
+
+	// the device the KPK was opened with, while it is still on the player
+	EntityAI OpenDevice(PlayerBase player, string steamId)
+	{
+		EntityAI device;
+		if (m_OpenDevice.Find(steamId, device) && device && !device.IsRuined() && device.GetHierarchyRootPlayer() == player)
+			return device;
+		return KPK_Device.FindOn(player, true);
+	}
+
+	protected void PunishStranger(PlayerBase player, ItemBase device, int model)
+	{
+		if (!device)
+			return;
+		string steamId = player.GetIdentity().GetPlainId();
+		m_Open.Remove(steamId);
+		Battery9V battery = KPK_Device.GetBattery(device);
+		if (battery && battery.HasEnergyManager())
+			battery.GetCompEM().SetEnergy(0);
+
+		if (model == KPK_Model.MONOLITH)
+		{
+			SendRaw(player, KPK_S.DENIED, "ТЫ НЕ ИЗ НАС");
+			Notify(player, KPK_Const.ModelName(model), "…ЧУЖОЙ… МОНОЛИТ НЕ ПРИНИМАЕТ ТЕБЯ…");
+			GetGame().RPCSingleParam(player, KPK_RPC_FX, new Param1<vector>(device.GetPosition()), true);
+			device.SetHealth("", "", 0);
+			player.AddHealth("", "Health", -m_Settings.MonolithTrapDamage);
+			if (m_Settings.MonolithTrapKnockout)
+				player.SetHealth("", "Shock", 0);
+			Print("[KPK] Monolith device blew up in the hands of " + steamId);
+			return;
+		}
+
+		SendRaw(player, KPK_S.DENIED, "ДОСТУП ЗАПРЕЩЁН");
+		Notify(player, KPK_Const.ModelName(model), "ДОСТУП ЗАПРЕЩЁН. Несанкционированный доступ: память стёрта, устройство заблокировано.");
+		device.SetHealth("", "", 0);
+		Print("[KPK] " + KPK_Const.ModelName(model) + " locked out " + steamId);
 	}
 
 	protected void HandleRegister(PlayerBase player, string steamId, KPK_Req req)
@@ -1834,6 +2184,10 @@ class KPK_Server
 		if (req.I1 == KPK_AdminOp.SET_LEADER || req.I1 == KPK_AdminOp.ADD_MEMBER)
 		{
 			string targetId = SteamIdOfCallsign(req.S2);
+			// a Steam64 ID works too, also for a player who has no account yet
+			string raw = req.S2.Trim();
+			if (targetId == "" && IsSteamId(raw))
+				targetId = raw;
 			if (targetId == "")
 			{
 				Msg(player, "Позывной «" + req.S2 + "» не найден");

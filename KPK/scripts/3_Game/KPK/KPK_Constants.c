@@ -24,7 +24,10 @@ enum KPK_C
 	FACTION_KICK,
 	FACTION_SETROLE,
 	ADMIN_FACTION,
-	MARKER_EDIT      // I1 id, I2 scope, S1 name, S2 type, I3 = 1 -> move to F1/F2
+	MARKER_EDIT,     // I1 id, I2 scope, S1 name, S2 type, I3 = 1 -> move to F1/F2
+	CHAT_SEND,       // S1 text, S2 callsign for a private message ("" = general channel)
+	CONTACT_ADD,     // S1 callsign
+	CONTACT_DEL      // S1 callsign
 };
 
 // server -> client
@@ -33,7 +36,8 @@ enum KPK_S
 	VIEW = 100,   // full snapshot (KPK_View)
 	MATES,        // positions of party / faction mates (KPK_MatesMsg)
 	MSG,          // status line text
-	DENIED        // cannot open (no battery, no device) - text in json
+	DENIED,       // cannot open (no battery, no device) - text in json
+	CHAT          // one new chat message (KPK_ChatMessage)
 };
 
 // ADMIN_FACTION sub-operations (KPK_Req.I1)
@@ -100,6 +104,18 @@ class KPK_Const
 	static bool FullAccess(int model)
 	{
 		return model != KPK_Model.BRICK;
+	}
+
+	static string ModelName(int model)
+	{
+		switch (model)
+		{
+			case KPK_Model.STALKER: return "КПК-М1";
+			case KPK_Model.MILITARY: return "ВПК-7М";
+			case KPK_Model.MONOLITH: return "ПИК №ОС-031";
+			case KPK_Model.SCIENCE: return "ПИК №042";
+		}
+		return "КПК";
 	}
 
 	// atmospheric marker types; icons are vanilla map icons

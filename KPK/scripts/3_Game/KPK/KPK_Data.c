@@ -68,9 +68,11 @@ class KPK_Account
 	ref array<ref KPK_Note> Notes;
 	ref array<ref KPK_Task> Tasks;
 	ref array<ref KPK_Reputation> Reputation;
+	ref array<string> Contacts;   // steam ids
 
 	void KPK_Account()
 	{
+		Contacts = new array<string>();
 		Stats = new KPK_Stats();
 		Markers = new array<ref KPK_Marker>();
 		Notes = new array<ref KPK_Note>();
@@ -86,6 +88,7 @@ class KPK_Account
 		if (!Notes) Notes = new array<ref KPK_Note>();
 		if (!Tasks) Tasks = new array<ref KPK_Task>();
 		if (!Reputation) Reputation = new array<ref KPK_Reputation>();
+		if (!Contacts) Contacts = new array<string>();
 		if (NextId < 1) NextId = 1;
 
 		// text saved by older versions may hold characters that break the JSON view
@@ -287,6 +290,28 @@ class KPK_FactionView
 	}
 };
 
+// a chat line as the client sees it
+class KPK_ChatMessage
+{
+	int Id;
+	string Time;       // hh:mm of the game world
+	string From;       // callsign
+	string Tag;        // faction name, "" when unknown or secret
+	int Color;         // faction color, 0 = default
+	string To;         // callsign of the receiver of a private message, "" = general channel
+	string Text;
+};
+
+class KPK_ContactView
+{
+	string Callsign;
+	bool Online;
+	bool Mutual;       // they have you in their contacts too
+	string Faction;    // "" when none or secret
+	int Color;
+	string LastSeen;
+};
+
 class KPK_RepView
 {
 	string FactionName;
@@ -341,6 +366,10 @@ class KPK_View
 	ref array<ref KPK_Task> Tasks;
 	ref array<ref KPK_Note> Notes;
 
+	ref array<ref KPK_ChatMessage> Chat;        // general channel + own private messages, oldest first
+	ref array<ref KPK_ContactView> Contacts;
+	int ChatMaxLength;
+
 	// settings the UI follows
 	bool ShowSelfOnMap;
 	int NoteMaxLength;
@@ -356,6 +385,8 @@ class KPK_View
 		Factions = new array<ref KPK_FactionView>();
 		Tasks = new array<ref KPK_Task>();
 		Notes = new array<ref KPK_Note>();
+		Chat = new array<ref KPK_ChatMessage>();
+		Contacts = new array<ref KPK_ContactView>();
 	}
 };
 
