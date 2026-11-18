@@ -485,7 +485,9 @@ class KPK_Server
 		if (m_OpenModel.Find(steamId, openedWith))
 			model = openedWith;
 		view.DeviceModel = model;
-		bool full = KPK_Const.FullAccess(model);
+		// admins get every function on every device, the brick included, to manage factions
+		bool isAdmin = m_Settings.IsAdmin(steamId);
+		bool full = KPK_Const.FullAccess(model) || isAdmin;
 
 		KPK_Account acc = GetAccount(steamId);
 		view.Registered = acc != null;
@@ -498,7 +500,6 @@ class KPK_Server
 		if (!view.LoggedIn)
 			return view;
 
-		bool isAdmin = m_Settings.IsAdmin(steamId);
 		view.IsAdmin = isAdmin;
 		view.RegisteredDate = acc.Registered;
 		view.Stats = acc.Stats;
@@ -1144,7 +1145,7 @@ class KPK_Server
 
 		int openModel = KPK_Model.BRICK;
 		m_OpenModel.Find(steamId, openModel);
-		if (!KPK_Const.FullAccess(openModel))
+		if (!KPK_Const.FullAccess(openModel) && !m_Settings.IsAdmin(steamId))
 		{
 			bool blocked = action == KPK_C.NOTE_SAVE || action == KPK_C.NOTE_DEL || action == KPK_C.ADMIN_FACTION;
 			blocked = blocked || action == KPK_C.FACTION_INVITE || action == KPK_C.FACTION_RESPOND || action == KPK_C.FACTION_LEAVE;
@@ -1256,7 +1257,7 @@ class KPK_Server
 				continue;
 
 			int openModel;
-			if (m_Open.Contains(sid) && m_OpenModel.Find(sid, openModel) && KPK_Const.FullAccess(openModel))
+			if (m_Open.Contains(sid) && m_OpenModel.Find(sid, openModel) && (KPK_Const.FullAccess(openModel) || m_Settings.IsAdmin(sid)))
 			{
 				SendRaw(p, KPK_S.CHAT, json);
 				continue;

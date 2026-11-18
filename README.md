@@ -143,7 +143,7 @@
 | `StatsTickSec` | `10` | шаг подсчёта времени в игре и пройденного пути |
 | `SaveIntervalSec` | `60` | как часто изменённые аккаунты пишутся на диск |
 | `MilitaryFaction` / `ScienceFaction` / `MonolithFaction` / `StalkerFaction` | `oksop` / `nii` / `monolith` / пусто | чья модель КПК (id группировки из `factions.json`), пусто — для всех |
-| `AdminsBypassDeviceLock` | `1` | админы могут включать любые КПК |
+| `AdminsBypassDeviceLock` | `1` | админы могут включать любые КПК (и на любом, даже на кирпиче, у них все вкладки и панель управления группировками) |
 | `MonolithTrapDamage` / `MonolithTrapKnockout` | `50` / `1` | урон и потеря сознания от КПК Монолита в чужих руках |
 | `ChatHistory` / `ChatMaxLength` / `ChatCooldownSec` | `40` / `160` / `2` | сколько сообщений хранить, длина сообщения, пауза между сообщениями (с) |
 | `FactionRoster` | образец | лидеры и состав группировок, см. «КПК группировок» |

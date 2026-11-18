@@ -244,7 +244,7 @@ class KPK_Menu extends UIScriptedMenu
 		if (KPK_Client.s_View)
 			model = KPK_Client.s_View.DeviceModel;
 		m_Theme = KPK_Theme.Get(model);
-		m_Full = KPK_Const.FullAccess(model);
+		m_Full = KPK_Const.FullAccess(model) || (KPK_Client.s_View && KPK_Client.s_View.IsAdmin);
 		KPK_UI.Apply(m_Theme);
 
 		layoutRoot = GetGame().GetWorkspace().CreateWidgets(KPK_UI.DIR + "kpk_main.layout");
@@ -1569,6 +1569,8 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
+		// an admin gets the full set of tabs on any model (known only after login)
+		m_Full = KPK_Const.FullAccess(v.DeviceModel) || v.IsAdmin;
 
 		if (!v.LoggedIn)
 		{
