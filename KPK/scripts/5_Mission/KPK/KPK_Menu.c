@@ -328,12 +328,23 @@ class KPK_Menu extends UIScriptedMenu
 		m_Screen.SetPos(su - pad, sv - pad * aspect);
 		m_Screen.SetSize(sw + pad * 2, sh + pad * 2 * aspect);
 
+		// an ImageWidget without a picture draws a plain white box, so it stays hidden until one loads
 		ImageWidget img = ImageWidget.Cast(layoutRoot.FindAnyWidget("Art"));
-		if (img)
+		if (!img)
+			return;
+		img.Show(false);
+		array<string> paths = {"\\KPK\\data\\" + art + "_ca.paa", "KPK\\data\\" + art + "_ca.paa", "KPK/data/" + art + "_ca.paa"};
+		foreach (string path : paths)
 		{
-			img.LoadImageFile(0, "KPK\\data\\" + art + "_ca.paa");
-			img.SetImage(0);
+			if (img.LoadImageFile(0, path))
+			{
+				img.SetImage(0);
+				img.Show(true);
+				Print("[KPK] case picture: " + path);
+				return;
+			}
 		}
+		Print("[KPK] !!! case picture not found: KPK\\data\\" + art + "_ca.paa (run tools/convert_textures.bat and rebuild the PBO)");
 	}
 
 	override void OnShow()
