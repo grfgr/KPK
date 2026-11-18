@@ -8,6 +8,10 @@ from cfg import CFG
 sheet, name, out = sys.argv[1], sys.argv[2], sys.argv[3]
 c = CFG[name]
 img = Image.open(sheet).convert("RGB")
+if "patch" in c:
+    # cover loose bits painted over the case (the Monolith rosary) with the mirrored opposite corner
+    src, dst = c["patch"]
+    img.paste(img.crop(src).transpose(Image.FLIP_TOP_BOTTOM), dst)
 S = 2048
 atlas = Image.new("RGB", (S, S), (30, 30, 28))
 regions = {}

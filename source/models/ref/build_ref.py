@@ -148,6 +148,31 @@ def solid(name_, pts, z0, z1, bevel, segs=2, mode=1):
     return tag(ob, mode)
 
 
+def clip(poly, x0, y0, x1, y1):
+    # Sutherland-Hodgman: polygon cut by an axis-aligned box
+    def cut(pts, inside, inter):
+        out_ = []
+        for i in range(len(pts)):
+            a, b = pts[i - 1], pts[i]
+            if inside(b):
+                if not inside(a):
+                    out_.append(inter(a, b))
+                out_.append(b)
+            elif inside(a):
+                out_.append(inter(a, b))
+        return out_
+    def ix(a, b, x):
+        t = (x - a[0]) / (b[0] - a[0]); return (x, a[1] + t * (b[1] - a[1]))
+    def iy(a, b, y):
+        t = (y - a[1]) / (b[1] - a[1]); return (a[0] + t * (b[0] - a[0]), y)
+    pts = list(poly)
+    pts = cut(pts, lambda p: p[0] >= x0, lambda a, b: ix(a, b, x0))
+    if pts: pts = cut(pts, lambda p: p[0] <= x1, lambda a, b: ix(a, b, x1))
+    if pts: pts = cut(pts, lambda p: p[1] >= y0, lambda a, b: iy(a, b, y0))
+    if pts: pts = cut(pts, lambda p: p[1] <= y1, lambda a, b: iy(a, b, y1))
+    return pts
+
+
 def circle(cx_, cy_, rad, n=14):
     return [(cx_ + rad * math.cos(2 * math.pi * i / n), cy_ + rad * math.sin(2 * math.pi * i / n)) for i in range(n)]
 
@@ -178,12 +203,14 @@ for i, pt in enumerate(c.get("parts", [])):
     elif t == "plate":
         x0, y0, x1, y1 = rect_m(pt["r"])
         parts.append(solid(nm, rounded(x0, y0, x1, y1, min(x1 - x0, y1 - y0) * 0.15, 2), ZF - 0.0004, ZF + h, 0.0004))
-    elif t == "guard" or t == "wrap":
+    elif t == "guard":
+        # corner bumper: the case outline grown by 1.2 mm, cut to the corner box, so it follows the corner
+        g = 0.0012
+        grown = outline(-W / 2 - g, -H / 2 - g, W / 2 + g, H / 2 + g, kind, max(rpx * MPP, 0.009) + g)
         x0, y0, x1, y1 = rect_m(pt["r"], 3)
-        x0 = max(x0, -W / 2 - 0.0012); x1 = min(x1, W / 2 + 0.0012); y0 = max(y0, -H / 2 - 0.0012); y1 = min(y1, H / 2 + 0.0012)
-        if t == "wrap":
-            y0, y1 = -H / 2 - h, H / 2 + h
-        parts.append(solid(nm, rounded(x0, y0, x1, y1, min(x1 - x0, y1 - y0) * 0.3, 4), -ZF - h, ZF + h, 0.0028, 4, 0))
+        poly = clip(grown, x0, y0, x1, y1)
+        if len(poly) >= 3:
+            parts.append(solid(nm, poly, -ZF - h, ZF + h, min(0.0028, h * 0.9), 4, 0))
     elif t == "led":
         cx_, cy_ = P(*pt["c"]); rad = pt["rad"] * MPP
         parts.append(solid(nm, circle(cx_, cy_, rad), ZF - 0.0003, ZF + h, rad * 0.6, 3))
@@ -221,12 +248,12 @@ for i, pt in enumerate(c.get("parts", [])):
 
 if c.get("handles"):
     mx = 2 * CX
-    left = [(88, 92), (60, 92), (46, 112), (46, 352), (60, 374), (88, 374)]
+    left = [(85, 92), (58, 92), (45, 112), (45, 352), (58, 374), (85, 374)]
     parts.append(tag(tube("hl", left, 0.0024), 0))
     parts.append(tube("hr", [(mx - x, y) for x, y in left], 0.0024))
     parts.append(cylinder("gl", 57, 150, 300, 0.0058))
     parts.append(cylinder("gr", mx - 57, 150, 300, 0.0058))
-    parts.append(tube("ht", [(300, 47), (308, 36), (322, 32), (612, 32), (628, 36), (636, 47)], 0.0021))
+    parts.append(tube("ht", [(287, 47), (294, 36), (307, 31), (489, 31), (502, 36), (509, 47)], 0.0021))
 
 # ---- one object
 bpy.ops.object.select_all(action='DESELECT')

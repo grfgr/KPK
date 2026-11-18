@@ -2,24 +2,25 @@
 # front: the whole front view incl. handles (texture), body: the main case (geometry + scale),
 # screen: recessed screen, buttons: raised 1.2 mm, extra parts per model.
 CFG = {
-    "mil": dict(W=208, D=36, corner=("chamfer", 40), front=(36, 30, 774, 414), body=(86, 44, 726, 408),
+    "mil": dict(W=208, D=22, corner=("chamfer", 30), front=(36, 30, 774, 414), body=(83, 45, 714, 408),
                 screen=(172, 100, 626, 350),
                 buttons=[(110, 145, 150, 185), (110, 197, 150, 238), (108, 255, 152, 332), (640, 150, 705, 250), (648, 265, 702, 322)],
                 handles=True,
                 back=(620, 470, 1092, 714), left=(50, 483, 103, 723), right=(162, 483, 223, 723),
                 top=(262, 488, 598, 566), bottom=(262, 630, 598, 708)),
-    "mono": dict(W=182, D=30, corner=("chamfer", 30), front=(74, 36, 748, 420), body=(80, 40, 745, 416),
+    "mono": dict(W=182, D=18, corner=("chamfer", 38), front=(74, 36, 748, 420), body=(78, 42, 742, 412),
+                 patch=((74, 330, 180, 420), (74, 36)),
                  screen=(158, 90, 603, 368),
                  buttons=[(620, 150, 670, 200), (620, 205, 670, 255), (620, 262, 670, 312), (620, 318, 670, 365)],
                  back=(648, 480, 1048, 710), left=(38, 495, 112, 697), right=(172, 495, 236, 697),
                  top=(272, 495, 605, 548), bottom=(272, 632, 600, 686)),
-    "nii": dict(W=198, D=32, corner=("round", 26), front=(40, 36, 754, 448), body=(42, 52, 752, 446),
+    "nii": dict(W=198, D=18, corner=("round", 40), front=(40, 36, 754, 448), body=(43, 50, 753, 447),
                 screen=(150, 100, 680, 391),
                 buttons=[(88, 220, 128, 262), (697, 155, 733, 215), (697, 235, 733, 295)],
                 clips=[(255, 38, 335, 60), (515, 38, 595, 60)],
                 back=(655, 510, 1077, 737), left=(42, 515, 105, 745), right=(160, 515, 225, 745),
                 top=(268, 510, 617, 570), bottom=(268, 665, 617, 725)),
-    "m1": dict(W=178, D=28, corner=("round", 30), front=(60, 48, 746, 446), body=(62, 52, 745, 436),
+    "m1": dict(W=178, D=16, corner=("round", 48), front=(60, 48, 746, 446), body=(60, 50, 747, 433),
                screen=(150, 102, 640, 370),
                buttons=[(668, 152, 702, 198), (666, 205, 746, 275), (668, 285, 702, 330)],
                back=(648, 512, 1050, 728), left=(50, 512, 107, 744), right=(172, 512, 240, 744),
@@ -60,7 +61,6 @@ PARTS = {
         dict(t="plate", r=(328, 400, 430, 415), h=0.9),
         dict(t="guard", r=(78, 38, 142, 96), h=2.0), dict(t="guard", r=(78, 358, 142, 418), h=2.0),
         dict(t="guard", r=(600, 358, 675, 418), h=2.0),
-        dict(t="wrap", r=(682, 38, 750, 418), h=1.6),
         dict(t="clip", r=(316, 36, 346, 56)), dict(t="clip", r=(558, 36, 590, 56)),
         dict(t="screw", c=(110, 70), rad=7), dict(t="screw", c=(110, 388), rad=7),
         dict(t="bplate", r=(655, 505, 785, 690), h=1.0), dict(t="bplate", r=(790, 505, 985, 690), h=0.7),
@@ -100,7 +100,7 @@ PARTS = {
 # the case alone on the back view (no handles / straps sticking out): the back texture is fitted to it
 BACKBODY = {"mil": (645, 487, 1060, 712), "mono": (647, 480, 1047, 705), "nii": (655, 520, 1080, 735), "m1": (650, 507, 1047, 722)}
 # edge rounding of the case (mm) and corner radius bump, like a rugged tablet
-EDGE = {"mil": 5.0, "mono": 4.5, "nii": 5.5, "m1": 5.0}
+EDGE = {"mil": 7.0, "mono": 5.8, "nii": 5.8, "m1": 5.2}
 for _k in CFG:
     CFG[_k]["backbody"] = BACKBODY[_k]
     CFG[_k]["edge"] = EDGE[_k]
