@@ -3,8 +3,8 @@ from cfg import CFG
 
 # materials: colour sampled from the sheet box (median), kind = procedural pattern
 MATS = {
-    "mil":  {"body": dict(color=(92, 85, 58), kind="paint", scratch=0.9, rust=0.5),
-             "trim": dict(color=(60, 59, 56), kind="metal", scratch=0.7, rust=0.3)},
+    "mil":  {"body": dict(color=(80, 74, 50), kind="paint", scratch=0.4, rust=0.5, soft=True),
+             "trim": dict(color=(56, 55, 52), kind="metal", scratch=0.3, rust=0.25, soft=True)},
     "mono": {"body": dict(color=(98, 94, 86), kind="paint", scratch=1.0, rust=0.2),
              "trim": dict(color=(72, 70, 64), kind="metal", scratch=0.6, rust=0.1),
              "cloth": dict(color=(96, 85, 67), kind="cloth")},

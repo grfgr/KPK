@@ -125,8 +125,14 @@ parts = []
 case = prism("KPK", outline(-W / 2, -H / 2, W / 2, H / 2, kind, RAD), -ZF, ZF, c["edge"] / 1000.0, 5, 40)
 # stepped screen recess: a 1 mm frame step, then the glass well
 sx0, sy0, sx1, sy1 = rect_m(c["screen"])
+def scr_shape(x0, y0, x1, y1, r):
+    if c.get("screen_kind") == "chamfer":
+        return outline(x0, y0, x1, y1, "chamfer", r * 2.2)
+    return rounded(x0, y0, x1, y1, r)
+
+
 for grow, depth in ((0.0016, 0.0007), (0.0, 0.0016)):
-    cut = prism("cut", rounded(sx0 - grow, sy0 - grow, sx1 + grow, sy1 + grow, 0.0025 + grow), ZF - depth, ZF + 0.01)
+    cut = prism("cut", scr_shape(sx0 - grow, sy0 - grow, sx1 + grow, sy1 + grow, 0.0025 + grow), ZF - depth, ZF + 0.01)
     bo = case.modifiers.new("c", 'BOOLEAN'); bo.operation = 'DIFFERENCE'; bo.object = cut; bo.solver = 'EXACT'
     apply_all(case); bpy.data.objects.remove(cut)
 screen_dec = decal("screen", c["screen"])
@@ -233,9 +239,9 @@ for i, pt in enumerate(c["parts"]):
     elif t == "lip":
         a, b, cc, d = c["screen"]; g = pt["w"]
         ox0, oy0, ox1, oy1 = rect_m((a, b, cc, d), g + 2)
-        ring = rounded(ox0, oy0, ox1, oy1, 0.004)
+        ring = scr_shape(ox0, oy0, ox1, oy1, 0.004)
         ob = prism(nm, ring, ZF - 0.0004, ZF + h, 0.0004, 2)
-        cut = prism("lc", rounded(sx0 - 0.0016, sy0 - 0.0016, sx1 + 0.0016, sy1 + 0.0016, 0.0041), ZF - 0.01, ZF + 0.01)
+        cut = prism("lc", scr_shape(sx0 - 0.0016, sy0 - 0.0016, sx1 + 0.0016, sy1 + 0.0016, 0.0041), ZF - 0.01, ZF + 0.01)
         bo = ob.modifiers.new("c", 'BOOLEAN'); bo.operation = 'DIFFERENCE'; bo.object = cut; bo.solver = 'EXACT'
         apply_all(ob); bpy.data.objects.remove(cut)
         parts.append(paint(ob, TRIM))

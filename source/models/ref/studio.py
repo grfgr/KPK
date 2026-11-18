@@ -22,7 +22,9 @@ light((0.0, 0.45, 0.2), 4, 0.3)
 light((0.0, 0.0, -0.5), 1.5, 0.6)
 cam = bpy.data.cameras.new("c"); cam.lens = 85
 co = bpy.data.objects.new("c", cam); sc.collection.objects.link(co); sc.camera = co
-views = [("front", (0.0, -0.06, 0.48)), ("q_left", (-0.28, -0.22, 0.30)), ("back", (0.12, 0.18, -0.42)), ("top", (0.05, 0.35, 0.16))]
+ob_ = bpy.data.objects["KPK"]
+k_ = max(ob_.dimensions.x, ob_.dimensions.y) / 0.19
+views = [(n_, tuple(v * k_ for v in l_)) for n_, l_ in [("front", (0.0, -0.06, 0.48)), ("q_left", (-0.28, -0.22, 0.30)), ("back", (0.12, 0.18, -0.42)), ("top", (0.05, 0.35, 0.16))]]
 import os
 tmp = []
 for nm, loc in views:

@@ -20,10 +20,10 @@ PARTS = {
         dict(t="screw", c=(178, 82), rad=7), dict(t="screw", c=(632, 82), rad=7),
         # back (back view px)
         dict(t="bgrille", r=(640, 520, 770, 690), h=1.1, n=6, dir="h"),
-        dict(t="blabel", r=(790, 512, 985, 645), h=0.12, draw="text", bg="body", fg=(200, 180, 140),
+        dict(t="blabel", r=(790, 512, 985, 645), h=0.85, draw="text", bg="body", fg=(200, 180, 140),
              lines=["@tower", "ОБЪЕДИНЁННЫЙ КОНТИНГЕНТ", "СИЛ ОХРАНЫ ПЕРИМЕТРА", "ВПК-7М №3184"]),
-        dict(t="blabel", r=(818, 645, 922, 692), h=0.7, draw="plate", bg=(52, 50, 46), fg=(200, 196, 186), lines=["Инв. № 027645-30", "@barcode"]),
-        dict(t="blabel", r=(938, 650, 990, 682), h=0.12, draw="stripes", bg="body", fg=(196, 170, 120)),
+        dict(t="blabel", r=(818, 645, 922, 692), h=1.4, draw="plate", bg=(52, 50, 46), fg=(200, 196, 186), lines=["Инв. № 027645-30", "@barcode"]),
+        dict(t="blabel", r=(938, 650, 990, 682), h=0.85, draw="stripes", bg="body", fg=(196, 170, 120)),
         dict(t="bstrap", r=(985, 472, 1037, 712), h=2.0),
         dict(t="buckle", r=(986, 556, 1038, 596)),
     ],
@@ -84,6 +84,9 @@ PARTS = {
     ],
 }
 CFG["m1"]["D"] = 20
+CFG["mil"]["D"] = 28
+CFG["mil"]["edge"] = 6.0
+CFG["mil"]["screen_kind"] = "chamfer"
 CFG["m1"]["edge"] = 4.6
 for k in CFG:
     CFG[k]["parts"] = PARTS[k]

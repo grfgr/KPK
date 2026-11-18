@@ -9,7 +9,7 @@ VertexShaderID = "Super";
 
 class Stage1
 {
-	texture = "KPK\data\kpk_mil_body_nohq.paa";
+	texture = "KPK\data\kpk_mil_baked_nohq.paa";
 	uvSource = "tex";
 	class uvTransform
 	{
@@ -57,7 +57,7 @@ class Stage4
 };
 class Stage5
 {
-	texture = "KPK\data\kpk_mil_body_smdi.paa";
+	texture = "KPK\data\kpk_mil_baked_smdi.paa";
 	uvSource = "tex";
 	class uvTransform
 	{
