@@ -3,21 +3,58 @@ class KPK_UI
 {
 	static const string DIR = "KPK/gui/layouts/";
 
-	static const int C_TEXT = 0xFF9EE084;
-	static const int C_DIM = 0xFF5E8C55;
-	static const int C_ACCENT = 0xFFE6AA3C;
-	static const int C_DANGER = 0xFFD8553F;
-	static const int C_WHITE = 0xFFE8E8DC;
-	static const int C_BTN = 0xFF172B19;
-	static const int C_BTN_HOVER = 0xFF27482A;
-	static const int C_BTN_ACTIVE = 0xFF3E6B32;
-	static const int C_BTN_OFF = 0xFF101410;
-	static const int C_ROW = 0xFF0D1A0F;
-	static const int C_ROW_HOVER = 0xFF183019;
-	static const int C_ROW_SEL = 0xFF2D5228;
-	static const int C_CARD = 0xFF0A170C;
-	static const int C_EDGE = 0xFF5A8C4D;
-	static const int C_LINE = 0xFF1F3A22;
+	static int C_TEXT = 0xFF9EE084;
+	static int C_DIM = 0xFF5E8C55;
+	static int C_ACCENT = 0xFFE6AA3C;
+	static int C_DANGER = 0xFFD8553F;
+	static int C_WHITE = 0xFFE8E8DC;
+	static int C_BTN = 0xFF172B19;
+	static int C_BTN_HOVER = 0xFF27482A;
+	static int C_BTN_ACTIVE = 0xFF3E6B32;
+	static int C_BTN_OFF = 0xFF101410;
+	static int C_ROW = 0xFF0D1A0F;
+	static int C_ROW_HOVER = 0xFF183019;
+	static int C_ROW_SEL = 0xFF2D5228;
+	static int C_CARD = 0xFF0A170C;
+	static int C_EDGE = 0xFF5A8C4D;
+	static int C_LINE = 0xFF1F3A22;
+
+	// set by Apply(theme) before the menu is built
+	static int C_SCREEN = 0xFF060D08;
+	static int C_TITLEBAR = 0xFF15301A;
+	static int C_MENUBAR = 0xFF0C1C0F;
+	static int C_SIDE = 0xFF081509;
+	static int C_TITLE = 0xFFD8E8C8;
+	static int C_TINT = 0x2230FF50;
+	static int C_GRID = 0x1890FF90;
+	static bool s_Glitch;
+
+	static void Apply(KPK_Theme t)
+	{
+		C_TEXT = t.Text;
+		C_DIM = t.Dim;
+		C_ACCENT = t.Accent;
+		C_DANGER = t.Danger;
+		C_WHITE = t.White;
+		C_BTN = t.Btn;
+		C_BTN_HOVER = t.BtnHover;
+		C_BTN_ACTIVE = t.BtnActive;
+		C_BTN_OFF = t.BtnOff;
+		C_ROW = t.Row;
+		C_ROW_HOVER = t.RowHover;
+		C_ROW_SEL = t.RowSel;
+		C_CARD = t.Card;
+		C_EDGE = t.Edge;
+		C_LINE = t.Line;
+		C_SCREEN = t.Screen;
+		C_TITLEBAR = t.TitleBar;
+		C_MENUBAR = t.MenuBar;
+		C_SIDE = t.Side;
+		C_TITLE = t.Title;
+		C_TINT = t.Tint;
+		C_GRID = t.Grid;
+		s_Glitch = t.Glitch;
+	}
 
 	static Widget Make(string file, Widget parent, float x, float y, float w, float h)
 	{
@@ -48,12 +85,19 @@ class KPK_UI
 		Widget card = Panel(parent, x, y, w, h, C_CARD, true);
 		Panel(card, 0, 0, 1, 0.003, C_EDGE);
 		if (title != "")
-			Text(card, title, 0.03, 0.01, 0.94, 0.07, 14, C_ACCENT);
+		{
+			string shown = title;
+			if (s_Glitch)
+				shown = KPK_Theme.Noise(title, 0.45);
+			Text(card, shown, 0.03, 0.01, 0.94, 0.07, 14, C_ACCENT);
+		}
 		return card;
 	}
 
-	static TextWidget Text(Widget parent, string text, float x, float y, float w, float h, int size = 16, int color = 0xFF9EE084)
+	static TextWidget Text(Widget parent, string text, float x, float y, float w, float h, int size = 16, int color = 0)
 	{
+		if (color == 0)
+			color = C_TEXT;
 		// same pattern as the button labels, which render fine: the text sits inside a frame
 		// and its size is baked into the layout (no SetTextExactSize at runtime)
 		string file = "kpk_text20.layout";
@@ -80,8 +124,10 @@ class KPK_UI
 		return t;
 	}
 
-	static MultilineTextWidget MText(Widget parent, float x, float y, float w, float h, int size = 15, int color = 0xFF9EE084)
+	static MultilineTextWidget MText(Widget parent, float x, float y, float w, float h, int size = 15, int color = 0)
 	{
+		if (color == 0)
+			color = C_TEXT;
 		MultilineTextWidget t = MultilineTextWidget.Cast(Make("kpk_mtext.layout", parent, x, y, w, h));
 		t.SetTextExactSize(size);
 		t.SetColor(color);
@@ -138,12 +184,13 @@ class KPK_Button
 	bool m_Hover;
 	bool m_Enabled = true;
 	bool m_IsRow;
-	int m_TextColor = 0xFF9EE084;
+	int m_TextColor;
 
 	void KPK_Button(Widget parent, int id, string text, float x, float y, float w, float h, bool isRow = false)
 	{
 		m_Id = id;
 		m_IsRow = isRow;
+		m_TextColor = KPK_UI.C_TEXT;
 		// rows and buttons share kpk_button.layout: kpk_row.layout failed to create inside lists in game.
 		// A row gets its own left-aligned label on top; the centred one stays empty.
 		m_Root = ButtonWidget.Cast(KPK_UI.Make("kpk_button.layout", parent, x, y, w, h));

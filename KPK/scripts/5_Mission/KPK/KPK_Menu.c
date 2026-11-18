@@ -76,6 +76,11 @@ class KPK_Menu extends UIScriptedMenu
 	protected TextWidget m_HeaderRight;
 	protected TextWidget m_Footer;
 	protected ref KPK_Skin m_Skin;
+	protected ref KPK_Theme m_Theme;
+	protected bool m_Full = true;            // false on the brick: profile, map and party only
+	protected bool m_WasLoggedIn;
+	protected Widget m_RepCard;
+	protected MultilineTextWidget m_PartyHint;
 	protected TextWidget m_StatusRight;
 	protected MultilineTextWidget m_SideInfo;
 	protected float m_SessionTime;
@@ -210,10 +215,22 @@ class KPK_Menu extends UIScriptedMenu
 
 	override Widget Init()
 	{
+		// every model has its own theme; the view already says which device was opened
+		int model = KPK_Model.BRICK;
+		if (KPK_Client.s_View)
+			model = KPK_Client.s_View.DeviceModel;
+		m_Theme = KPK_Theme.Get(model);
+		m_Full = KPK_Const.FullAccess(model);
+		KPK_UI.Apply(m_Theme);
+
 		layoutRoot = GetGame().GetWorkspace().CreateWidgets(KPK_UI.DIR + "kpk_main.layout");
 		m_Screen = layoutRoot.FindAnyWidget("Screen");
+		m_Screen.SetColor(m_Theme.Screen);
+		Widget device = layoutRoot.FindAnyWidget("Device");
+		device.SetColor(m_Theme.Case);
+		layoutRoot.FindAnyWidget("Bezel").SetColor(m_Theme.Bezel);
 		m_Skin = new KPK_Skin();
-		m_Skin.BuildDevice(layoutRoot.FindAnyWidget("Device"));
+		m_Skin.BuildDevice(device, m_Theme);
 
 		BuildChrome();
 		m_Pages.Insert(BuildProfile());
@@ -277,18 +294,12 @@ class KPK_Menu extends UIScriptedMenu
 		return b;
 	}
 
-	static string PageName(int page)
+	string PageName(int page)
 	{
-		switch (page)
-		{
-			case P_PROFILE: return "Профиль";
-			case P_MAP: return "Карта";
-			case P_PARTY: return "Группа";
-			case P_FACTIONS: return "Группировки";
-			case P_TASKS: return "Задания";
-			case P_NOTES: return "Заметки";
-			case P_LOGIN: return "Вход в сеть";
-		}
+		if (page >= 0 && page < TAB_COUNT)
+			return m_Theme.Tabs[page];
+		if (page == P_LOGIN)
+			return "Вход в сеть";
 		return "Загрузка";
 	}
 
@@ -296,27 +307,33 @@ class KPK_Menu extends UIScriptedMenu
 	protected void BuildChrome()
 	{
 		// title bar
-		KPK_UI.Panel(m_Screen, 0, 0, 1, 0.045, 0xFF15301A);
-		KPK_UI.Panel(m_Screen, 0, 0, 1, 0.004, 0x40C8FFC0);
+		KPK_UI.Panel(m_Screen, 0, 0, 1, 0.045, KPK_UI.C_TITLEBAR);
+		KPK_UI.Panel(m_Screen, 0, 0, 1, 0.004, (KPK_UI.C_TITLE & 0x00FFFFFF) | 0x40000000);
 		KPK_UI.Panel(m_Screen, 0.008, 0.012, 0.012, 0.022, KPK_UI.C_ACCENT);
-		m_HeaderLeft = KPK_UI.Text(m_Screen, "", 0.026, 0, 0.7, 0.045, 15, 0xFFD8E8C8);
+		m_HeaderLeft = KPK_UI.Text(m_Screen, "", 0.026, 0, 0.7, 0.045, 15, KPK_UI.C_TITLE);
 		KPK_UI.TextC(m_Screen, "_", 0.885, 0.004, 0.03, 0.037, KPK_UI.C_DIM);
 		KPK_UI.TextC(m_Screen, "[]", 0.917, 0.004, 0.03, 0.037, KPK_UI.C_DIM);
 		AddButton(m_Screen, B_CLOSE, "X", 0.952, 0.005, 0.04, 0.035);
 
 		// menu bar
-		KPK_UI.Panel(m_Screen, 0, 0.045, 1, 0.035, 0xFF0C1C0F);
-		KPK_UI.Text(m_Screen, "Файл     Сеть     Карта     Сервис     Справка", 0.015, 0.045, 0.6, 0.035, 13, KPK_UI.C_DIM);
+		KPK_UI.Panel(m_Screen, 0, 0.045, 1, 0.035, KPK_UI.C_MENUBAR);
+		KPK_UI.Text(m_Screen, m_Theme.MenuLine, 0.015, 0.045, 0.6, 0.035, 13, KPK_UI.C_DIM);
 		m_HeaderRight = KPK_UI.Text(m_Screen, "", 0.62, 0.045, 0.37, 0.035, 13, KPK_UI.C_TEXT);
 		KPK_UI.Panel(m_Screen, 0, 0.08, 1, 0.003, KPK_UI.C_EDGE);
 
 		// sidebar
-		KPK_UI.Panel(m_Screen, 0, 0.083, 0.165, 0.852, 0xFF081509);
-		KPK_UI.Text(m_Screen, "МОДУЛИ", 0.012, 0.09, 0.15, 0.03, 13, KPK_UI.C_ACCENT);
-		string names[6] = {"[1] ПРОФИЛЬ", "[2] КАРТА", "[3] ГРУППА", "[4] ГРУППИРОВКИ", "[5] ЗАДАНИЯ", "[6] ЗАМЕТКИ"};
+		KPK_UI.Panel(m_Screen, 0, 0.083, 0.165, 0.852, KPK_UI.C_SIDE);
+		string modules = "МОДУЛИ";
+		if (m_Theme.Glitch)
+			modules = "# # #";
+		KPK_UI.Text(m_Screen, modules, 0.012, 0.09, 0.15, 0.03, 13, KPK_UI.C_ACCENT);
 		for (int i = 0; i < TAB_COUNT; i++)
 		{
-			KPK_Button tab = new KPK_Button(m_Screen, B_TAB + i, names[i], 0.008, 0.125 + i * 0.065, 0.15, 0.056, true);
+			string tabName = m_Theme.Tabs[i];
+			int tabNumber = i + 1;
+			if (!m_Theme.Glitch)
+				tabName = "[" + tabNumber.ToString() + "] " + tabName;
+			KPK_Button tab = new KPK_Button(m_Screen, B_TAB + i, tabName, 0.008, 0.125 + i * 0.065, 0.15, 0.056, true);
 			m_Tabs.Insert(tab);
 			m_Buttons.Insert(tab);
 		}
@@ -325,7 +342,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Panel(m_Screen, 0.165, 0.083, 0.002, 0.852, KPK_UI.C_LINE);
 
 		// status bar
-		KPK_UI.Panel(m_Screen, 0, 0.935, 1, 0.065, 0xFF0B1A0D);
+		KPK_UI.Panel(m_Screen, 0, 0.935, 1, 0.065, KPK_UI.C_MENUBAR);
 		KPK_UI.Panel(m_Screen, 0, 0.935, 1, 0.003, KPK_UI.C_EDGE);
 		m_Footer = KPK_UI.Text(m_Screen, "", 0.012, 0.94, 0.6, 0.055, 14, KPK_UI.C_TEXT);
 		KPK_UI.Panel(m_Screen, 0.62, 0.945, 0.002, 0.045, KPK_UI.C_LINE);
@@ -339,8 +356,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void ShowTabs(bool show)
 	{
-		foreach (KPK_Button tab : m_Tabs)
-			tab.Show(show);
+		for (int i = 0; i < m_Tabs.Count(); i++)
+			m_Tabs[i].Show(show && (m_Full || i <= P_PARTY));
 	}
 
 	protected void ShowPage(int page)
@@ -412,12 +429,19 @@ class KPK_Menu extends UIScriptedMenu
 		if (KPK_Client.s_View && KPK_Client.s_View.ServerName != "")
 			net = KPK_Client.s_View.ServerName;
 
-		string text = "КПК-7 «ВЕСТНИК»  ОС v2.11\n\n";
-		if (m_BootTime > 0.15) text += "> Проверка питания ........ OK\n";
-		if (m_BootTime > 0.35) text += "> Поиск сети .............. " + net + "\n";
-		if (m_BootTime > 0.55) text += "> Спутник GPS ............. захвачен\n";
-		if (m_BootTime > 0.75) text += "> Шифрование канала ....... ГОСТ-28147\n";
-		if (m_BootTime > 0.95) text += "> Загрузка профиля ........ OK\n";
+		string text = "";
+		for (int i = 0; i < m_Theme.Boot.Count(); i++)
+		{
+			if (i > 0 && m_BootTime < i * 0.2 - 0.05)
+				break;
+			string line = m_Theme.Boot[i];
+			line.Replace("%NET%", net);
+			if (m_Theme.Glitch)
+				line = KPK_Theme.Noise(line, 0.25);
+			text += line + "\n";
+			if (i == 0)
+				text += "\n";
+		}
 		m_BootText.SetText(text);
 
 		if (m_BootTime > 1.15)
@@ -524,6 +548,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_VitalsText = KPK_UI.MText(right, 0.04, 0.16, 0.92, 0.82, 15, KPK_UI.C_TEXT);
 
 		Widget rep = KPK_UI.Card(page, 0.51, 0.5, 0.49, 0.5, "РЕПУТАЦИЯ У ГРУППИРОВОК");
+		m_RepCard = rep;
 		m_RepText = KPK_UI.MText(rep, 0.04, 0.16, 0.92, 0.82, 15, KPK_UI.C_TEXT);
 		return page;
 	}
@@ -533,6 +558,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
+		m_RepCard.Show(m_Full);
 		KPK_Stats s = v.Stats;
 
 		string faction = "вольный сталкер";
@@ -543,7 +569,8 @@ class KPK_Menu extends UIScriptedMenu
 		string text = "";
 		text += "Позывной:  " + v.Callsign + "\n";
 		text += "Ранг:  " + v.Rank + "\n";
-		text += "Группировка:  " + faction + "\n";
+		if (m_Full)
+			text += "Группировка:  " + faction + "\n";
 		text += "Steam ID:  " + v.SteamId + "\n";
 		text += "В сети с:  " + v.RegisteredDate + "\n\n";
 		text += "— БОЕВАЯ СТАТИСТИКА —\n";
@@ -591,11 +618,11 @@ class KPK_Menu extends UIScriptedMenu
 		// grid of a field map over the paper
 		for (int gl = 1; gl < 10; gl++)
 		{
-			KPK_UI.Panel(mapBox, gl * 0.1, 0, 0.0015, 1, 0x1890FF90);
-			KPK_UI.Panel(mapBox, 0, gl * 0.1, 1, 0.002, 0x1890FF90);
+			KPK_UI.Panel(mapBox, gl * 0.1, 0, 0.0015, 1, KPK_UI.C_GRID);
+			KPK_UI.Panel(mapBox, 0, gl * 0.1, 1, 0.002, KPK_UI.C_GRID);
 		}
 		// green phosphor tint over the paper map
-		KPK_UI.Panel(mapBox, 0, 0, 1, 1, 0x2230FF50);
+		KPK_UI.Panel(mapBox, 0, 0, 1, 1, KPK_UI.C_TINT);
 		KPK_UI.Panel(mapBox, 0, 0, 1, 0.004, KPK_UI.C_EDGE);
 		KPK_UI.Panel(mapBox, 0, 0.996, 1, 0.004, KPK_UI.C_EDGE);
 		m_MapInfo = KPK_UI.Text(mapBox, "", 0.02, 0.94, 0.96, 0.05, 13, KPK_UI.C_ACCENT);
@@ -629,9 +656,18 @@ class KPK_Menu extends UIScriptedMenu
 		return page;
 	}
 
+	// the brick has no faction markers
+	protected int ScopeCount()
+	{
+		if (m_Full)
+			return 3;
+		return 2;
+	}
+
 	protected void UpdateMarkerEditor()
 	{
 		bool editing = m_EditId >= 0;
+		m_MapHint.Show(!m_Theme.Glitch);
 		m_MarkerType.SetText(KPK_Const.MarkerName(m_NewType));
 		m_MarkerType.SetColor(KPK_Const.MarkerColor(m_NewType));
 		int scope = m_NewScope;
@@ -831,8 +867,9 @@ class KPK_Menu extends UIScriptedMenu
 
 		Widget opts = KPK_UI.Card(page, 0.51, 0.65, 0.49, 0.35, "ДАТЧИКИ");
 		m_LabelsButton = AddButton(opts, B_LABELS, "", 0.04, 0.2, 0.92, 0.18);
-		MultilineTextWidget hint = KPK_UI.MText(opts, 0.04, 0.45, 0.92, 0.5, 13, KPK_UI.C_DIM);
-		hint.SetText("Метки над головами показывают позывные и дистанцию до членов группы (и группировки, если она это разрешает). Горячая клавиша: Ctrl + K.");
+		m_PartyHint = KPK_UI.MText(opts, 0.04, 0.45, 0.92, 0.5, 13, KPK_UI.C_DIM);
+		m_PartyHint.SetText("Метки над головами показывают позывные и дистанцию до членов группы (и группировки, если она это разрешает). Горячая клавиша: Ctrl + K.");
+		m_PartyHint.Show(!m_Theme.Glitch);
 		return page;
 	}
 
@@ -1362,6 +1399,15 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			RefreshPage();
 		}
+
+		// greeting of the model, once per login
+		if (v.LoggedIn && !m_WasLoggedIn)
+		{
+			string welcome = m_Theme.Welcome;
+			welcome.Replace("%1", v.Callsign);
+			SetStatus(welcome);
+		}
+		m_WasLoggedIn = v.LoggedIn;
 		RefreshHeader();
 	}
 
@@ -1417,7 +1463,10 @@ class KPK_Menu extends UIScriptedMenu
 			m_Skin.m_Serial.SetText("S/N " + v.SteamId);
 		}
 		m_Skin.SetLed(low);
-		m_HeaderLeft.SetText("ВЕСТНИК ОС 2.11  —  " + PageName(m_Page));
+		string header = m_Theme.OsName + "  —  " + PageName(m_Page);
+		if (m_Theme.Glitch)
+			header = KPK_Theme.Noise(header, 0.3);
+		m_HeaderLeft.SetText(header);
 
 		int year, month, day, hour, minute;
 		GetGame().GetWorld().GetDate(year, month, day, hour, minute);
@@ -1441,7 +1490,10 @@ class KPK_Menu extends UIScriptedMenu
 		string cursor = " ";
 		if (m_Blink)
 			cursor = "_";
-		m_Footer.SetText("> " + m_Status + cursor);
+		string status = m_Status;
+		if (m_Theme.Glitch)
+			status = KPK_Theme.Noise(status, 0.18);
+		m_Footer.SetText("> " + status + cursor);
 	}
 
 	// =================================================================== input
@@ -1635,11 +1687,11 @@ class KPK_Menu extends UIScriptedMenu
 				UpdateMarkerEditor();
 				break;
 			case B_SCOPE_PREV:
-				m_NewScope = (m_NewScope + 2) % 3;
+				m_NewScope = (m_NewScope + ScopeCount() - 1) % ScopeCount();
 				UpdateMarkerEditor();
 				break;
 			case B_SCOPE_NEXT:
-				m_NewScope = (m_NewScope + 1) % 3;
+				m_NewScope = (m_NewScope + 1) % ScopeCount();
 				UpdateMarkerEditor();
 				break;
 			case B_MAP_HERE:

@@ -58,6 +58,16 @@ enum KPK_EncField
 	LOCATION
 };
 
+// device models: each has its own look and interface theme
+enum KPK_Model
+{
+	BRICK = 0,     // КПК-7 «Вестник»: profile, map and party only
+	STALKER,       // КПК-М1
+	MILITARY,      // ВПК-7М (ОКСОП)
+	MONOLITH,      // ПИК №ОС-031
+	SCIENCE        // ПИК №042 (НИИ)
+};
+
 // faction roles
 enum KPK_Role
 {
@@ -84,6 +94,12 @@ enum KPK_MateKind
 
 class KPK_Const
 {
+	// the brick has no factions, tasks, notes or reputation
+	static bool FullAccess(int model)
+	{
+		return model != KPK_Model.BRICK;
+	}
+
 	// atmospheric marker types; icons are vanilla map icons
 	static const int MARKER_TYPES = 12;
 

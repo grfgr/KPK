@@ -14,6 +14,28 @@ class KPK_Device extends ItemBase
 		return item && item.IsKindOf("KPK_Device");
 	}
 
+	// the broken KPK is a separate item (not a KPK_Device): it can only be switched on once
+	static bool IsBroken(EntityAI item)
+	{
+		return item && item.IsKindOf("KPK_Broken");
+	}
+
+	// which model a device is (KPK_Model); the brick is the base class, so test the others first
+	static int ModelOf(EntityAI item)
+	{
+		if (!item)
+			return KPK_Model.BRICK;
+		if (item.IsKindOf("KPK_Stalker"))
+			return KPK_Model.STALKER;
+		if (item.IsKindOf("KPK_Military"))
+			return KPK_Model.MILITARY;
+		if (item.IsKindOf("KPK_Monolith"))
+			return KPK_Model.MONOLITH;
+		if (item.IsKindOf("KPK_Science"))
+			return KPK_Model.SCIENCE;
+		return KPK_Model.BRICK;
+	}
+
 	static Battery9V GetBattery(EntityAI device)
 	{
 		if (!device || !device.GetInventory())
@@ -92,25 +114,26 @@ modded class GPSReceiver
 	{
 		super.SetActions();
 		AddAction(ActionKPKOpen);
+		AddAction(ActionKPKBroken);
 	}
 
 	override void OnWorkStart()
 	{
-		if (KPK_Device.IsKPK(this))
+		if (KPK_Device.IsKPK(this) || KPK_Device.IsBroken(this))
 			return;
 		super.OnWorkStart();
 	}
 
 	override void OnWorkStop()
 	{
-		if (KPK_Device.IsKPK(this))
+		if (KPK_Device.IsKPK(this) || KPK_Device.IsBroken(this))
 			return;
 		super.OnWorkStop();
 	}
 
 	override void OnWork(float consumed_energy)
 	{
-		if (KPK_Device.IsKPK(this))
+		if (KPK_Device.IsKPK(this) || KPK_Device.IsBroken(this))
 			return;
 		super.OnWork(consumed_energy);
 	}
@@ -121,7 +144,7 @@ modded class ActionTurnOnWhileInHands
 {
 	override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
 	{
-		if (KPK_Device.IsKPK(item))
+		if (KPK_Device.IsKPK(item) || KPK_Device.IsBroken(item))
 			return false;
 		return super.ActionCondition(player, target, item);
 	}
@@ -131,7 +154,7 @@ modded class ActionTurnOffWhileInHands
 {
 	override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
 	{
-		if (KPK_Device.IsKPK(item))
+		if (KPK_Device.IsKPK(item) || KPK_Device.IsBroken(item))
 			return false;
 		return super.ActionCondition(player, target, item);
 	}

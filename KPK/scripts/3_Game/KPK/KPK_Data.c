@@ -319,6 +319,7 @@ class KPK_View
 
 	// battery 0..1, -1 when not required
 	float Battery;
+	int DeviceModel;   // KPK_Model of the device the KPK was opened with
 
 	ref KPK_Stats Stats;
 	string Rank;

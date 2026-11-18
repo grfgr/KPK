@@ -13,6 +13,9 @@ class KPK_Skin
 	protected float m_GlitchTimer = 6;
 	protected float m_GlitchLeft;
 	protected float m_GlitchY;
+	protected bool m_Heavy;                  // Monolith: much more interference
+	protected int m_GripColor = 0xFF1A1B17;
+	protected ref array<Widget> m_NoiseBlocks;
 
 	TextWidget m_Serial;
 	Widget m_Led;
@@ -42,8 +45,10 @@ class KPK_Skin
 
 	// One moulded case, light from the top left: highlights on top/left edges, shadows bottom/right.
 	// The screen sits in a recess (dark inner edge at the top/left, light inner edge at the bottom/right).
-	void BuildDevice(Widget device)
+	void BuildDevice(Widget device, KPK_Theme theme)
 	{
+		m_Heavy = theme.Glitch;
+		m_GripColor = theme.Grip;
 		// soft vertical shading of the plastic
 		for (int band = 0; band < 6; band++)
 			Line(device, 0, band * 0.0125, 1, 0.0125, ((10 - band * 2) << 24) | 0xFFFFF0);
@@ -67,9 +72,9 @@ class KPK_Skin
 		Line(device, 0.961, 0.057, 0.003, 0.867, 0x24FFFFF0);
 
 		// brand, embossed
-		TextWidget brand = KPK_UI.Text(device, "КПК-7  «ВЕСТНИК»", 0.05, 0.009, 0.3, 0.042, 17, 0xFF8E8A74);
+		TextWidget brand = KPK_UI.Text(device, theme.Brand, 0.05, 0.009, 0.3, 0.042, 17, theme.BrandColor);
 		brand.SetShadow(1, 0xFF000000, 0.8, 1, 1);
-		TextWidget maker = KPK_UI.Text(device, "НИИ ЧАЗ  ·  изд. 1986-М", 0.255, 0.012, 0.3, 0.038, 13, 0xFF615E4F);
+		TextWidget maker = KPK_UI.Text(device, theme.Maker, 0.255, 0.012, 0.3, 0.038, 13, (theme.BrandColor & 0x00FFFFFF) | 0xA0000000);
 		maker.SetShadow(1, 0xFF000000, 0.7, 1, 1);
 
 		// speaker grille: slots with a lit lower lip
@@ -116,7 +121,7 @@ class KPK_Skin
 		Widget sticker = KPK_UI.Panel(device, 0.72, 0.934, 0.2, 0.046, 0xFFC4BC9B);
 		sticker.SetRotation(0, 0, -1.2);
 		Line(sticker, 0, 0, 1, 0.1, 0xFFA82020);
-		KPK_UI.Text(sticker, "ИНВ. № 07-0347   НЕ ВСКРЫВАТЬ", 0.04, 0.12, 0.95, 0.85, 13, 0xFF2A2418);
+		KPK_UI.Text(sticker, theme.Sticker, 0.04, 0.12, 0.95, 0.85, 13, 0xFF2A2418);
 		Line(sticker, 0.94, 0.6, 0.08, 0.55, 0xFF2B2D25, 35.0);
 		Line(sticker, 0.15, 0.25, 0.3, 0.55, 0x14402810);
 
@@ -136,7 +141,7 @@ class KPK_Skin
 
 	protected void SideGrip(Widget device, float x)
 	{
-		Widget grip = KPK_UI.Panel(device, x, 0.12, 0.026, 0.76, 0xFF1A1B17);
+		Widget grip = KPK_UI.Panel(device, x, 0.12, 0.026, 0.76, m_GripColor);
 		Line(grip, 0, 0, 1, 0.004, 0x90000000);
 		Line(grip, 0, 0.996, 1, 0.004, 0x30FFFFF0);
 		Line(grip, 0, 0, 0.1, 1, 0x60000000);
@@ -187,6 +192,21 @@ class KPK_Skin
 		m_Flicker = Line(screen, 0, 0, 1, 1, 0x00000000);
 		m_Glitch = Line(screen, 0, 0.5, 1, 0.006, 0x50C8FFC0);
 		m_Glitch.Show(false);
+
+		// Monolith: blocks of interference popping up all over the screen
+		m_NoiseBlocks = new array<Widget>();
+		if (m_Heavy)
+		{
+			for (int nb = 0; nb < 12; nb++)
+			{
+				int blockColor = 0x3090F0F0;
+				if (nb % 2 == 0)
+					blockColor = 0x90000000;
+				Widget blk = Line(screen, 0, 0, 0.1, 0.01, blockColor);
+				blk.Show(false);
+				m_NoiseBlocks.Insert(blk);
+			}
+		}
 	}
 
 	void Update(float dt)
@@ -200,7 +220,27 @@ class KPK_Skin
 		m_RollBand.SetPos(0, m_RollY);
 
 		int flicker = Math.RandomInt(0, 14);
+		if (m_Heavy)
+			flicker = Math.RandomInt(0, 46);
 		m_Flicker.SetColor(flicker << 24);
+
+		if (m_Heavy && m_NoiseBlocks)
+		{
+			foreach (Widget nbw : m_NoiseBlocks)
+			{
+				float roll = Math.RandomFloat01();
+				if (roll < 0.06)
+				{
+					nbw.SetPos(Math.RandomFloat(0.0, 0.9), Math.RandomFloat(0.0, 0.98));
+					nbw.SetSize(Math.RandomFloat(0.02, 0.3), Math.RandomFloat(0.003, 0.02));
+					nbw.Show(true);
+				}
+				else if (roll > 0.8)
+				{
+					nbw.Show(false);
+				}
+			}
+		}
 
 		if (m_GlitchLeft > 0)
 		{
@@ -215,6 +255,8 @@ class KPK_Skin
 		if (m_GlitchTimer <= 0)
 		{
 			m_GlitchTimer = Math.RandomFloat(7.0, 18.0);
+			if (m_Heavy)
+				m_GlitchTimer = Math.RandomFloat(0.4, 2.0);
 			m_GlitchLeft = Math.RandomFloat(0.06, 0.18);
 			m_GlitchY = Math.RandomFloat(0.1, 0.9);
 			m_Glitch.SetPos(0, m_GlitchY);

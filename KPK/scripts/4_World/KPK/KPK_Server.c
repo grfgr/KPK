@@ -35,6 +35,7 @@ class KPK_Server
 	ref map<string, bool> m_Dirty;
 	ref map<string, bool> m_LoggedIn;
 	ref map<string, bool> m_Open;
+	ref map<string, int> m_OpenModel;               // steamId -> KPK_Model the KPK was opened with
 	ref map<string, int> m_LoginFails;
 	ref map<string, int> m_LockedUntil;           // GetTime() ms
 	ref map<string, vector> m_LastPos;
@@ -69,6 +70,7 @@ class KPK_Server
 		m_Dirty = new map<string, bool>();
 		m_LoggedIn = new map<string, bool>();
 		m_Open = new map<string, bool>();
+		m_OpenModel = new map<string, int>();
 		m_LoginFails = new map<string, int>();
 		m_LockedUntil = new map<string, int>();
 		m_LastPos = new map<string, vector>();
@@ -248,6 +250,7 @@ class KPK_Server
 		SaveAccount(steamId);
 		m_LoggedIn.Remove(steamId);
 		m_Open.Remove(steamId);
+		m_OpenModel.Remove(steamId);
 		m_LastPos.Remove(steamId);
 		m_LastMatesCount.Remove(steamId);
 		m_Incoming.Remove(steamId);
@@ -344,12 +347,15 @@ class KPK_Server
 		view.ShowSelfOnMap = m_Settings.ShowSelfOnMap;
 		view.NoteMaxLength = m_Settings.NoteMaxLength;
 		view.Battery = -1;
-		if (m_Settings.RequireBattery)
-		{
-			EntityAI device = KPK_Device.FindOn(player, true);
-			if (device)
-				view.Battery = KPK_Device.GetBatteryLevel(device);
-		}
+		EntityAI device = KPK_Device.FindOn(player, true);
+		if (m_Settings.RequireBattery && device)
+			view.Battery = KPK_Device.GetBatteryLevel(device);
+		int model = KPK_Device.ModelOf(device);
+		int openedWith;
+		if (m_OpenModel.Find(steamId, openedWith))
+			model = openedWith;
+		view.DeviceModel = model;
+		bool full = KPK_Const.FullAccess(model);
 
 		KPK_Account acc = GetAccount(steamId);
 		view.Registered = acc != null;
@@ -380,9 +386,11 @@ class KPK_Server
 		map<string, PlayerBase> online = OnlinePlayers();
 		KPK_Faction myFaction = FactionOf(steamId);
 
-		// reputation: one line per faction the player can see
+		// reputation: one line per faction the player can see (not on the brick)
 		foreach (KPK_Faction rf : m_Factions.Factions)
 		{
+			if (!full)
+				break;
 			if (rf.Hidden && !isAdmin && rf != myFaction)
 				continue;
 			KPK_RepView rep = new KPK_RepView();
@@ -402,7 +410,7 @@ class KPK_Server
 			foreach (KPK_Marker gm : party.Markers)
 				view.Markers.Insert(gm);
 		}
-		if (myFaction)
+		if (myFaction && full)
 		{
 			foreach (KPK_Marker fm : m_Factions.FactionMarkers)
 			{
@@ -438,6 +446,8 @@ class KPK_Server
 		{
 			if (inv.ToId != steamId)
 				continue;
+			if (inv.Kind == 2 && !full)
+				continue;
 			KPK_InviteView iv = new KPK_InviteView();
 			iv.Kind = inv.Kind;
 			iv.From = CallsignOf(inv.FromId);
@@ -447,6 +457,10 @@ class KPK_Server
 				iv.FactionName = invF.Name;
 			view.Invites.Insert(iv);
 		}
+
+		// the brick stops here: no factions, tasks or notes
+		if (!full)
+			return view;
 
 		// factions, with encryption applied for outsiders
 		if (myFaction)
@@ -680,6 +694,66 @@ class KPK_Server
 		}
 	}
 
+	// =================================================================== broken KPK
+
+	// one-shot: a random grid square from the memory, then the device burns out
+	void OnBrokenSwitchedOn(PlayerBase player, ItemBase device)
+	{
+		if (!player || !device || device.IsRuined())
+			return;
+
+		float level = KPK_Device.GetBatteryLevel(device);
+		if (level < 0)
+		{
+			Notify(player, "Разбитый КПК", "Нет питания: вставьте батарейку 9V");
+			return;
+		}
+		if (level <= 0)
+		{
+			Notify(player, "Разбитый КПК", "Батарейка разряжена");
+			return;
+		}
+
+		float size = GetGame().GetWorld().GetWorldSize();
+		if (size <= 0)
+			size = 15360;
+		float x = Math.RandomFloat(size * 0.1, size * 0.9);
+		float z = Math.RandomFloat(size * 0.1, size * 0.9);
+		int gx = x / 100;
+		int gz = z / 100;
+		string grid = gx.ToStringLen(3) + " " + gz.ToStringLen(3);
+		Notify(player, "Разбитый КПК", "…последняя запись… квадрат " + grid + " …СБОЙ…");
+
+		// the coordinate also lands in the player's own KPK, if they have one
+		if (player.GetIdentity())
+		{
+			string steamId = player.GetIdentity().GetPlainId();
+			KPK_Account acc = GetAccount(steamId);
+			if (acc && acc.Markers.Count() < m_Settings.MaxPersonalMarkers)
+			{
+				KPK_Marker marker = new KPK_Marker();
+				marker.Id = acc.TakeId();
+				marker.Name = "Запись разбитого КПК";
+				marker.Type = 2;
+				marker.Scope = KPK_Scope.PERSONAL;
+				marker.X = x;
+				marker.Z = z;
+				marker.Author = acc.Callsign;
+				marker.Date = KPK_Util.Now();
+				acc.Markers.Insert(marker);
+				MarkDirty(steamId);
+			}
+		}
+
+		// burns out: battery drained, device ruined, the shock hurts
+		Battery9V battery = KPK_Device.GetBattery(device);
+		if (battery && battery.HasEnergyManager())
+			battery.GetCompEM().SetEnergy(0);
+		device.SetHealth("", "", 0);
+		player.AddHealth("", "Health", -10);
+		Print("[KPK] broken KPK burnt out, grid " + grid);
+	}
+
 	// =================================================================== stats
 
 	void OnPlayerKilled(PlayerBase victim, Object killer)
@@ -888,6 +962,21 @@ class KPK_Server
 		if (!acc || !m_LoggedIn.Contains(steamId) || !m_Open.Contains(steamId))
 			return;
 
+		int openModel = KPK_Model.BRICK;
+		m_OpenModel.Find(steamId, openModel);
+		if (!KPK_Const.FullAccess(openModel))
+		{
+			bool blocked = action == KPK_C.NOTE_SAVE || action == KPK_C.NOTE_DEL || action == KPK_C.ADMIN_FACTION;
+			blocked = blocked || action == KPK_C.FACTION_INVITE || action == KPK_C.FACTION_RESPOND || action == KPK_C.FACTION_LEAVE;
+			blocked = blocked || action == KPK_C.FACTION_KICK || action == KPK_C.FACTION_SETROLE;
+			blocked = blocked || ((action == KPK_C.MARKER_ADD || action == KPK_C.MARKER_EDIT || action == KPK_C.MARKER_DEL) && req.I2 == KPK_Scope.FACTION);
+			if (blocked)
+			{
+				Msg(player, "Функция недоступна на этой модели КПК");
+				return;
+			}
+		}
+
 		switch (action)
 		{
 			case KPK_C.MARKER_ADD: HandleMarkerAdd(player, acc, req); break;
@@ -940,6 +1029,7 @@ class KPK_Server
 			m_LoggedIn.Remove(steamId);
 
 		m_Open.Set(steamId, true);
+		m_OpenModel.Set(steamId, KPK_Device.ModelOf(device));
 		SendView(player);
 	}
 

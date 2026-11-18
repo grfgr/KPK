@@ -2,7 +2,7 @@ class CfgPatches
 {
 	class KPK
 	{
-		units[] = {"KPK_Device"};
+		units[] = {"KPK_Device", "KPK_Stalker", "KPK_Military", "KPK_Monolith", "KPK_Science", "KPK_Broken"};
 		weapons[] = {};
 		requiredVersion = 0.1;
 		requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Gear_Navigation"};
@@ -65,8 +65,58 @@ class CfgVehicles
 		hiddenSelectionsTextures[] = {};
 		hiddenSelectionsMaterials[] = {};
 		displayName = "КПК сталкера";
-		descriptionShort = "Карманный персональный компьютер. Сеть Зоны, карта, связь с группой и группировкой, личные заметки. Работает от батарейки 9V.";
+		descriptionShort = "Базовый карманный компьютер «Вестник»: профиль, карта с метками, связь с группой. Работает от батарейки 9V.";
 		weight = 300;
+		itemSize[] = {1, 2};
+	};
+
+	// Full models: everything the brick has plus factions, tasks, notes and reputation,
+	// each with its own interface theme (KPK_Theme in the scripts).
+	class KPK_Stalker: KPK_Device
+	{
+		displayName = "КПК-М1 сталкера";
+		descriptionShort = "Карманный персональный компьютер, модель 1. Полная версия сети сталкеров: карта, группа, группировки, задания, заметки. Батарейка 9V.";
+		model = "\KPK\data\kpk_m1.p3d";
+		weight = 450;
+		itemSize[] = {2, 2};
+	};
+	class KPK_Military: KPK_Device
+	{
+		displayName = "ВПК-7М (ОКСОП)";
+		descriptionShort = "Военный персональный компьютер Объединённого контингента сил охраны периметра. Закрытый канал связи. Батарейка 9V.";
+		model = "\KPK\data\kpk_mil.p3d";
+		weight = 700;
+		itemSize[] = {3, 2};
+	};
+	class KPK_Monolith: KPK_Device
+	{
+		displayName = "ПИК №ОС-031";
+		descriptionShort = "Персональный терминал связи с Осознанием. От экрана веет холодом. Батарейка 9V.";
+		model = "\KPK\data\kpk_mono.p3d";
+		weight = 500;
+		itemSize[] = {2, 2};
+	};
+	class KPK_Science: KPK_Device
+	{
+		displayName = "ПИК №042 (НИИ)";
+		descriptionShort = "Персональный исследовательский компьютер научно-исследовательского института. Батарейка 9V.";
+		model = "\KPK\data\kpk_nii.p3d";
+		weight = 550;
+		itemSize[] = {2, 2};
+	};
+
+	// Broken KPK: not a working device. Switched on once with a battery it shows a random grid square,
+	// then burns out (ruined, battery drained, 10 damage to the player).
+	class KPK_Broken: GPSReceiver
+	{
+		scope = 2;
+		displayName = "Разбитый КПК";
+		descriptionShort = "Обгоревший КПК с треснувшим экраном. Может быть, в памяти что-то осталось. Батарейка 9V.";
+		model = "\KPK\data\kpk_broken.p3d";
+		hiddenSelections[] = {};
+		hiddenSelectionsTextures[] = {};
+		hiddenSelectionsMaterials[] = {};
+		weight = 280;
 		itemSize[] = {1, 2};
 	};
 };
