@@ -123,7 +123,7 @@ class CfgVehicles
 		descriptionShort = "Карманный персональный компьютер, модель 1. Полная версия сети сталкеров: карта, группа, группировки, задания, заметки. Батарейка 9V.";
 		model = "\KPK\data\kpk_m1.p3d";
 		weight = 450;
-		itemSize[] = {2, 2};
+		itemSize[] = {3, 2};
 	};
 	class KPK_Military: KPK_Base
 	{

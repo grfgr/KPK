@@ -17,10 +17,42 @@ bk = me.uv_layers.new(name="BAKE"); me.uv_layers.active = bk
 bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
 bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.004, area_weight=0.0, scale_to_bounds=True)
 bpy.ops.object.mode_set(mode='OBJECT')
+# faces nobody sees: photo faces (own atlas) and faces covered by another part (ray from the face centre
+# along its normal hits something within 0.3 mm)
+from mathutils.bvhtree import BVHTree
+import bmesh as _bm
+bmv = _bm.new(); bmv.from_mesh(me); bmv.faces.ensure_lookup_table()
+tree = BVHTree.FromBMesh(bmv)
+hidden = set()
+for f in bmv.faces:
+    if f.material_index == PHOTO:
+        hidden.add(f.index); continue
+    c_ = f.calc_center_median(); n_ = f.normal
+    hit = tree.ray_cast(c_ + n_ * 0.00002, n_, 0.0004)
+    if hit[0] is not None:
+        hidden.add(f.index)
+bmv.free()
+print("hidden faces", len(hidden), "of", len(me.polygons))
+bk = me.uv_layers["BAKE"]
+for p in me.polygons:
+    if p.index in hidden:
+        for li in p.loop_indices:
+            bk.data[li].uv = (0.999, 0.999)
+bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='DESELECT')
+bpy.ops.object.mode_set(mode='OBJECT')
+for p in me.polygons:
+    p.select = p.index not in hidden
+bpy.ops.object.mode_set(mode='EDIT')
+bpy.context.scene.tool_settings.use_uv_select_sync = True
+bpy.ops.uv.select_all(action='SELECT')
+bpy.ops.uv.pack_islands(rotate=True, margin=0.003)
+bpy.ops.object.mode_set(mode='OBJECT')
 
 img = bpy.data.images.new("baked", RES, RES, alpha=False); img.colorspace_settings.name = "sRGB"
 edge_img = bpy.data.images.new("edge", RES, RES, alpha=False); edge_img.colorspace_settings.name = "Non-Color"
 WEAR = {"body": (0.50, 0.47, 0.43), "trim": (0.66, 0.63, 0.58), "metal": (0.78, 0.76, 0.72), "weave": (0.55, 0.52, 0.40), "cloth": (0.5, 0.46, 0.38)}
+WEATHER = {"body": 1.0, "trim": 0.8, "metal": 0.5, "weave": 0.3, "cloth": 0.3}
+RUST = {"body": 1.0, "trim": 0.6, "metal": 0.4, "weave": 0.0, "cloth": 0.0}
 DARK = {"body": 0.9, "trim": 0.85, "metal": 0.9, "weave": 0.85, "cloth": 0.85}
 
 
@@ -73,10 +105,51 @@ def setup(mat, target, mode):
     cav = N.new("ShaderNodeMath"); cav.operation = 'SUBTRACT'; cav.inputs[0].default_value = 1.0; L.new(ao.outputs["AO"], cav.inputs[1])
     cav2 = N.new("ShaderNodeMath"); cav2.operation = 'MULTIPLY'; cav2.inputs[1].default_value = 2.2; cav2.use_clamp = True; L.new(cav.outputs[0], cav2.inputs[0])
     L.new(cav2.outputs[0], grime.inputs[0]); L.new(wear.outputs[0], grime.inputs[1]); grime.inputs[2].default_value = (0.06, 0.05, 0.035, 1)
+    # ---- layer 3: heavier wear
+    w3 = WEATHER.get(key, 1.0)
+    # big paint chips on edges: bigger noise, shows dark primer / bare steel
+    noi3 = N.new("ShaderNodeTexNoise"); noi3.inputs["Scale"].default_value = 22.0; noi3.inputs["Detail"].default_value = 12.0; noi3.inputs["Roughness"].default_value = 0.7
+    L.new(tc.outputs["Object"], noi3.inputs["Vector"])
+    r3 = N.new("ShaderNodeMapRange"); r3.inputs[1].default_value = 0.52; r3.inputs[2].default_value = 0.6; L.new(noi3.outputs["Fac"], r3.inputs[0])
+    edge2 = N.new("ShaderNodeMapRange"); edge2.inputs[1].default_value = 0.04; edge2.inputs[2].default_value = 0.22; L.new(inv.outputs[0], edge2.inputs[0])
+    big = N.new("ShaderNodeMath"); big.operation = 'MULTIPLY'; big.use_clamp = True; L.new(r3.outputs[0], big.inputs[0]); L.new(edge2.outputs[0], big.inputs[1])
+    bigw = N.new("ShaderNodeMath"); bigw.operation = 'MULTIPLY'; bigw.inputs[1].default_value = w3; L.new(big.outputs[0], bigw.inputs[0])
+    chips = N.new("ShaderNodeMixRGB"); L.new(bigw.outputs[0], chips.inputs[0]); L.new(grime.outputs[0], chips.inputs[1]); chips.inputs[2].default_value = (0.13, 0.12, 0.11, 1)
+    # rust streaks: from cavities, stretched downwards (object Y)
+    mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (28.0, 5.0, 28.0); L.new(tc.outputs["Object"], mp.inputs["Vector"])
+    st = N.new("ShaderNodeTexNoise"); st.inputs["Scale"].default_value = 4.0; st.inputs["Detail"].default_value = 10.0; st.inputs["Distortion"].default_value = 0.0; L.new(mp.outputs[0], st.inputs["Vector"])
+    stm = N.new("ShaderNodeMapRange"); stm.inputs[1].default_value = 0.42; stm.inputs[2].default_value = 0.7; L.new(st.outputs["Fac"], stm.inputs[0])
+    cavs = N.new("ShaderNodeMath"); cavs.operation = 'MULTIPLY'; cavs.inputs[1].default_value = 3.0; cavs.use_clamp = True; L.new(cav.outputs[0], cavs.inputs[0])
+    blur = N.new("ShaderNodeMath"); blur.operation = 'ADD'; blur.inputs[1].default_value = 0.0; L.new(cavs.outputs[0], blur.inputs[0])
+    rmask = N.new("ShaderNodeMath"); rmask.operation = 'MULTIPLY'; rmask.use_clamp = True; L.new(stm.outputs[0], rmask.inputs[0])
+    patch = N.new("ShaderNodeTexNoise"); patch.inputs["Scale"].default_value = 9.0; L.new(tc.outputs["Object"], patch.inputs["Vector"])
+    pm = N.new("ShaderNodeMapRange"); pm.inputs[1].default_value = 0.45; pm.inputs[2].default_value = 0.7; L.new(patch.outputs["Fac"], pm.inputs[0])
+    pmw = N.new("ShaderNodeMath"); pmw.operation = 'MULTIPLY'; pmw.inputs[1].default_value = 0.0; L.new(pm.outputs[0], pmw.inputs[0])
+    mx = N.new("ShaderNodeMath"); mx.operation = 'MAXIMUM'; L.new(cavs.outputs[0], mx.inputs[0]); L.new(pmw.outputs[0], mx.inputs[1])
+    L.new(mx.outputs[0], rmask.inputs[1])
+    rw = N.new("ShaderNodeMath"); rw.operation = 'MULTIPLY'; rw.inputs[1].default_value = 0.5 * RUST.get(key, 0.0); L.new(rmask.outputs[0], rw.inputs[0])
+    rust = N.new("ShaderNodeMixRGB"); L.new(rw.outputs[0], rust.inputs[0]); L.new(chips.outputs[0], rust.inputs[1]); rust.inputs[2].default_value = (0.30, 0.13, 0.05, 1)
+    # fine scratches: thin voronoi cell borders
+    vor = N.new("ShaderNodeTexVoronoi"); vor.feature = 'DISTANCE_TO_EDGE'; vor.inputs["Scale"].default_value = 140.0
+    mpv = N.new("ShaderNodeMapping"); mpv.inputs["Scale"].default_value = (1.0, 3.0, 1.0); mpv.inputs["Rotation"].default_value = (0, 0, 0.6); L.new(tc.outputs["Object"], mpv.inputs["Vector"]); L.new(mpv.outputs[0], vor.inputs["Vector"])
+    vr = N.new("ShaderNodeMapRange"); vr.inputs[1].default_value = 0.02; vr.inputs[2].default_value = 0.0; L.new(vor.outputs["Distance"], vr.inputs[0])
+    vmask = N.new("ShaderNodeTexNoise"); vmask.inputs["Scale"].default_value = 6.0; L.new(tc.outputs["Object"], vmask.inputs["Vector"])
+    vm = N.new("ShaderNodeMapRange"); vm.inputs[1].default_value = 0.5; vm.inputs[2].default_value = 0.65; L.new(vmask.outputs["Fac"], vm.inputs[0])
+    scr = N.new("ShaderNodeMath"); scr.operation = 'MULTIPLY'; scr.use_clamp = True; L.new(vr.outputs[0], scr.inputs[0]); L.new(vm.outputs[0], scr.inputs[1])
+    scw = N.new("ShaderNodeMath"); scw.operation = 'MULTIPLY'; scw.inputs[1].default_value = 0.0; L.new(scr.outputs[0], scw.inputs[0])
+    scc = N.new("ShaderNodeMixRGB"); L.new(scw.outputs[0], scc.inputs[0]); L.new(rust.outputs[0], scc.inputs[1]); scc.inputs[2].default_value = (0.55, 0.52, 0.47, 1)
+    # polished by thumbs: both short ends of the front
+    sep = N.new("ShaderNodeSeparateXYZ"); L.new(tc.outputs["Object"], sep.inputs[0])
+    ax_ = N.new("ShaderNodeMath"); ax_.operation = 'ABSOLUTE'; L.new(sep.outputs[0], ax_.inputs[0])
+    gp = N.new("ShaderNodeMapRange"); gp.inputs[1].default_value = 0.074; gp.inputs[2].default_value = 0.09; L.new(ax_.outputs[0], gp.inputs[0])
+    gpn = N.new("ShaderNodeMath"); gpn.operation = 'MULTIPLY'; gpn.inputs[1].default_value = 0.07 * w3; L.new(gp.outputs[0], gpn.inputs[0])
+    pol = N.new("ShaderNodeMixRGB"); pol.blend_type = 'SCREEN'; L.new(gpn.outputs[0], pol.inputs[0]); L.new(scc.outputs[0], pol.inputs[1]); pol.inputs[2].default_value = (0.35, 0.33, 0.30, 1)
     if mode == "color":
-        L.new(grime.outputs[0], emi.inputs[0])
+        L.new(pol.outputs[0], emi.inputs[0])
     else:
-        L.new(chip.outputs[0], emi.inputs[0])
+        sh = N.new("ShaderNodeMath"); sh.operation = 'MAXIMUM'; L.new(chip.outputs[0], sh.inputs[0]); L.new(bigw.outputs[0], sh.inputs[1])
+        sh2 = N.new("ShaderNodeMath"); sh2.operation = 'MAXIMUM'; L.new(sh.outputs[0], sh2.inputs[0]); L.new(gpn.outputs[0], sh2.inputs[1])
+        L.new(sh2.outputs[0], emi.inputs[0])
     t = N.new("ShaderNodeTexImage"); t.name = "BAKE"; t.image = target
     uvb = N.new("ShaderNodeUVMap"); uvb.uv_map = "BAKE"; L.new(uvb.outputs[0], t.inputs[0])
     N.active = t; t.select = True
