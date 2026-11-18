@@ -5,8 +5,8 @@ from cfg import CFG
 MATS = {
     "mil":  {"body": dict(color=(80, 74, 50), kind="paint", scratch=0.4, rust=0.5, soft=True),
              "trim": dict(color=(56, 55, 52), kind="metal", scratch=0.3, rust=0.25, soft=True)},
-    "mono": {"body": dict(color=(98, 94, 86), kind="paint", scratch=1.0, rust=0.2),
-             "trim": dict(color=(72, 70, 64), kind="metal", scratch=0.6, rust=0.1),
+    "mono": {"body": dict(color=(86, 84, 78), kind="paint", scratch=0.4, rust=0.2, soft=True),
+             "trim": dict(color=(62, 61, 57), kind="metal", scratch=0.3, rust=0.1, soft=True),
              "cloth": dict(color=(96, 85, 67), kind="cloth")},
     "nii":  {"body": dict(color=(196, 194, 190), kind="paint", scratch=0.6, rust=0.0),
              "trim": dict(color=(32, 33, 32), kind="rubber")},

@@ -37,8 +37,8 @@ PARTS = {
         dict(t="guard", r=(78, 38, 142, 96), h=2.0), dict(t="guard", r=(78, 358, 142, 418), h=2.0),
         dict(t="clip", r=(316, 36, 346, 56)), dict(t="clip", r=(558, 36, 590, 56)),
         dict(t="screw", c=(110, 70), rad=7), dict(t="screw", c=(110, 388), rad=7),
-        dict(t="bgrille", r=(655, 505, 785, 690), h=1.0, n=5, dir="h"),
-        dict(t="blabel", r=(795, 508, 935, 690), h=0.12, draw="text", bg="body", fg=(150, 146, 136),
+        dict(t="bgrille", r=(660, 512, 782, 685), h=1.4, n=5, dir="h"),
+        dict(t="blabel", r=(805, 515, 975, 682), h=0.75, draw="text", bg="body", fg=(150, 146, 136),
              lines=["@obelisk", "МОНОЛИТ", "ПИК №ОС-031", "@barcode"]),
     ],
     "nii": [
@@ -85,6 +85,9 @@ PARTS = {
 CFG["m1"]["D"] = 20
 CFG["mil"]["D"] = 28
 CFG["nii"]["D"] = 22
+CFG["mono"]["D"] = 22
+CFG["mono"]["edge"] = 5.5
+CFG["mono"]["screen_kind"] = "chamfer"
 CFG["nii"]["edge"] = 5.0
 CFG["mil"]["edge"] = 6.0
 CFG["mil"]["screen_kind"] = "chamfer"
