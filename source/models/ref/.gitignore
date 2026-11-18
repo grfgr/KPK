@@ -1,0 +1,4 @@
+out_*/preview_*.png
+out_*/prev.log
+__pycache__/
+out_*/atlas_*.png
