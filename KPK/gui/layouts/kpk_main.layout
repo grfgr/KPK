@@ -46,6 +46,9 @@ FrameWidgetClass KPK_Root {
      vexactpos 0
      hexactsize 0
      vexactsize 0
+     mode blend
+     "src alpha" 1
+     "no wrap" 1
      stretch 1
      color 1 1 1 1
      visible 0
