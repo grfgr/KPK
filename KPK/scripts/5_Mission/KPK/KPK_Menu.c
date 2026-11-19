@@ -74,7 +74,6 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_A_SELF = 901;
 	static const int B_A_ADD = 902;
 	static const int B_A_DEL = 903;
-	static const int B_A_TEST = 904;
 	static const int B_R_ANSWER = 801;
 	static const int B_R_END = 802;
 
@@ -1151,7 +1150,13 @@ class KPK_Menu extends UIScriptedMenu
 			case KPK_CallState.ACTIVE: text = "НА СВЯЗИ: " + v.CallWith + "\nговорите в голосовой чат"; break;
 		}
 		m_RadioText.SetText(text);
-		m_ById.Get(B_R_CALL).SetEnabled(v.CallState == KPK_CallState.NONE);
+		// in a call the same key adds one more participant
+		KPK_Button callKey = m_ById.Get(B_R_CALL);
+		if (v.CallState == KPK_CallState.NONE)
+			callKey.SetText("ВЫЗОВ");
+		else
+			callKey.SetText("+ В ЗВОНОК");
+		callKey.SetEnabled(v.CallState != KPK_CallState.INCOMING);
 		m_ById.Get(B_R_ANSWER).SetEnabled(v.CallState == KPK_CallState.INCOMING);
 		m_ById.Get(B_R_END).SetEnabled(v.CallState != KPK_CallState.NONE);
 	}
@@ -1700,8 +1705,7 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(left, B_A_DEL, "- АДМИН", 0.51, 0.91, 0.45, 0.06);
 
 		Widget right = KPK_UI.Card(page, 0.44, 0, 0.56, 1, "СВЕДЕНИЯ");
-		m_AdminText = KPK_UI.MText(right, 0.04, 0.08, 0.92, 0.78, 15, KPK_UI.C_TEXT);
-		AddButton(right, B_A_TEST, "ТЕСТ УВЕДОМЛЕНИЯ", 0.04, 0.9, 0.5, 0.07);
+		m_AdminText = KPK_UI.MText(right, 0.04, 0.08, 0.92, 0.88, 15, KPK_UI.C_TEXT);
 		return page;
 	}
 
@@ -2424,6 +2428,7 @@ class KPK_Menu extends UIScriptedMenu
 			// radio (brick)
 			case B_R_CALL:
 				KPK_Client.SendText(KPK_C.CALL_START, m_RadioName.GetText());
+				m_RadioName.SetText("");
 				break;
 			case B_R_ANSWER:
 				KPK_Client.SendText(KPK_C.CALL_ANSWER, "", "", 1);
@@ -2474,9 +2479,6 @@ class KPK_Menu extends UIScriptedMenu
 			case B_A_DEL:
 				if (m_AdminName)
 					KPK_Client.SendText(KPK_C.ADMIN, m_AdminName.GetText(), "", KPK_AdminCmd.REMOVE_ADMIN);
-				break;
-			case B_A_TEST:
-				KPK_Client.SendText(KPK_C.ADMIN, "", "", KPK_AdminCmd.TEST_NOTIFY);
 				break;
 			case B_K_ADD:
 				KPK_Client.SendText(KPK_C.CONTACT_ADD, m_ContactName.GetText());

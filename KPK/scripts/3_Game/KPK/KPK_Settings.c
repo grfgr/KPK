@@ -77,6 +77,7 @@ class KPK_Settings
 	// radio calls between bricks: both radios go to the same vanilla walkie-talkie channel.
 	// The game has few channels: an ordinary walkie-talkie on that channel hears the call too.
 	int CallChannels = 6;
+	int CallMaxMembers = 6;   // participants of one brick call (the caller included)
 	float CallRingSec = 40;          // an unanswered call is dropped after this
 
 	// chat and contacts (not on the brick)

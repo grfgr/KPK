@@ -41,8 +41,7 @@ enum KPK_AdminCmd
 {
 	ADD_ADMIN = 1,   // S1 callsign
 	REMOVE_ADMIN,    // S1 callsign
-	INSPECT,         // S1 callsign, "" = back to the own KPK
-	TEST_NOTIFY
+	INSPECT          // S1 callsign, "" = back to the own KPK
 };
 
 // radio call of the brick (KPK_View.CallState)

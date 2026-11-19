@@ -166,6 +166,9 @@ class KPK_Device extends PersonalRadio
 	// 0..1, -1 = no battery
 	static float GetBatteryLevel(EntityAI device)
 	{
+		// the admin KPK «Куратор» runs without a battery
+		if (device && device.IsKindOf("KPK_Admin"))
+			return 1.0;
 		Battery9V battery = GetBattery(device);
 		if (!battery || !battery.HasEnergyManager())
 			return -1;
@@ -179,6 +182,8 @@ class KPK_Device extends PersonalRadio
 	// server: drain a share of the battery capacity, returns the level left
 	static float Drain(EntityAI device, float percent)
 	{
+		if (device && device.IsKindOf("KPK_Admin"))
+			return 1.0;
 		Battery9V battery = GetBattery(device);
 		if (!battery || !battery.HasEnergyManager())
 			return -1;

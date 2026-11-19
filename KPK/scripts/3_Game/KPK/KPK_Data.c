@@ -354,6 +354,21 @@ class KPK_Vitals
 	float PosZ;
 };
 
+// a brick call: one radio channel, any number of participants (server only)
+class KPK_CallRoom
+{
+	int Id;
+	int Channel = -1;                  // -1 until the first answer
+	ref array<string> Members;         // on air (the caller too, while ringing)
+	ref array<string> Ringing;         // invited, not answered yet
+
+	void KPK_CallRoom()
+	{
+		Members = new array<string>();
+		Ringing = new array<string>();
+	}
+};
+
 // admin KPK: one registered player in the list
 class KPK_PlayerEntry
 {

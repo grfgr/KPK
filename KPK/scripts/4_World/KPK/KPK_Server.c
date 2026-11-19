@@ -63,11 +63,13 @@ class KPK_Server
 	int m_ChatNextId = 1;
 	ref map<string, int> m_ChatLast;                // steamId -> GetTime() of the last message
 	// radio calls between bricks (both sides have an entry)
-	ref map<string, string> m_CallPeer;
+	// brick calls: a call is a room on one radio channel, any number of members (CallMaxMembers)
+	ref map<int, ref KPK_CallRoom> m_Calls;
+	ref map<string, int> m_CallOf;                  // steamId -> room id (member or ringing)
 	ref map<string, int> m_CallState;               // KPK_CallState
-	ref map<string, int> m_CallChannel;
 	ref map<string, int> m_CallRingAt;
 	ref map<string, EntityAI> m_CallDevice;
+	int m_NextCallId = 1;
 
 	static KPK_Server Get()
 	{
@@ -109,9 +111,9 @@ class KPK_Server
 		if (!m_Owners.Devices)
 			m_Owners.Devices = new array<ref KPK_DeviceOwner>();
 		m_ChatLast = new map<string, int>();
-		m_CallPeer = new map<string, string>();
+		m_Calls = new map<int, ref KPK_CallRoom>();
+		m_CallOf = new map<string, int>();
 		m_CallState = new map<string, int>();
-		m_CallChannel = new map<string, int>();
 		m_CallRingAt = new map<string, int>();
 		m_CallDevice = new map<string, EntityAI>();
 
@@ -557,7 +559,7 @@ class KPK_Server
 		view.NoteMaxLength = m_Settings.NoteMaxLength;
 		view.Battery = -1;
 		EntityAI device = OpenDevice(player, steamId);
-		if (m_Settings.RequireBattery && device)
+		if (m_Settings.RequireBattery && device && !device.IsKindOf("KPK_Admin"))
 			view.Battery = KPK_Device.GetBatteryLevel(device);
 		int model = KPK_Device.ModelOf(device);
 		int openedWith;
@@ -698,9 +700,7 @@ class KPK_Server
 		if (m_CallState.Find(steamId, callState))
 		{
 			view.CallState = callState;
-			string callPeer;
-			if (m_CallPeer.Find(steamId, callPeer))
-				view.CallWith = CallsignOf(callPeer);
+			view.CallWith = CallPeers(steamId);
 		}
 
 		// the brick stops here: no factions, tasks or notes
@@ -1487,6 +1487,43 @@ class KPK_Server
 		return best;
 	}
 
+	protected KPK_CallRoom RoomOf(string steamId)
+	{
+		int id;
+		if (!m_CallOf.Find(steamId, id))
+			return null;
+		KPK_CallRoom room;
+		m_Calls.Find(id, room);
+		return room;
+	}
+
+	// everybody else in the player's call, ringing ones marked
+	string CallPeers(string steamId)
+	{
+		KPK_CallRoom room = RoomOf(steamId);
+		if (!room)
+			return "";
+		string text = "";
+		foreach (string mid : room.Members)
+		{
+			if (mid == steamId)
+				continue;
+			if (text != "")
+				text += ", ";
+			text += CallsignOf(mid);
+		}
+		foreach (string rid : room.Ringing)
+		{
+			if (rid == steamId)
+				continue;
+			if (text != "")
+				text += ", ";
+			text += CallsignOf(rid) + " (вызов)";
+		}
+		return text;
+	}
+
+	// CALL_START: a new call, or (already in one) one more participant for it
 	protected void HandleCallStart(PlayerBase player, KPK_Account acc, KPK_Req req, int openModel)
 	{
 		if (openModel != KPK_Model.BRICK)
@@ -1494,9 +1531,11 @@ class KPK_Server
 			Msg(player, "Рация есть только у «Вестника»");
 			return;
 		}
-		if (m_CallState.Contains(acc.SteamId))
+		int myState;
+		bool inCall = m_CallState.Find(acc.SteamId, myState);
+		if (inCall && myState == KPK_CallState.INCOMING)
 		{
-			Msg(player, "Сначала завершите текущий вызов");
+			Msg(player, "Сначала ответьте на входящий вызов");
 			return;
 		}
 		string name = KPK_Util.Clean(req.S1, 64);
@@ -1520,28 +1559,48 @@ class KPK_Server
 		}
 		if (m_CallState.Contains(targetId))
 		{
-			Msg(player, CallsignOf(targetId) + ": абонент занят");
+			if (RoomOf(targetId) && RoomOf(targetId) == RoomOf(acc.SteamId))
+				Msg(player, CallsignOf(targetId) + " уже в этом звонке");
+			else
+				Msg(player, CallsignOf(targetId) + ": абонент занят");
 			return;
 		}
-		if (FreeChannel() < 0)
+
+		KPK_CallRoom room = RoomOf(acc.SteamId);
+		if (!room)
 		{
-			Msg(player, "Все каналы заняты, попробуйте позже");
+			if (FreeChannel() < 0)
+			{
+				Msg(player, "Все каналы заняты, попробуйте позже");
+				return;
+			}
+			room = new KPK_CallRoom();
+			room.Id = m_NextCallId;
+			m_NextCallId++;
+			room.Members.Insert(acc.SteamId);
+			m_Calls.Set(room.Id, room);
+			m_CallOf.Set(acc.SteamId, room.Id);
+			m_CallState.Set(acc.SteamId, KPK_CallState.OUTGOING);
+		}
+		else if (room.Members.Count() + room.Ringing.Count() >= m_Settings.CallMaxMembers)
+		{
+			Msg(player, "В звонке уже максимум участников (" + m_Settings.CallMaxMembers.ToString() + ")");
 			return;
 		}
 
 		int now = GetGame().GetTime();
-		m_CallPeer.Set(acc.SteamId, targetId);
-		m_CallPeer.Set(targetId, acc.SteamId);
-		m_CallState.Set(acc.SteamId, KPK_CallState.OUTGOING);
+		room.Ringing.Insert(targetId);
+		m_CallOf.Set(targetId, room.Id);
 		m_CallState.Set(targetId, KPK_CallState.INCOMING);
-		m_CallRingAt.Set(acc.SteamId, now);
-		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CallRingTimeout, m_Settings.CallRingSec * 1000, false, acc.SteamId, now);
+		m_CallRingAt.Set(targetId, now);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CallRingTimeout, m_Settings.CallRingSec * 1000, false, targetId, now);
 
 		Msg(player, "Вызов: " + CallsignOf(targetId) + " . . .");
-		Notify(target, "КПК: входящий вызов", "Вызывает " + acc.Callsign + ". Откройте КПК, вкладка группы: ОТВЕТИТЬ.");
-		SendView(player);
-		if (m_Open.Contains(targetId))
-			SendView(target);
+		string who = acc.Callsign;
+		if (room.Members.Count() > 1)
+			who += " (звонок: " + room.Members.Count().ToString() + " чел.)";
+		Notify(target, "КПК: входящий вызов", "Вызывает " + who + ". Откройте КПК, вкладка группы: ОТВЕТИТЬ.");
+		RefreshRoom(room);
 	}
 
 	// a channel no call uses, -1 when all are taken (two calls on one channel would hear each other)
@@ -1550,9 +1609,9 @@ class KPK_Server
 		for (int ch = 0; ch < m_Settings.CallChannels; ch++)
 		{
 			bool used = false;
-			foreach (string cid, int cch : m_CallChannel)
+			foreach (int rid, KPK_CallRoom r : m_Calls)
 			{
-				if (cch == ch)
+				if (r.Channel == ch)
 				{
 					used = true;
 					break;
@@ -1564,66 +1623,73 @@ class KPK_Server
 		return -1;
 	}
 
-	void CallRingTimeout(string callerId, int startedAt)
+	void CallRingTimeout(string targetId, int startedAt)
 	{
 		int state;
 		int ringAt;
-		if (!m_CallState.Find(callerId, state) || state != KPK_CallState.OUTGOING)
+		if (!m_CallState.Find(targetId, state) || state != KPK_CallState.INCOMING)
 			return;
-		if (!m_CallRingAt.Find(callerId, ringAt) || ringAt != startedAt)
+		if (!m_CallRingAt.Find(targetId, ringAt) || ringAt != startedAt)
 			return;
-		EndCall(callerId, "Абонент не отвечает");
+		LeaveCall(targetId, "Вызов пропущен", CallsignOf(targetId) + " не отвечает");
 	}
 
 	protected void HandleCallAnswer(PlayerBase player, KPK_Account acc, KPK_Req req)
 	{
 		int state;
-		string callerId;
-		if (!m_CallState.Find(acc.SteamId, state) || state != KPK_CallState.INCOMING || !m_CallPeer.Find(acc.SteamId, callerId))
+		KPK_CallRoom room = RoomOf(acc.SteamId);
+		if (!room || !m_CallState.Find(acc.SteamId, state) || state != KPK_CallState.INCOMING)
 			return;
 		if (req.I1 == 0)
 		{
-			EndCall(acc.SteamId, "Вызов отклонён");
+			LeaveCall(acc.SteamId, "Вызов отклонён", acc.Callsign + " отклонил вызов");
 			return;
 		}
 
-		PlayerBase caller = FindOnline(callerId);
 		TransmitterBase mine = TransmitterBase.Cast(FindBrick(player));
-		TransmitterBase theirs = TransmitterBase.Cast(FindBrick(caller));
-		if (!caller || !mine || !theirs)
+		if (!mine)
 		{
-			EndCall(acc.SteamId, "Связь не установлена: нет «Вестника» с питанием");
+			LeaveCall(acc.SteamId, "Связь не установлена: нет «Вестника» с питанием", acc.Callsign + ": нет связи");
 			return;
 		}
-
-		// a free channel only: a shared one would let two calls hear each other
-		int best = FreeChannel();
-		if (best < 0)
+		// the first answer opens the channel: a free one only, a shared one would mix two calls
+		if (room.Channel < 0)
 		{
-			EndCall(acc.SteamId, "Все каналы заняты, попробуйте позже");
-			return;
+			room.Channel = FreeChannel();
+			if (room.Channel < 0)
+			{
+				LeaveCall(acc.SteamId, "Все каналы заняты, попробуйте позже", "Все каналы заняты");
+				return;
+			}
 		}
 
-		StartRadio(mine, best);
-		StartRadio(theirs, best);
-		// voice goes through the client radios: tune and switch them on there too
-		GetGame().RPCSingleParam(player, KPK_RPC_RADIO, new Param2<bool, int>(true, best), true, player.GetIdentity());
-		GetGame().RPCSingleParam(caller, KPK_RPC_RADIO, new Param2<bool, int>(true, best), true, caller.GetIdentity());
-		m_CallDevice.Set(acc.SteamId, mine);
-		m_CallDevice.Set(callerId, theirs);
-		m_CallChannel.Set(acc.SteamId, best);
-		m_CallChannel.Set(callerId, best);
-		m_CallState.Set(acc.SteamId, KPK_CallState.ACTIVE);
-		m_CallState.Set(callerId, KPK_CallState.ACTIVE);
-		m_CallRingAt.Remove(callerId);
-
+		room.Ringing.RemoveItem(acc.SteamId);
+		room.Members.Insert(acc.SteamId);
+		m_CallRingAt.Remove(acc.SteamId);
 		string hint = ". Возьмите «Вестник» в руки и говорите в голосовой чат.";
-		Msg(player, "На связи: " + CallsignOf(callerId) + hint);
-		Msg(caller, "На связи: " + acc.Callsign + hint);
-		Notify(caller, "КПК: на связи", acc.Callsign + " ответил на вызов");
-		SendView(player);
-		if (m_Open.Contains(callerId))
-			SendView(caller);
+		foreach (string mid : room.Members)
+		{
+			int ms;
+			m_CallState.Find(mid, ms);
+			if (ms == KPK_CallState.ACTIVE)
+			{
+				PlayerBase other = FindOnline(mid);
+				if (other)
+					Notify(other, "КПК: звонок", acc.Callsign + " подключился");
+				continue;
+			}
+			// the newcomer, and the caller when the call starts now
+			PlayerBase mp = FindOnline(mid);
+			TransmitterBase radio = TransmitterBase.Cast(FindBrick(mp));
+			if (!mp || !radio)
+				continue;
+			StartRadio(radio, room.Channel);
+			GetGame().RPCSingleParam(mp, KPK_RPC_RADIO, new Param2<bool, int>(true, room.Channel), true, mp.GetIdentity());
+			m_CallDevice.Set(mid, radio);
+			m_CallState.Set(mid, KPK_CallState.ACTIVE);
+			Msg(mp, "На связи: " + CallPeers(mid) + hint);
+		}
+		RefreshRoom(room);
 	}
 
 	protected void StartRadio(TransmitterBase radio, int channel)
@@ -1641,35 +1707,84 @@ class KPK_Server
 			radio.GetCompEM().SwitchOff();
 	}
 
-	// ends the call of this player and of the other side; reason goes to both
-	void EndCall(string steamId, string reason)
+	// leaves the call: the radio of this player stops; a call with fewer than two people left (and nobody
+	// being called) ends for everybody. reason goes to the leaving player, othersText to the rest
+	void LeaveCall(string steamId, string reason, string othersText = "")
 	{
-		string peerId;
-		if (!m_CallPeer.Find(steamId, peerId))
+		KPK_CallRoom room = RoomOf(steamId);
+		if (!room)
 			return;
-		array<string> both = {steamId, peerId};
-		foreach (string sid : both)
+		DropFromCall(steamId, reason);
+		room.Members.RemoveItem(steamId);
+		room.Ringing.RemoveItem(steamId);
+
+		bool over = room.Members.Count() + room.Ringing.Count() < 2;
+		if (room.Members.Count() == 0)
+			over = true;
+		if (over)
 		{
-			EntityAI device;
-			if (m_CallDevice.Find(sid, device))
-				StopRadio(device);
-			m_CallDevice.Remove(sid);
-			m_CallPeer.Remove(sid);
-			m_CallState.Remove(sid);
-			m_CallChannel.Remove(sid);
-			m_CallRingAt.Remove(sid);
-			PlayerBase p = FindOnline(sid);
-			if (p)
-			{
-				GetGame().RPCSingleParam(p, KPK_RPC_RADIO, new Param2<bool, int>(false, 0), true, p.GetIdentity());
-				Msg(p, reason);
-				if (m_Open.Contains(sid))
-					SendView(p);
-			}
+			array<string> rest = new array<string>();
+			rest.InsertAll(room.Members);
+			rest.InsertAll(room.Ringing);
+			string endText = "Связь завершена";
+			if (othersText != "")
+				endText = othersText + ". Связь завершена";
+			foreach (string rid : rest)
+				DropFromCall(rid, endText);
+			m_Calls.Remove(room.Id);
+			return;
+		}
+		foreach (string mid : room.Members)
+		{
+			PlayerBase other = FindOnline(mid);
+			if (!other)
+				continue;
+			if (othersText != "")
+				Notify(other, "КПК: звонок", othersText);
+		}
+		RefreshRoom(room);
+	}
+
+	protected void DropFromCall(string sid, string reason)
+	{
+		EntityAI device;
+		if (m_CallDevice.Find(sid, device))
+			StopRadio(device);
+		m_CallDevice.Remove(sid);
+		m_CallOf.Remove(sid);
+		m_CallState.Remove(sid);
+		m_CallRingAt.Remove(sid);
+		PlayerBase p = FindOnline(sid);
+		if (p)
+		{
+			GetGame().RPCSingleParam(p, KPK_RPC_RADIO, new Param2<bool, int>(false, 0), true, p.GetIdentity());
+			Msg(p, reason);
+			if (m_Open.Contains(sid))
+				SendView(p);
 		}
 	}
 
-	// the call drops when a side dies, leaves, loses the brick or its battery runs flat
+	// the player hangs up, dies, logs out: he leaves the call (the others go on if two or more remain)
+	void EndCall(string steamId, string reason)
+	{
+		string who = CallsignOf(steamId);
+		LeaveCall(steamId, reason, who + " отключился");
+	}
+
+	protected void RefreshRoom(KPK_CallRoom room)
+	{
+		array<string> all = new array<string>();
+		all.InsertAll(room.Members);
+		all.InsertAll(room.Ringing);
+		foreach (string sid : all)
+		{
+			PlayerBase p = FindOnline(sid);
+			if (p && m_Open.Contains(sid))
+				SendView(p);
+		}
+	}
+
+	// a participant drops when he dies, leaves, loses the brick or its battery runs flat
 	void TickCalls()
 	{
 		array<string> drop = new array<string>();
@@ -2752,7 +2867,7 @@ class KPK_Server
 
 	// =================================================================== admin
 
-	// admin KPK «Куратор»: admins list, viewing another player's KPK, a test notification
+	// admin KPK «Куратор»: admins list, viewing another player's KPK
 	protected void HandleAdminCmd(PlayerBase player, KPK_Account acc, KPK_Req req)
 	{
 		if (!AdminHere(acc.SteamId))
@@ -2828,9 +2943,6 @@ class KPK_Server
 				Print("[KPK] admin " + acc.SteamId + " views the KPK of " + targetId);
 				break;
 			}
-			case KPK_AdminCmd.TEST_NOTIFY:
-				Notify(player, "КПК: проверка", "Тестовое уведомление сервера. Звук и карточка работают.");
-				break;
 		}
 		SendView(player);
 	}

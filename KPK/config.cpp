@@ -129,10 +129,11 @@ class CfgVehicles
 	{
 		scope = 2;
 		displayName = "КПК-А «Куратор»";
-		descriptionShort = "Административный терминал сети Зоны. Работает только у администраторов: состав группировок, лидеры, шифрование, просмотр КПК любого игрока. Батарейка 9V.";
+		descriptionShort = "Административный терминал сети Зоны. Работает только у администраторов: состав группировок, лидеры, шифрование, просмотр КПК любого игрока. Питание не нужно.";
 		model = "\KPK\data\kpk_admin.p3d";
 		weight = 400;
 		itemSize[] = {3, 2};
+		attachments[] = {};   // no battery: the admin KPK works without one
 	};
 	class KPK_Military: KPK_Base
 	{
