@@ -63,7 +63,8 @@ for (a, cc) in [(110, 117), (143, 150)]:
     parts.append(paint(prism("swg", rounded(x0, y0, x1, y1, 0.0006, 2), ZF - 0.0003, ZF + 0.0042, 0.0004, 2), TRIM))
 
 # back: corner screws and the raised centre panel under the stencil
-for (sx_, sy_) in [(640, 488), (1050, 488), (640, 700), (1050, 700)]:
+# (inside the back outline: on the corner armour, not on the very corner)
+for (sx_, sy_) in [(674, 514), (1031, 514), (674, 685), (1031, 685)]:
     cx_, cy_ = bxy(sx_, sy_)
     screw(cx_, cy_, 0.002, -ZF, -1)
 x0, y0, x1, y1 = brect((782, 500, 992, 700))

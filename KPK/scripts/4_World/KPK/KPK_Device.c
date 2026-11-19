@@ -96,6 +96,18 @@ class KPK_Device extends PersonalRadio
 		item.SetAnimationPhase("kpkNotHand", hideHand);
 		item.SetAnimationPhase("kpkNotStrap", hideStrap);
 		item.SetAnimationPhase("kpkNotFree", hideFree);
+		// the quickbar frames the copy that was shown when the item was put there: refresh it
+		if (!GetGame().IsDedicatedServer())
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(KPK_Device.RefreshQuickbarLater, 150, false);
+	}
+
+	static void RefreshQuickbarLater()
+	{
+		if (!GetGame() || !GetGame().GetMission())
+			return;
+		Hud hud = GetGame().GetMission().GetHud();
+		if (hud)
+			hud.RefreshQuickbar(true);
 	}
 
 	// inventory preview: frame the copy that is shown (model memory points boundingbox_min2 / invView2 ...)

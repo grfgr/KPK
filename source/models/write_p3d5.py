@@ -120,7 +120,8 @@ def visual_lod(path, resolution):
     m = json.load(open(path))
     nv = len(m["verts"])
     hand = [to_p3d(v) for v in m["verts"]]
-    strap = hand if STRAP_SAME else [strap_pose(v) for v in m["verts"]]
+    # portrait models: on a strap as in the hands, pushed out by ZBACK so the case clears the strap
+    strap = [(p[0], p[1] + STRAP_UP, p[2] + ZBACK) for p in hand] if STRAP_SAME else [strap_pose(v) for v in m["verts"]]
     points = hand + strap + [free_pose(v) for v in m["verts"]]
     normals, faces = [], []
     for copy in (0, 1, 2):

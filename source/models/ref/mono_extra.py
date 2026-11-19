@@ -35,18 +35,17 @@ for (a, cc) in [(130, 316), (444, 600)]:
 x0, y0, x1, y1 = rect_m((612, 142, 678, 372))
 parts.append(paint(prism("kcol", outline(x0, y0, x1, y1, "chamfer", 0.003), ZF - 0.0004, ZF + 0.0009, 0.0006, 2, 30), TRIM))
 
-# rosary: beads hanging along the left side, dog tag at the end
+# rosary: beads lying along the left side face (between the chamfered corners), dog tag at the end
 import math as _m
-pts_ = []
-for k in range(34):
-    t = k / 33.0
-    pts_.append((62 - 14 * _m.sin(t * _m.pi) , 58 + 250 * t))
-for k, (bx_, by_) in enumerate(pts_):
-    x_, y_ = P(bx_, by_)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.0021 if k % 6 else 0.0028, location=(x_, y_, ZF * 0.55))
+for k in range(30):
+    t = k / 29.0
+    rb = 0.0021 if k % 6 else 0.0028
+    _, y_ = P(0, 92 + 236 * t)
+    x_ = -W / 2 - rb * 0.55 - 0.0012 * _m.sin(t * _m.pi)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=rb, location=(x_, y_, 0.0))
     parts.append(paint(bpy.context.active_object, TRIM))
-tx0, ty0, tx1, ty1 = rect_m((34, 300, 70, 352))
-tag = prism("tag", outline(tx0, ty0, tx1, ty1, "chamfer", 0.002), ZF * 0.4, ZF * 0.4 + 0.0012, 0.0004, 2)
+_, ty1 = P(0, 334); _, ty0 = P(0, 372)
+tag = prism("tag", [(-W / 2 - 0.0034, ty0), (-W / 2 - 0.0022, ty0), (-W / 2 - 0.0022, ty1), (-W / 2 - 0.0034, ty1)], -0.0055, 0.0055, 0.0003, 2)
 parts.append(paint(tag, METAL))
 
 # cyan indicator slot on the left side face
@@ -62,7 +61,8 @@ for (sx_, sy_) in [(110, 70), (110, 388), (590, 70), (590, 388)]:
 # back: raised emblem panel and two crossing cloth strips over the right part
 x0, y0, x1, y1 = brect((792, 505, 990, 690))
 parts.append(paint(prism("bpan", outline(x0, y0, x1, y1, "chamfer", 0.005), -ZF - 0.0006, -ZF + 0.0004, 0.0005, 2), BODY))
-for kk, (p0, p1) in enumerate([((925, 478), (1045, 712)), ((1045, 478), (930, 712))]):
+# the strips end at the edge of the back (they stuck out over the top and bottom before)
+for kk, (p0, p1) in enumerate([((929, 486), (1041, 699)), ((1041, 486), (934, 699))]):
     xa, ya = bxy(*p0); xb, yb = bxy(*p1)
     dx, dy = xb - xa, yb - ya; L_ = (dx * dx + dy * dy) ** 0.5; nx, ny = -dy / L_ * 0.006, dx / L_ * 0.006
     q = [(xa - nx, ya - ny), (xb - nx, yb - ny), (xb + nx, yb + ny), (xa + nx, ya + ny)]

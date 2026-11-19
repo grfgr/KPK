@@ -14,5 +14,5 @@ done
 for spec in "$REF/v3_brick:kpk:0.3:0.074" "$REF/v3_broken:kpk_broken:0.28:0.074"; do
   IFS=: read d n mass ymax <<<"$spec"
   UIT=""; [ "$n" = "kpk" ] && UIT="kpk\\data\\kpk_ui_brick_ca.paa"
-  KPK_UI_TEX="$UIT" python3 "$(dirname "$0")/write_p3d5.py" $d $R/$n.p3d $n $mass $ymax 0 0 0 0 0 0 0 0 same
+  KPK_UI_TEX="$UIT" python3 "$(dirname "$0")/write_p3d5.py" $d $R/$n.p3d $n $mass $ymax 0 0 0 0 0 0 ${BRICK_STRAP_OUT:-0.024} 0 same
 done
