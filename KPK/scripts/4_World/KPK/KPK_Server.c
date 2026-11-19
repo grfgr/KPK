@@ -34,6 +34,7 @@ class KPK_ChatEntry
 class KPK_Server
 {
 	protected ref map<string, bool> m_MateHasDevice = new map<string, bool>();   // per mates tick
+	protected ref map<string, float> m_NoDeviceSec = new map<string, float>();   // logged in, but no KPK on the player
 	protected static ref KPK_Server s_Instance;
 
 	ref KPK_Settings m_Settings;
@@ -122,6 +123,7 @@ class KPK_Server
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickStats, m_Settings.StatsTickSec * 1000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickMates, m_Settings.MatesUpdateSec * 1000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickCalls, 3000, true);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickLogout, 5000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(SaveDirty, m_Settings.SaveIntervalSec * 1000, true);
 
 		Print("[KPK] server started, accounts: " + m_Index.Accounts.Count() + ", factions: " + m_Factions.Factions.Count());
@@ -403,6 +405,7 @@ class KPK_Server
 		EndCall(steamId, "Связь потеряна");
 		m_LastPos.Remove(steamId);
 		m_LastMatesCount.Remove(steamId);
+		m_NoDeviceSec.Remove(steamId);
 		m_Incoming.Remove(steamId);
 	}
 
@@ -1137,6 +1140,42 @@ class KPK_Server
 		if (entity)
 			return PlayerBase.Cast(entity.GetHierarchyRootPlayer());
 		return null;
+	}
+
+	// a player who has had no KPK on him for LogoutWithoutDeviceSec is logged out of the network: the next
+	// time he switches a KPK on he has to enter his password again
+	void TickLogout()
+	{
+		float limit = m_Settings.LogoutWithoutDeviceSec;
+		if (limit <= 0)
+			return;
+		map<string, PlayerBase> online = OnlinePlayers();
+		array<string> ids = m_LoggedIn.GetKeyArray();
+		foreach (string steamId : ids)
+		{
+			PlayerBase player;
+			if (!online.Find(steamId, player))
+				continue;
+			if (KPK_Device.FindOn(player) != null)
+			{
+				m_NoDeviceSec.Remove(steamId);
+				continue;
+			}
+			float without = 0;
+			m_NoDeviceSec.Find(steamId, without);
+			without += 5;
+			if (without < limit)
+			{
+				m_NoDeviceSec.Set(steamId, without);
+				continue;
+			}
+			m_NoDeviceSec.Remove(steamId);
+			m_LoggedIn.Remove(steamId);
+			m_Open.Remove(steamId);
+			EndCall(steamId, "Связь потеряна");
+			if (player.IsAlive())
+				Notify(player, "КПК", "Сеанс завершён: КПК нет при себе. Войдите заново.");
+		}
 	}
 
 	void TickStats()

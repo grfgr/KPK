@@ -44,7 +44,8 @@ class KPK_Settings
 
 	// 3D labels require a KPK (any, no battery check) in the inventory
 	bool LabelsRequireDevice = true;
-	bool MateNeedsDevice = true;   // a mate without a KPK (thrown away, dropped) has no label for the others
+	bool MateNeedsDevice = true;
+	float LogoutWithoutDeviceSec = 60;   // s without any KPK on the player: logged out, password again (0 = never)   // a mate without a KPK (thrown away, dropped) has no label for the others
 	float LabelMaxDistance = 300;   // m; the 3D label of a mate disappears farther away (0 = always shown)
 	bool LabelLineOfSight = true;   // the label shows only while the mate is in sight (not behind a wall)
 
