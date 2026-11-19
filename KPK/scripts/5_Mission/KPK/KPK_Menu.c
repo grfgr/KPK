@@ -322,7 +322,7 @@ class KPK_Menu extends UIScriptedMenu
 				art = "kpk_ui_nii"; aspect = 2.0; su = 0.22051; sv = 0.19430; sw = 0.59730; sh = 0.65590;
 				break;
 			case KPK_Model.MONOLITH:
-				art = "kpk_ui_mono"; aspect = 2.0; su = 0.21961; sv = 0.15973; sw = 0.53653; sh = 0.67036;
+				art = "kpk_ui_mono"; aspect = 2.0; su = 0.18821; sv = 0.15213; sw = 0.56682; sh = 0.70821;
 				break;
 		}
 
