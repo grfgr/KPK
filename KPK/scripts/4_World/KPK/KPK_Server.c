@@ -492,8 +492,13 @@ class KPK_Server
 
 	void Notify(PlayerBase player, string title, string text)
 	{
-		if (player && player.GetIdentity())
-			NotificationSystem.SendNotificationToPlayerIdentityExtended(player.GetIdentity(), 6, title, text, "set:dayz_gui image:icon");
+		if (!player || !player.GetIdentity())
+			return;
+		// the KPK's own notification (left side, message sound), not the vanilla one
+		KPK_NotifyMsg n = new KPK_NotifyMsg();
+		n.Title = title;
+		n.Text = text;
+		SendRaw(player, KPK_S.NOTIFY, KPK_Json<KPK_NotifyMsg>.To(n));
 	}
 
 	// refresh every online member of a list who has the KPK open

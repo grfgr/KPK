@@ -1798,7 +1798,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (v && line.From != v.Callsign && v.LoggedIn)
 		{
-			KPK_Sound.Play("msg");
+			KPK_Sound.Play("sms");
 			if (line.To != "")
 				SetStatus("Личное сообщение от " + line.From);
 			else

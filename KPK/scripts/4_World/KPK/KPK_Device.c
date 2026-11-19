@@ -62,7 +62,7 @@ class KPK_Device extends PersonalRadio
 		}
 		int shownChannel = channel + 1;
 		if (on)
-			NotificationSystem.AddNotificationExtended(5, "КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", "set:dayz_gui image:icon");
+			KPK_Client.Toast("КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", 5, true);
 	}
 
 	static bool IsBrick(EntityAI item)

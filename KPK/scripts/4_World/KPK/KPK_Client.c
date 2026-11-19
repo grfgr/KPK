@@ -15,6 +15,13 @@ class KPK_Client
 	static ref ScriptInvoker s_OnStatus = new ScriptInvoker();   // (string text)
 	static ref ScriptInvoker s_OnMates = new ScriptInvoker();    // ()
 	static ref ScriptInvoker s_OnChat = new ScriptInvoker();     // (KPK_ChatMessage) new line arrived
+	static ref ScriptInvoker s_OnNotify = new ScriptInvoker();   // (string title, string text, float seconds, bool sound)
+
+	// a KPK notification on the left of the screen (drawn in 5_Mission by KPK_Toast)
+	static void Toast(string title, string text, float seconds = 5, bool sound = true)
+	{
+		s_OnNotify.Invoke(title, text, seconds, sound);
+	}
 
 	static void Send(int action, KPK_Req req = null)
 	{
@@ -95,6 +102,13 @@ class KPK_Client
 			{
 				s_Status = json;
 				s_OnStatus.Invoke(json);
+				break;
+			}
+			case KPK_S.NOTIFY:
+			{
+				KPK_NotifyMsg note = new KPK_NotifyMsg();
+				if (KPK_Json<KPK_NotifyMsg>.From(json, note))
+					Toast(note.Title, note.Text, note.Seconds, true);
 				break;
 			}
 			case KPK_S.CHAT:

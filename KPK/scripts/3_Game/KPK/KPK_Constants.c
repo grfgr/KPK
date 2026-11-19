@@ -51,7 +51,8 @@ enum KPK_S
 	MATES,        // positions of party / faction mates (KPK_MatesMsg)
 	MSG,          // status line text
 	DENIED,       // cannot open (no battery, no device) - text in json
-	CHAT          // one new chat message (KPK_ChatMessage)
+	CHAT,         // one new chat message (KPK_ChatMessage)
+	NOTIFY        // a KPK notification (KPK_NotifyMsg), shown on the left with the message sound
 };
 
 // ADMIN_FACTION sub-operations (KPK_Req.I1)

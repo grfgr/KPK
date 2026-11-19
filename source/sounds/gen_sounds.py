@@ -88,4 +88,12 @@ x = t(4.0); nz = lowpass(rng.normal(0, 1, len(x)), 0.45) - lowpass(rng.normal(0,
 xf = int(SR * 0.5); head = nz[:xf].copy(); body = nz[xf:].copy()
 fade = np.linspace(0, 1, xf); body[-xf:] = body[-xf:] * (1 - fade) + head * fade
 save("kpk_hiss", body, 0.05)
+# incoming message ("SMS") of the PDA: a quick rising digital trill, a short bright double chirp on top
+# and a tiny crackle of the speaker; slightly crushed so it sounds like a cheap device
+trill = np.concatenate([tone(f, 0.022, "sq", a=0.001, r=0.006) for f in (1180, 1480, 1760, 2210, 1760, 2210)])
+chirp = np.concatenate([sil(0.03), tone(2650, 0.05, a=0.002, r=0.03), sil(0.025), tone(3150, 0.09, a=0.002, r=0.07)])
+sms = np.concatenate([trill, chirp])
+n_ = len(sms); sms = sms + lowpass(rng.normal(0, 1, n_), 0.5) * 0.05 * np.exp(-np.arange(n_) / (SR * 0.08))
+sms = np.round(sms * 24) / 24
+save("kpk_sms", lowpass(sms, 0.6), 0.24)
 print("ok")

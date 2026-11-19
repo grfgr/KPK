@@ -246,10 +246,25 @@ class CfgSoundShaders
 		volume = 1.0;
 		range = 6;
 	};
+	class KPK_sms_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_sms", 1}};
+		volume = 1.0;
+		range = 6;
+	};
 };
 
 class CfgSoundSets
 {
+	class KPK_sms_SoundSet
+	{
+		soundShaders[] = {"KPK_sms_SoundShader"};
+		volumeFactor = 0.6;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
 	class KPK_hiss_SoundSet
 	{
 		soundShaders[] = {"KPK_hiss_SoundShader"};

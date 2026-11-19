@@ -308,6 +308,13 @@ class KPK_OwnersFile
 	}
 };
 
+class KPK_NotifyMsg
+{
+	string Title;
+	string Text;
+	float Seconds = 6;
+};
+
 class KPK_ChatMessage
 {
 	int Id;
