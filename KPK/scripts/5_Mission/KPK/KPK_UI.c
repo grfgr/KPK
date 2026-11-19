@@ -100,8 +100,13 @@ class KPK_UI
 			color = C_TEXT;
 		// same pattern as the button labels, which render fine: the text sits inside a frame
 		// and its size is baked into the layout (no SetTextExactSize at runtime)
+		// every size two points smaller than written: the window of the model is smaller than the old
+		// drawn case and the texts ran out of their boxes
+		size = size - 2;
 		string file = "kpk_text20.layout";
-		if (size <= 13)
+		if (size <= 11)
+			file = "kpk_text11.layout";
+		else if (size <= 13)
 			file = "kpk_text13.layout";
 		else if (size <= 15)
 			file = "kpk_text15.layout";
@@ -130,8 +135,11 @@ class KPK_UI
 			color = C_TEXT;
 		// the size is baked into the layout: setting it at runtime made the text render as empty boxes
 		// once a menu used many different sizes (the font cache overflowed)
+		size = size - 2;
 		string file = "kpk_mtext17.layout";
-		if (size <= 13)
+		if (size <= 11)
+			file = "kpk_mtext11.layout";
+		else if (size <= 13)
 			file = "kpk_mtext13.layout";
 		else if (size <= 15)
 			file = "kpk_mtext15.layout";

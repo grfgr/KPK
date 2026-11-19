@@ -2,6 +2,8 @@
 const int KPK_RPC = 0x4B504B01;
 // broken KPK blast, sent to every client: Param1<vector position>
 const int KPK_RPC_FX = 0x4B504B02;
+// brick radio call on the client: Param2<bool on, int channel>
+const int KPK_RPC_RADIO = 0x4B504B03;
 
 // client -> server
 enum KPK_C

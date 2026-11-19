@@ -56,6 +56,7 @@ class KPK_Server
 	ref array<ref KPK_Invite> m_Invites;
 	ref map<string, ref KPK_Assembler> m_Incoming;   // chunked client messages per sender
 	ref array<ref KPK_ChatEntry> m_Chat;
+	ref KPK_OwnersFile m_Owners;
 	int m_ChatNextId = 1;
 	ref map<string, int> m_ChatLast;                // steamId -> GetTime() of the last message
 	// radio calls between bricks (both sides have an entry)
@@ -99,6 +100,11 @@ class KPK_Server
 		m_Invites = new array<ref KPK_Invite>();
 		m_Incoming = new map<string, ref KPK_Assembler>();
 		m_Chat = new array<ref KPK_ChatEntry>();
+		m_Owners = new KPK_OwnersFile();
+		if (FileExist(KPK_Settings.OWNERS_FILE))
+			JsonFileLoader<KPK_OwnersFile>.JsonLoadFile(KPK_Settings.OWNERS_FILE, m_Owners);
+		if (!m_Owners.Devices)
+			m_Owners.Devices = new array<ref KPK_DeviceOwner>();
 		m_ChatLast = new map<string, int>();
 		m_CallPeer = new map<string, string>();
 		m_CallState = new map<string, int>();
@@ -426,9 +432,58 @@ class KPK_Server
 		KPK_Net.Send(player, action, payload, player.GetIdentity());
 	}
 
+	protected bool m_WorldAction;   // replies of a world action go out as notifications (the KPK is closed)
+
 	void Msg(PlayerBase player, string text)
 	{
+		if (m_WorldAction)
+		{
+			Notify(player, "КПК", text);
+			return;
+		}
 		SendRaw(player, KPK_S.MSG, text);
+	}
+
+	// looking at a player in the world: add to contacts / invite to the party. The other one must have
+	// the KPK switched on (open), the one doing it needs an account and a KPK on them.
+	void OnWorldAction(PlayerBase player, PlayerBase target, bool invite)
+	{
+		if (!player || !target || !player.GetIdentity() || !target.GetIdentity())
+			return;
+		string steamId = player.GetIdentity().GetPlainId();
+		string targetId = target.GetIdentity().GetPlainId();
+		KPK_Account acc = GetAccount(steamId);
+		if (!acc || !GetAccount(targetId))
+		{
+			Notify(player, "КПК", "Нет связи: у одного из вас нет аккаунта в сети КПК");
+			return;
+		}
+		if (!m_Open.Contains(targetId))
+		{
+			Notify(player, "КПК", "У сталкера не включён КПК");
+			return;
+		}
+		EntityAI mine = KPK_Device.FindOn(player, true);
+		if (!mine)
+		{
+			Notify(player, "КПК", "Нужен включённый КПК с батарейкой");
+			return;
+		}
+		KPK_Req req = new KPK_Req();
+		req.S1 = CallsignOf(targetId);
+		m_WorldAction = true;
+		if (invite)
+		{
+			HandlePartyInvite(player, acc, req);
+		}
+		else
+		{
+			if (!KPK_Const.FullAccess(KPK_Device.ModelOf(mine)))
+				Msg(player, "Контакты есть только у полных КПК");
+			else
+				HandleContact(player, acc, req, true);
+		}
+		m_WorldAction = false;
 	}
 
 	void Notify(PlayerBase player, string title, string text)
@@ -514,6 +569,7 @@ class KPK_Server
 			return view;
 
 		view.IsAdmin = isAdmin;
+		view.PrevOwner = TrackOwner(device, steamId);
 		view.RegisteredDate = acc.Registered;
 		view.Stats = acc.Stats;
 		view.Rank = KPK_Const.Rank(acc.Stats.PlayerKills + acc.Stats.ZombieKills / 20, acc.Stats.PlaytimeSec);
@@ -668,6 +724,46 @@ class KPK_Server
 		}
 
 		return view;
+	}
+
+	// the device remembers who uses it: a new user takes it over and the old one becomes "previous"
+	string TrackOwner(EntityAI device, string steamId)
+	{
+		if (!device)
+			return "";
+		int b1, b2, b3, b4;
+		device.GetPersistentID(b1, b2, b3, b4);
+		if (b1 == 0 && b2 == 0 && b3 == 0 && b4 == 0)
+			return "";
+		string id = string.Format("%1_%2_%3_%4", b1, b2, b3, b4);
+		KPK_DeviceOwner rec = null;
+		foreach (KPK_DeviceOwner d : m_Owners.Devices)
+		{
+			if (d.Id == id)
+			{
+				rec = d;
+				break;
+			}
+		}
+		if (!rec)
+		{
+			rec = new KPK_DeviceOwner();
+			rec.Id = id;
+			rec.Owner = steamId;
+			m_Owners.Devices.Insert(rec);
+			if (m_Owners.Devices.Count() > 5000)
+				m_Owners.Devices.RemoveOrdered(0);
+			JsonFileLoader<KPK_OwnersFile>.JsonSaveFile(KPK_Settings.OWNERS_FILE, m_Owners);
+		}
+		else if (rec.Owner != steamId)
+		{
+			rec.Previous = rec.Owner;
+			rec.Owner = steamId;
+			JsonFileLoader<KPK_OwnersFile>.JsonSaveFile(KPK_Settings.OWNERS_FILE, m_Owners);
+		}
+		if (rec.Previous == "" || rec.Previous == steamId)
+			return "";
+		return CallsignOf(rec.Previous);
 	}
 
 	// the faction other players may see: none for hidden factions or ones with a secret member list
@@ -968,6 +1064,21 @@ class KPK_Server
 
 		string victimId = victim.GetIdentity().GetPlainId();
 		EndCall(victimId, "Связь потеряна");
+		// death: the player drops out of the party, the mates get a notification
+		KPK_Party deadParty = PartyOf(victimId);
+		if (deadParty)
+		{
+			string deadName = CallsignOf(victimId);
+			foreach (string dmid : deadParty.Members)
+			{
+				if (dmid == victimId)
+					continue;
+				PlayerBase dmp = FindOnline(dmid);
+				if (dmp)
+					Notify(dmp, "КПК: группа", deadName + " пропал из сети");
+			}
+			LeaveParty(victimId, false);
+		}
 		KPK_Account victimAcc = GetAccount(victimId);
 		PlayerBase killerPlayer = ResolveKiller(killer);
 
@@ -1132,6 +1243,10 @@ class KPK_Server
 		mate.Callsign = CallsignOf(steamId);
 		mate.Kind = kind;
 		mate.Color = color;
+		int low, high;
+		p.GetNetworkID(low, high);
+		mate.NetLow = low;
+		mate.NetHigh = high;
 		mate.X = pos[0];
 		mate.Y = pos[1];
 		mate.Z = pos[2];
@@ -1340,6 +1455,9 @@ class KPK_Server
 
 		StartRadio(mine, best);
 		StartRadio(theirs, best);
+		// voice goes through the client radios: tune and switch them on there too
+		GetGame().RPCSingleParam(player, KPK_RPC_RADIO, new Param2<bool, int>(true, best), true, player.GetIdentity());
+		GetGame().RPCSingleParam(caller, KPK_RPC_RADIO, new Param2<bool, int>(true, best), true, caller.GetIdentity());
 		m_CallDevice.Set(acc.SteamId, mine);
 		m_CallDevice.Set(callerId, theirs);
 		m_CallChannel.Set(acc.SteamId, best);
@@ -1348,7 +1466,7 @@ class KPK_Server
 		m_CallState.Set(callerId, KPK_CallState.ACTIVE);
 		m_CallRingAt.Remove(callerId);
 
-		string hint = ". Говорите в голосовой чат; «Вестник» держите в руках или на лямке.";
+		string hint = ". Возьмите «Вестник» в руки и говорите в голосовой чат.";
 		Msg(player, "На связи: " + CallsignOf(callerId) + hint);
 		Msg(caller, "На связи: " + acc.Callsign + hint);
 		Notify(caller, "КПК: на связи", acc.Callsign + " ответил на вызов");
@@ -1392,6 +1510,7 @@ class KPK_Server
 			PlayerBase p = FindOnline(sid);
 			if (p)
 			{
+				GetGame().RPCSingleParam(p, KPK_RPC_RADIO, new Param2<bool, int>(false, 0), true, p.GetIdentity());
 				Msg(p, reason);
 				if (m_Open.Contains(sid))
 					SendView(p);

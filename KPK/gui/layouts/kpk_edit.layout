@@ -18,7 +18,7 @@ PanelWidgetClass KPK_Edit {
    vexactsize 0
    font "gui/fonts/sdf_MetronBook24"
    "exact text" 1
-   "exact text size" 16
+   "exact text size" 14
   }
  }
 }

@@ -38,7 +38,8 @@ class KPK_Settings
 
 	// party
 	int PartyMaxSize = 6;
-	float MatesUpdateSec = 2.0;
+	float MatesUpdateSec = 1.0;
+	bool MatesRateFixed;   // older files had 2 s: lowered once
 	float MatesMaxDistance = 3000;   // m; mates farther away are not sent (0 = no limit)
 
 	// 3D labels require a KPK (any, no battery check) in the inventory
@@ -98,6 +99,7 @@ class KPK_Settings
 	const static string SALT_FILE = "$profile:KPK/password_salt.txt";
 	const static string ADMINS_FILE = "$profile:KPK/admins.txt";
 	const static string INDEX_FILE = "$profile:KPK/accounts_index.json";
+	const static string OWNERS_FILE = "$profile:KPK/device_owners.json";
 
 	void KPK_Settings()
 	{
@@ -133,6 +135,12 @@ class KPK_Settings
 			settings.Admins = new array<string>();
 		if (!settings.ReputationFactions)
 			settings.ReputationFactions = new array<string>();
+		if (!settings.MatesRateFixed)
+		{
+			if (settings.MatesUpdateSec > 1.0)
+				settings.MatesUpdateSec = 1.0;
+			settings.MatesRateFixed = true;
+		}
 		if (!settings.FactionRoster)
 			settings.FactionRoster = new array<ref KPK_RosterEntry>();
 		if (!settings.RosterExampleAdded)

@@ -82,5 +82,51 @@ modded class ActionConstructor
 		super.RegisterActions(actions);
 		actions.Insert(ActionKPKOpen);
 		actions.Insert(ActionKPKBroken);
+		actions.Insert(ActionKPKWorldContact);
+		actions.Insert(ActionKPKWorldInvite);
+	}
+};
+
+// Looking at another player: add them to the KPK contacts / invite them to the party (their KPK must be on)
+class ActionKPKWorldContact : ActionInteractBase
+{
+	protected bool m_Invite;
+
+	void ActionKPKWorldContact()
+	{
+		m_CommandUID = DayZPlayerConstants.CMD_ACTIONMOD_INTERACTONCE;
+		m_StanceMask = DayZPlayerConstants.STANCEMASK_ERECT | DayZPlayerConstants.STANCEMASK_CROUCH;
+		m_Text = "КПК: добавить в контакты";
+	}
+
+	override void CreateConditionComponents()
+	{
+		m_ConditionItem = new CCINone();
+		m_ConditionTarget = new CCTMan(UAMaxDistances.DEFAULT, false);
+	}
+
+	override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
+	{
+		PlayerBase other = PlayerBase.Cast(target.GetObject());
+		if (!other || other == player || !other.IsAlive())
+			return false;
+		return KPK_Device.FindOn(player) != null;
+	}
+
+	override void OnExecuteServer(ActionData action_data)
+	{
+		super.OnExecuteServer(action_data);
+		PlayerBase other = PlayerBase.Cast(action_data.m_Target.GetObject());
+		if (KPK_Server.Get())
+			KPK_Server.Get().OnWorldAction(action_data.m_Player, other, m_Invite);
+	}
+};
+
+class ActionKPKWorldInvite : ActionKPKWorldContact
+{
+	void ActionKPKWorldInvite()
+	{
+		m_Invite = true;
+		m_Text = "КПК: пригласить в группу";
 	}
 };

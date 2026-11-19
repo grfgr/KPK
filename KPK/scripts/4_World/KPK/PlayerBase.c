@@ -1,5 +1,12 @@
 modded class PlayerBase
 {
+	override void SetActionsRemoteTarget(out TInputActionMap InputActionMap)
+	{
+		super.SetActionsRemoteTarget(InputActionMap);
+		AddAction(ActionKPKWorldContact, InputActionMap);
+		AddAction(ActionKPKWorldInvite, InputActionMap);
+	}
+
 	override void OnRPC(PlayerIdentity sender, int rpc_type, ParamsReadContext ctx)
 	{
 		super.OnRPC(sender, rpc_type, ctx);
@@ -9,6 +16,14 @@ modded class PlayerBase
 			Param1<vector> fx = new Param1<vector>(vector.Zero);
 			if (ctx.Read(fx))
 				KPK_Fx.SmallBlast(fx.param1);
+			return;
+		}
+
+		if (rpc_type == KPK_RPC_RADIO && !GetGame().IsDedicatedServer())
+		{
+			Param2<bool, int> radio = new Param2<bool, int>(false, 0);
+			if (ctx.Read(radio))
+				KPK_RadioClient(radio.param1, radio.param2);
 			return;
 		}
 
@@ -61,5 +76,28 @@ modded class AnimalBase
 		super.EEKilled(killer);
 		if (GetGame().IsDedicatedServer() && KPK_Server.Get())
 			KPK_Server.Get().OnCreatureKilled(this, killer, true);
+	}
+
+	// the client side of a brick call: every brick on this player tuned and transmitting / receiving
+	void KPK_RadioClient(bool on, int channel)
+	{
+		array<EntityAI> items = new array<EntityAI>();
+		GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+		EntityAI inHands = GetHumanInventory().GetEntityInHands();
+		if (inHands)
+			items.Insert(inHands);
+		foreach (EntityAI it : items)
+		{
+			TransmitterBase radio = TransmitterBase.Cast(it);
+			if (!radio || !KPK_Device.IsBrick(it))
+				continue;
+			if (on)
+				radio.SetFrequencyByIndex(channel);
+			radio.EnableBroadcast(on);
+			radio.EnableReceive(on);
+		}
+		int shownChannel = channel + 1;
+		if (on)
+			NotificationSystem.AddNotificationExtended(5, "КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", "set:dayz_gui image:icon");
 	}
 };

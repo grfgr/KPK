@@ -342,7 +342,7 @@ class KPK_Menu extends UIScriptedMenu
 		device.SetSize(wFrac, hFrac);
 
 		// the case picture lies under the interface: the screen sits a hair inside the window edge
-		float pad = -0.003;
+		float pad = 0.004;
 		m_Screen.SetPos(su - pad, sv - pad * aspect);
 		m_Screen.SetSize(sw + pad * 2, sh + pad * 2 * aspect);
 
@@ -350,6 +350,9 @@ class KPK_Menu extends UIScriptedMenu
 		ImageWidget img = ImageWidget.Cast(layoutRoot.FindAnyWidget("Art"));
 		if (!img)
 			return;
+		// the picture always under the interface, whatever order the engine picks
+		img.SetSort(1);
+		m_Screen.SetSort(10);
 		img.Show(false);
 		array<string> paths = {"\\KPK\\data\\" + art + "_ca.paa", "KPK\\data\\" + art + "_ca.paa", "KPK/data/" + art + "_ca.paa"};
 		foreach (string path : paths)
@@ -715,7 +718,10 @@ class KPK_Menu extends UIScriptedMenu
 		if (m_Full)
 			text += "Группировка:  " + faction + "\n";
 		text += "Steam ID:  " + v.SteamId + "\n";
-		text += "В сети с:  " + v.RegisteredDate + "\n\n";
+		text += "В сети с:  " + v.RegisteredDate + "\n";
+		if (v.PrevOwner != "")
+			text += "Прежний владелец КПК:  " + v.PrevOwner + "\n";
+		text += "\n";
 		text += "— БОЕВАЯ СТАТИСТИКА —\n";
 		text += string.Format("Убито сталкеров:  %1\n", s.PlayerKills);
 		text += string.Format("Убито заражённых:  %1\n", s.ZombieKills);
@@ -1040,7 +1046,7 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			string line = m.Callsign;
 			if (m.Leader)
-				line = "[Л] " + line;
+				line = line + "   · лидер";
 			if (!m.Online)
 				line += "   · не в сети";
 			else if (m.Distance >= 0 && m.Callsign != v.Callsign)
@@ -1156,26 +1162,26 @@ class KPK_Menu extends UIScriptedMenu
 		m_AdminBox = KPK_UI.Card(page, 0, 0.79, 1, 0.21, "АДМИНИСТРАТОР: выбранная группировка");
 		float bw = 0.118;
 		float gap = 0.006;
-		AddButton(m_AdminBox, B_A_ENC_DESC, "ШИФР: ОПИСАНИЕ", 0.01, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_ENC_LEADER, "ШИФР: ЛИДЕР", 0.01 + (bw + gap), 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_ENC_MEMBERS, "ШИФР: СОСТАВ", 0.01 + (bw + gap) * 2, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_ENC_LOC, "ШИФР: МЕСТО", 0.01 + (bw + gap) * 3, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_DESC, "ШИФР ОПИС.", 0.01, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_LEADER, "ШИФР ЛИДЕР", 0.01 + (bw + gap), 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_MEMBERS, "ШИФР СОСТАВ", 0.01 + (bw + gap) * 2, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_LOC, "ШИФР МЕСТО", 0.01 + (bw + gap) * 3, 0.2, bw, 0.22);
 		AddButton(m_AdminBox, B_A_HIDDEN, "СКРЫТА", 0.01 + (bw + gap) * 4, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_MATES, "ВИДНЫ В МИРЕ", 0.01 + (bw + gap) * 5, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_MATES, "МЕТКИ", 0.01 + (bw + gap) * 5, 0.2, bw, 0.22);
 		AddButton(m_AdminBox, B_A_COLOR, "ЦВЕТ", 0.01 + (bw + gap) * 6, 0.2, bw, 0.22);
 		AddButton(m_AdminBox, B_A_REMOVE, "УДАЛИТЬ", 0.01 + (bw + gap) * 7, 0.2, bw, 0.22);
 
 		m_AdminText = KPK_UI.Edit(m_AdminBox, 0.01, 0.48, 0.358, 0.22);
-		AddButton(m_AdminBox, B_A_LOC_TEXT, "МЕСТО = ТЕКСТ", 0.01 + (bw + gap) * 3, 0.48, bw, 0.22);
-		AddButton(m_AdminBox, B_A_LOC_ME, "МЕСТО = Я ТУТ", 0.01 + (bw + gap) * 4, 0.48, bw, 0.22);
-		AddButton(m_AdminBox, B_A_LOC_CLEAR, "УБРАТЬ С КАРТЫ", 0.01 + (bw + gap) * 5, 0.48, bw, 0.22);
-		AddButton(m_AdminBox, B_A_DESC, "ОПИСАНИЕ = ТЕКСТ", 0.01 + (bw + gap) * 6, 0.48, bw * 2 + gap, 0.22);
+		AddButton(m_AdminBox, B_A_LOC_TEXT, "МЕСТО", 0.01 + (bw + gap) * 3, 0.48, bw, 0.22);
+		AddButton(m_AdminBox, B_A_LOC_ME, "Я ТУТ", 0.01 + (bw + gap) * 4, 0.48, bw, 0.22);
+		AddButton(m_AdminBox, B_A_LOC_CLEAR, "С КАРТЫ", 0.01 + (bw + gap) * 5, 0.48, bw, 0.22);
+		AddButton(m_AdminBox, B_A_DESC, "ОПИСАНИЕ", 0.01 + (bw + gap) * 6, 0.48, bw * 2 + gap, 0.22);
 
-		AddButton(m_AdminBox, B_A_LEADER, "ЛИДЕР = ПОЗЫВНОЙ", 0.01, 0.75, bw * 1.5, 0.22);
-		AddButton(m_AdminBox, B_A_ADD, "ЗАЧИСЛИТЬ ПОЗЫВНОЙ", 0.01 + bw * 1.5 + gap, 0.75, bw * 1.5, 0.22);
-		AddButton(m_AdminBox, B_A_CREATE, "СОЗДАТЬ ГРУППИРОВКУ (ТЕКСТ = НАЗВАНИЕ)", 0.01 + (bw * 1.5 + gap) * 2, 0.75, bw * 3, 0.22);
+		AddButton(m_AdminBox, B_A_LEADER, "ЛИДЕР", 0.01, 0.75, bw * 1.5, 0.22);
+		AddButton(m_AdminBox, B_A_ADD, "ЗАЧИСЛИТЬ", 0.01 + bw * 1.5 + gap, 0.75, bw * 1.5, 0.22);
+		AddButton(m_AdminBox, B_A_CREATE, "СОЗДАТЬ ГРУППИРОВКУ", 0.01 + (bw * 1.5 + gap) * 2, 0.75, bw * 3, 0.22);
 		MultilineTextWidget ah = KPK_UI.MText(m_AdminBox, 0.01 + (bw * 1.5 + gap) * 2 + bw * 3 + gap, 0.72, 0.99 - (0.01 + (bw * 1.5 + gap) * 2 + bw * 3 + gap), 0.28, 11, KPK_UI.C_DIM);
-		ah.SetText("Поле ввода слева используется для текста, позывного и названия.");
+		ah.SetText("Текст / позывной / название — в поле слева.");
 		return page;
 	}
 
@@ -1217,7 +1223,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected string EncField(string value, bool enc)
 	{
 		if (enc)
-			return "[ЗАШИФРОВАНО]  " + value;
+			return value;
 		return value;
 	}
 
@@ -1286,11 +1292,11 @@ class KPK_Menu extends UIScriptedMenu
 			deputies += dm.Callsign;
 		}
 		if (f.MembersEnc)
-			deputies = "[ЗАШИФРОВАНО]  " + KPK_Util.Scramble(f.Id + "dep", 10);
+			deputies = KPK_Util.Scramble(f.Id + "dep", 10);
 		else if (deputies == "")
 			deputies = "—";
 
-		string count = "[ЗАШИФРОВАНО]";
+		string count = KPK_Util.Scramble(f.Id + "cnt", 3);
 		if (!f.MembersEnc)
 			count = f.MemberCount.ToString();
 
@@ -1650,7 +1656,7 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(right, B_K_WRITE, "НАПИСАТЬ", 0.04, 0.7, 0.44, 0.07);
 		AddButton(right, B_K_PARTY, "В ГРУППУ", 0.52, 0.7, 0.44, 0.07);
 		MultilineTextWidget hint = KPK_UI.MText(right, 0.04, 0.8, 0.92, 0.18, 12, KPK_UI.C_DIM);
-		hint.SetText("Знак <> - контакт взаимный. Статус «в сети» виден у всех контактов.");
+		hint.SetText("Статус «в сети» виден у всех контактов.");
 		if (m_Theme.Glitch)
 			hint.Show(false);
 		return page;
@@ -1678,11 +1684,10 @@ class KPK_Menu extends UIScriptedMenu
 		foreach (KPK_ContactView c : v.Contacts)
 		{
 			string row = c.Callsign;
-			if (c.Mutual)
-				row += "  <>";
+
 			if (c.Online)
 			{
-				row += "  [в сети]";
+				row += "   · в сети";
 				colors.Insert(KPK_UI.C_ACCENT);
 			}
 			else

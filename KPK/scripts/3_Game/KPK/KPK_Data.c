@@ -291,6 +291,23 @@ class KPK_FactionView
 };
 
 // a chat line as the client sees it
+// who used a device (by its persistent id) and who had it before
+class KPK_DeviceOwner
+{
+	string Id;
+	string Owner;      // steam id
+	string Previous;   // steam id
+};
+
+class KPK_OwnersFile
+{
+	ref array<ref KPK_DeviceOwner> Devices;
+	void KPK_OwnersFile()
+	{
+		Devices = new array<ref KPK_DeviceOwner>();
+	}
+};
+
 class KPK_ChatMessage
 {
 	int Id;
@@ -370,6 +387,7 @@ class KPK_View
 	ref array<ref KPK_ContactView> Contacts;
 	int ChatMaxLength;
 
+	string PrevOwner;     // callsign of the previous owner of this device, "" = none
 	int CallState;        // KPK_CallState (brick)
 	string CallWith;      // callsign of the other side
 
@@ -399,6 +417,8 @@ class KPK_MatePos
 	string Callsign;
 	int Kind;       // KPK_MateKind
 	int Color;
+	int NetLow;     // network id of the player entity: the client draws the label at its live position
+	int NetHigh;
 	float X;
 	float Y;
 	float Z;

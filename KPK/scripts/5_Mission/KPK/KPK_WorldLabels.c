@@ -107,8 +107,12 @@ class KPK_WorldLabels
 			}
 
 			vector pos = Vector(mate.X, mate.Y, mate.Z);
-			PlayerBase live;
-			if (m_Nearby.Find(mate.SteamId, live) && live)
+			// live position of streamed players: by network id (the plain Steam id of other players is
+			// often empty on a client), then by id; far away ones use the server position
+			PlayerBase live = PlayerBase.Cast(GetGame().GetObjectByNetworkId(mate.NetLow, mate.NetHigh));
+			if (!live)
+				m_Nearby.Find(mate.SteamId, live);
+			if (live)
 				pos = live.GetPosition();
 			pos[1] = pos[1] + 2.0;
 
