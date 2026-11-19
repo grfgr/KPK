@@ -1442,6 +1442,11 @@ class KPK_Server
 			Msg(player, CallsignOf(targetId) + ": абонент занят");
 			return;
 		}
+		if (FreeChannel() < 0)
+		{
+			Msg(player, "Все каналы заняты, попробуйте позже");
+			return;
+		}
 
 		int now = GetGame().GetTime();
 		m_CallPeer.Set(acc.SteamId, targetId);
@@ -1456,6 +1461,26 @@ class KPK_Server
 		SendView(player);
 		if (m_Open.Contains(targetId))
 			SendView(target);
+	}
+
+	// a channel no call uses, -1 when all are taken (two calls on one channel would hear each other)
+	protected int FreeChannel()
+	{
+		for (int ch = 0; ch < m_Settings.CallChannels; ch++)
+		{
+			bool used = false;
+			foreach (string cid, int cch : m_CallChannel)
+			{
+				if (cch == ch)
+				{
+					used = true;
+					break;
+				}
+			}
+			if (!used)
+				return ch;
+		}
+		return -1;
 	}
 
 	void CallRingTimeout(string callerId, int startedAt)
@@ -1490,22 +1515,12 @@ class KPK_Server
 			return;
 		}
 
-		// the least busy channel
-		int best = 0;
-		int bestCount = 1000;
-		for (int ch = 0; ch < m_Settings.CallChannels; ch++)
+		// a free channel only: a shared one would let two calls hear each other
+		int best = FreeChannel();
+		if (best < 0)
 		{
-			int used = 0;
-			foreach (string cid, int cch : m_CallChannel)
-			{
-				if (cch == ch)
-					used++;
-			}
-			if (used < bestCount)
-			{
-				best = ch;
-				bestCount = used;
-			}
+			EndCall(acc.SteamId, "Все каналы заняты, попробуйте позже");
+			return;
 		}
 
 		StartRadio(mine, best);
