@@ -1910,9 +1910,11 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		super.Update(timeslice);
 
-		// closing comes first: it must work even if part of the interface failed to build
-		if (GetUApi().GetInputByID(UAUIBack).LocalPress())
+		// closing comes first: it must work even if part of the interface failed to build. The "menu"
+		// input exclude can swallow UAUIBack, so the Escape key itself is read too
+		if (GetUApi().GetInputByID(UAUIBack).LocalPress() || KeyState(KeyCode.KC_ESCAPE))
 		{
+			ClearKey(KeyCode.KC_ESCAPE);
 			CloseIfOpen();
 			return;
 		}
@@ -1969,6 +1971,16 @@ class KPK_Menu extends UIScriptedMenu
 		bool typing = (EditBoxWidget.Cast(focus) != null) || (MultilineEditBoxWidget.Cast(focus) != null);
 		if (!typing && GetUApi().GetInputByName("UAKPKToggle").LocalPress())
 			CloseIfOpen();
+	}
+
+	override bool OnKeyDown(Widget w, int x, int y, int key)
+	{
+		if (key == KeyCode.KC_ESCAPE)
+		{
+			CloseIfOpen();
+			return true;
+		}
+		return super.OnKeyDown(w, x, y, key);
 	}
 
 	override bool OnChange(Widget w, int x, int y, bool finished)

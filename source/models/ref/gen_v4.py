@@ -225,7 +225,8 @@ def make(pt, wmm, hmm):
 
 
 img = Image.open(sheet).convert("RGB")
-items = {"screen": img.crop(c["screen"])}
+_scr = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screens", name + ".png")
+items = {"screen": Image.open(_scr).convert("RGB") if os.path.exists(_scr) else img.crop(c["screen"])}
 for i, pt in enumerate(c["parts"]):
     t = pt["t"]
     if t in ("btn", "led", "label", "blabel"):
