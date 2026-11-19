@@ -33,6 +33,7 @@ class KPK_ChatEntry
 
 class KPK_Server
 {
+	protected ref map<string, bool> m_MateHasDevice = new map<string, bool>();   // per mates tick
 	protected static ref KPK_Server s_Instance;
 
 	ref KPK_Settings m_Settings;
@@ -1190,6 +1191,7 @@ class KPK_Server
 	{
 		map<string, PlayerBase> online = OnlinePlayers();
 		float maxDist = m_Settings.MatesMaxDistance;
+		m_MateHasDevice.Clear();
 
 		foreach (string steamId, PlayerBase player : online)
 		{
@@ -1240,6 +1242,18 @@ class KPK_Server
 		vector pos = p.GetPosition();
 		if (maxDist > 0 && vector.Distance(pos, myPos) > maxDist)
 			return;
+		// a mate who threw his KPK away (none in the hands or the inventory) has no label
+		if (m_Settings.MateNeedsDevice)
+		{
+			bool hasDevice;
+			if (!m_MateHasDevice.Find(steamId, hasDevice))
+			{
+				hasDevice = KPK_Device.FindOn(p) != null;
+				m_MateHasDevice.Set(steamId, hasDevice);
+			}
+			if (!hasDevice)
+				return;
+		}
 		KPK_MatePos mate = new KPK_MatePos();
 		mate.SteamId = steamId;
 		mate.Callsign = CallsignOf(steamId);
