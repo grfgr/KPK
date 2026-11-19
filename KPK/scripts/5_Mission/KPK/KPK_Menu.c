@@ -116,10 +116,10 @@ class KPK_Menu extends UIScriptedMenu
 	protected TextWidget m_LoginCallsignLabel;
 	protected EditBoxWidget m_LoginCallsign;
 	protected TextWidget m_LoginCallsignFixed;
-	protected PasswordEditBoxWidget m_LoginPassword;
+	protected EditBoxWidget m_LoginPassword;
 	protected TextWidget m_LoginRepeatLabel;
 	protected Widget m_LoginRepeatBox;
-	protected PasswordEditBoxWidget m_LoginRepeat;
+	protected EditBoxWidget m_LoginRepeat;
 	protected TextWidget m_LoginSteam;
 	protected MultilineTextWidget m_LoginHint;
 	protected ref KPK_Button m_LoginButton;
@@ -260,6 +260,10 @@ class KPK_Menu extends UIScriptedMenu
 		m_Skin = new KPK_Skin();
 
 		BuildChrome();
+		// login and boot are built before everything else: if the engine's widget limit is reached it
+		// must never be on the password box (the box appeared, the input inside it did not)
+		Widget loginPage = BuildLogin();
+		Widget bootPage = BuildBoot();
 		m_Pages.Insert(BuildProfile());
 		m_Pages.Insert(BuildMap());
 		m_Pages.Insert(BuildParty());
@@ -278,8 +282,8 @@ class KPK_Menu extends UIScriptedMenu
 			for (int skip = 0; skip < 5; skip++)
 				m_Pages.Insert(KPK_UI.Frame(m_Screen, 0, 0, 0.01, 0.01));
 		}
-		m_Pages.Insert(BuildLogin());
-		m_Pages.Insert(BuildBoot());
+		m_Pages.Insert(loginPage);
+		m_Pages.Insert(bootPage);
 
 		// decoration last: the engine caps how many widgets a menu may create, and when the case and
 		// screen effects came first the buttons built after them failed ("could not create a button")
@@ -341,54 +345,19 @@ class KPK_Menu extends UIScriptedMenu
 		}
 		device.SetSize(wFrac, hFrac);
 
-		// the case picture lies under the interface: the screen sits a hair inside the window edge
-		float pad = 0.0015;
+		// the case picture lies over the interface (its window is cut out): the screen reaches a little
+		// under the window edge so no gap shows, and the chamfered corners are covered by the case itself
+		float pad = 0.004;
 		m_Screen.SetPos(su - pad, sv - pad * aspect);
 		m_Screen.SetSize(sw + pad * 2, sh + pad * 2 * aspect);
 
 		// an ImageWidget without a picture draws a plain white box, so it stays hidden until one loads
-		// chamfered windows (ВПК-7М, Монолит): the rectangular screen would cover the cut corners of the
-		// case, so each corner gets a 45° patch in the colour of the case edge there
-		float screenMM = 0;
-		int c0 = 0;
-		int c1 = 0;
-		int c2 = 0;
-		int c3 = 0;
-		if (model == KPK_Model.MILITARY)
-		{
-			screenMM = 149.7;
-			c0 = ARGB(255, 158, 151, 138); c1 = ARGB(255, 168, 163, 150); c2 = ARGB(255, 159, 154, 142); c3 = ARGB(255, 161, 151, 138);
-		}
-		else if (model == KPK_Model.MONOLITH)
-		{
-			screenMM = 122.0;
-			c0 = ARGB(255, 127, 124, 119); c1 = ARGB(255, 135, 133, 127); c2 = ARGB(255, 124, 122, 116); c3 = ARGB(255, 128, 125, 120);
-		}
-		if (screenMM > 0)
-		{
-			float cw = sw * 8.5 / screenMM;
-			float ch = cw * aspect;
-			array<int> cornerColors = {c0, c1, c2, c3};
-			for (int ci = 0; ci < 4; ci++)
-			{
-				float cx = su;
-				float cy = sv;
-				if (ci == 1 || ci == 3)
-					cx = su + sw;
-				if (ci >= 2)
-					cy = sv + sh;
-				Widget patch = KPK_UI.Panel(device, cx - cw * 0.5, cy - ch * 0.5, cw, ch, cornerColors[ci]);
-				patch.SetRotation(0, 0, 45);
-				patch.SetSort(20);
-			}
-		}
-
 		ImageWidget img = ImageWidget.Cast(layoutRoot.FindAnyWidget("Art"));
 		if (!img)
 			return;
-		// the picture always under the interface, whatever order the engine picks
-		img.SetSort(1);
+		// the case always over the interface, whatever order the engine picks (it ignores the mouse)
 		m_Screen.SetSort(10);
+		img.SetSort(30);
 		img.Show(false);
 		array<string> paths = {"\\KPK\\data\\" + art + "_ca.paa", "KPK\\data\\" + art + "_ca.paa", "KPK/data/" + art + "_ca.paa"};
 		foreach (string path : paths)
@@ -700,10 +669,19 @@ class KPK_Menu extends UIScriptedMenu
 		if (!v)
 			return;
 
+		if (!m_LoginPassword)
+		{
+			SetStatus("Ошибка интерфейса: поле пароля не создано. Закройте и откройте КПК");
+			Print("[KPK] !!! login: password input missing");
+			return;
+		}
 		string password = m_LoginPassword.GetText();
 		if (!v.Registered || v.NeedNewPassword)
 		{
-			if (password != m_LoginRepeat.GetText())
+			string repeat = "";
+			if (m_LoginRepeat)
+				repeat = m_LoginRepeat.GetText();
+			if (password != repeat)
 			{
 				SetStatus("Пароли не совпадают");
 				return;
@@ -711,7 +689,11 @@ class KPK_Menu extends UIScriptedMenu
 		}
 
 		if (!v.Registered)
+		{
+			if (!m_LoginCallsign)
+				return;
 			KPK_Client.SendText(KPK_C.REGISTER, m_LoginCallsign.GetText(), password);
+		}
 		else
 			KPK_Client.SendText(KPK_C.LOGIN, password);
 

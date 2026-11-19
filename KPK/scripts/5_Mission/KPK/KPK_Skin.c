@@ -197,7 +197,7 @@ class KPK_Skin
 		m_NoiseBlocks = new array<Widget>();
 		if (m_Heavy)
 		{
-			for (int nb = 0; nb < 12; nb++)
+			for (int nb = 0; nb < 6; nb++)
 			{
 				int blockColor = 0x3090F0F0;
 				if (nb % 2 == 0)

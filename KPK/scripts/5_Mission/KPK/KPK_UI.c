@@ -59,6 +59,11 @@ class KPK_UI
 	static Widget Make(string file, Widget parent, float x, float y, float w, float h)
 	{
 		Widget wd = GetGame().GetWorkspace().CreateWidgets(DIR + file, parent);
+		if (!wd)
+		{
+			Print("[KPK] !!! widget not created: " + file);
+			return null;
+		}
 		wd.SetPos(x, y);
 		wd.SetSize(w, h);
 		return wd;
@@ -151,18 +156,30 @@ class KPK_UI
 	static EditBoxWidget Edit(Widget parent, float x, float y, float w, float h)
 	{
 		Widget root = Make("kpk_edit.layout", parent, x, y, w, h);
+		if (!root)
+			return null;
 		Panel(root, 0, 0.94, 1, 0.06, C_EDGE);
 		return EditBoxWidget.Cast(root.FindAnyWidget("input"));
 	}
 
-	static PasswordEditBoxWidget Password(Widget parent, float x, float y, float w, float h)
+	// a password box; if the engine refuses the password input, a plain edit box is used instead so
+	// the KPK can still be logged into
+	static EditBoxWidget Password(Widget parent, float x, float y, float w, float h)
 	{
 		Widget root = Make("kpk_password.layout", parent, x, y, w, h);
-		Panel(root, 0, 0.94, 1, 0.06, C_EDGE);
-		PasswordEditBoxWidget input = PasswordEditBoxWidget.Cast(root.FindAnyWidget("input"));
-		if (input)
-			input.SetHideText(true);
-		return input;
+		if (root)
+		{
+			PasswordEditBoxWidget input = PasswordEditBoxWidget.Cast(root.FindAnyWidget("input"));
+			if (input)
+			{
+				input.SetHideText(true);
+				Panel(root, 0, 0.94, 1, 0.06, C_EDGE);
+				return input;
+			}
+			root.Unlink();
+		}
+		Print("[KPK] password input could not be created, using a plain edit box");
+		return Edit(parent, x, y, w, h);
 	}
 
 	static MultilineEditBoxWidget MEdit(Widget parent, float x, float y, float w, float h)

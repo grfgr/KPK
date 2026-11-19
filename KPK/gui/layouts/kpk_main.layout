@@ -27,6 +27,17 @@ FrameWidgetClass KPK_Root {
    hexactsize 0
    vexactsize 0
    {
+    PanelWidgetClass Screen {
+     color 0.022 0.05 0.03 1
+     position 0.2 0.2
+     size 0.6 0.6
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     clipchildren 1
+     style rover_sim_colorable
+    }
     ImageWidgetClass Art {
      ignorepointer 1
      position 0 0
@@ -41,17 +52,6 @@ FrameWidgetClass KPK_Root {
      stretch 1
      color 1 1 1 1
      visible 0
-    }
-    PanelWidgetClass Screen {
-     color 0.022 0.05 0.03 1
-     position 0.2 0.2
-     size 0.6 0.6
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     clipchildren 1
-     style rover_sim_colorable
     }
    }
   }
