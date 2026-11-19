@@ -42,6 +42,29 @@ class KPK_Device extends PersonalRadio
 		return item && (item.IsKindOf("KPK_Device") || item.IsKindOf("KPK_Base"));
 	}
 
+	// the client side of a brick call: every brick on this player tuned and transmitting / receiving
+	static void RadioClient(PlayerBase player, bool on, int channel)
+	{
+		array<EntityAI> items = new array<EntityAI>();
+		player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
+		if (inHands)
+			items.Insert(inHands);
+		foreach (EntityAI it : items)
+		{
+			TransmitterBase radio = TransmitterBase.Cast(it);
+			if (!radio || !KPK_Device.IsBrick(it))
+				continue;
+			if (on)
+				radio.SetFrequencyByIndex(channel);
+			radio.EnableBroadcast(on);
+			radio.EnableReceive(on);
+		}
+		int shownChannel = channel + 1;
+		if (on)
+			NotificationSystem.AddNotificationExtended(5, "КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", "set:dayz_gui image:icon");
+	}
+
 	static bool IsBrick(EntityAI item)
 	{
 		return item && item.IsKindOf("KPK_Device");
