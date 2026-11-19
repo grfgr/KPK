@@ -428,6 +428,7 @@ class KPK_MatesMsg
 {
 	bool RequireDevice;
 	float LabelMaxDistance = 300;
+	bool LabelLineOfSight = true;
 	ref array<ref KPK_MatePos> Mates;
 
 	void KPK_MatesMsg()

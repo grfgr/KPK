@@ -234,10 +234,25 @@ class CfgSoundShaders
 		volume = 1.0;
 		range = 6;
 	};
+	class KPK_modem_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_modem", 1}};
+		volume = 1.0;
+		range = 6;
+	};
 };
 
 class CfgSoundSets
 {
+	class KPK_modem_SoundSet
+	{
+		soundShaders[] = {"KPK_modem_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
 	class KPK_click_SoundSet
 	{
 		soundShaders[] = {"KPK_click_SoundShader"};

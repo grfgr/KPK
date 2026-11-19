@@ -5,12 +5,15 @@ class KPK_WorldLabels
 	protected ref map<string, Widget> m_Labels;
 	protected ref map<string, PlayerBase> m_Nearby;
 	protected float m_ScanTime;
+	protected float m_SightTime;
+	protected ref map<string, bool> m_InSight;
 	protected bool m_HasDevice = true;
 
 	void KPK_WorldLabels()
 	{
 		m_Labels = new map<string, Widget>();
 		m_Nearby = new map<string, PlayerBase>();
+		m_InSight = new map<string, bool>();
 	}
 
 	void ~KPK_WorldLabels()
@@ -42,6 +45,42 @@ class KPK_WorldLabels
 		m_HasDevice = KPK_Device.FindOn(me) != null;
 	}
 
+	// line of sight from the camera to the mate's head or chest: walls, terrain, trees hide the label.
+	// Only for streamed players (the live entity); the mate himself and what he carries do not block.
+	protected bool InSight(PlayerBase me, PlayerBase mate)
+	{
+		if (!mate)
+			return false;
+		vector cam = GetGame().GetCurrentCameraPosition();
+		vector base = mate.GetPosition();
+		for (int k = 0; k < 2; k++)
+		{
+			vector target = base;
+			target[1] = target[1] + 1.65 - k * 0.5;
+			vector hitPos, hitDir;
+			int hitComp;
+			set<Object> hits = new set<Object>();
+			if (!DayZPhysics.RaycastRV(cam, target, hitPos, hitDir, hitComp, hits, null, me, false, false, ObjIntersectView, 0.0))
+				return true;
+			if (vector.Distance(cam, hitPos) > vector.Distance(cam, target) - 0.4)
+				return true;
+			bool blocked = hits.Count() == 0;   // terrain
+			for (int h = 0; h < hits.Count(); h++)
+			{
+				Object hit = hits.Get(h);
+				if (hit == mate)
+					continue;
+				EntityAI hitEntity = EntityAI.Cast(hit);
+				if (hitEntity && hitEntity.GetHierarchyRootPlayer() == mate)
+					continue;
+				blocked = true;
+			}
+			if (!blocked)
+				return true;
+		}
+		return false;
+	}
+
 	protected Widget LabelFor(KPK_MatePos mate)
 	{
 		Widget w;
@@ -71,6 +110,11 @@ class KPK_WorldLabels
 			m_ScanTime = 0.5;
 			Scan(me);
 		}
+
+		m_SightTime -= timeslice;
+		bool checkSight = m_SightTime <= 0;
+		if (checkSight)
+			m_SightTime = 0.25;
 
 		KPK_MatesMsg msg = KPK_Client.s_Mates;
 		bool visible = KPK_Client.s_LabelsEnabled && GetGame().GetUIManager().GetMenu() == null;
@@ -128,6 +172,21 @@ class KPK_WorldLabels
 			{
 				label.Show(false);
 				continue;
+			}
+			// behind a wall: hidden (checked a few times a second)
+			if (msg.LabelLineOfSight)
+			{
+				bool seen;
+				if (checkSight || !m_InSight.Find(mate.SteamId, seen))
+				{
+					seen = InSight(me, live);
+					m_InSight.Set(mate.SteamId, seen);
+				}
+				if (!seen)
+				{
+					label.Show(false);
+					continue;
+				}
 			}
 			TextWidget name = TextWidget.Cast(label.FindAnyWidget("name"));
 			TextWidget dist = TextWidget.Cast(label.FindAnyWidget("dist"));

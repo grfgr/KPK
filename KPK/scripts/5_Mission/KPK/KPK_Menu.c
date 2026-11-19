@@ -564,7 +564,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void StartBoot()
 	{
-		KPK_Sound.Play("beep2");
+		// dial-up handshake while the KPK connects to the Zone network
+		KPK_Sound.Play("modem");
 		m_Booting = true;
 		m_BootTime = 0;
 		ShowPage(P_BOOT);

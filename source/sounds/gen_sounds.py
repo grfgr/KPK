@@ -68,4 +68,19 @@ drone = np.sin(2 * np.pi * 73 * x) * 0.25 + np.sin(2 * np.pi * 110.5 * x) * 0.15
 save("kpk_whisper", (br + drone) * np.sin(np.pi * x / x[-1]) ** 2, 0.25)
 # new message
 save("kpk_msg", np.concatenate([tone(1320, 0.06), sil(0.03), tone(1760, 0.1, r=0.06)]), 0.3)
+# boot: dial-up modem handshake squeezed into ~1.6 s: dial tone, DTMF digits, answer tone, then the
+# warbling negotiation and a hiss of carrier noise, through a small phone-like speaker (band-limited)
+def dtmf(lo, hi, sec):
+    x = t(sec); return (np.sin(2 * np.pi * lo * x) + np.sin(2 * np.pi * hi * x)) * env(len(x), 0.003, 0.01) * 0.5
+parts = [tone(350, 0.18, a=0.01, r=0.01) * 0.5 + tone(440, 0.18, a=0.01, r=0.01) * 0.5, sil(0.03)]
+for lo, hi in [(697, 1336), (770, 1209), (852, 1477), (941, 1336), (697, 1209)]:
+    parts += [dtmf(lo, hi, 0.045), sil(0.022)]
+parts += [sil(0.05), tone(2100, 0.22, a=0.005, r=0.01)]
+x = t(0.25); parts.append(np.sin(2 * np.pi * (1650 + 450 * np.sign(np.sin(2 * np.pi * 22 * x))) * x) * 0.6 * env(len(x), 0.004, 0.01))
+x = t(0.45); fm = 1800 + 700 * np.sin(2 * np.pi * 37 * x) + 300 * np.sin(2 * np.pi * 91 * x)
+carrier = np.sin(2 * np.pi * np.cumsum(fm) / SR) * 0.45 + lowpass(rng.normal(0, 1, len(x)), 0.5) * 0.55
+parts.append(carrier * env(len(x), 0.01, 0.12))
+m = np.concatenate(parts)
+m = lowpass(m, 0.55) - lowpass(m, 0.03)
+save("kpk_modem", m, 0.2)
 print("ok")
