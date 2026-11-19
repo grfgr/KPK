@@ -70,10 +70,10 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_K_PARTY = 703;
 	static const int CHAT_LINES = 11;
 	static const int B_R_CALL = 800;
-	static const int B_A_INSPECT = 900;
-	static const int B_A_SELF = 901;
-	static const int B_A_ADD = 902;
-	static const int B_A_DEL = 903;
+	static const int B_T_INSPECT = 900;
+	static const int B_T_SELF = 901;
+	static const int B_T_ADMIN_ADD = 902;
+	static const int B_T_ADMIN_DEL = 903;
 	static const int B_R_ANSWER = 801;
 	static const int B_R_END = 802;
 
@@ -199,7 +199,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected bool m_Admin;
 	protected ref KPK_List m_PlayerList;
 	protected EditBoxWidget m_AdminName;
-	protected MultilineTextWidget m_AdminText;
+	protected MultilineTextWidget m_TermText;
 	protected EditBoxWidget m_ContactName;
 	protected MultilineTextWidget m_ContactText;
 
@@ -1699,13 +1699,13 @@ class KPK_Menu extends UIScriptedMenu
 		m_Lists.Insert(m_PlayerList);
 		KPK_UI.Text(left, "Позывной или Steam ID", 0.04, 0.695, 0.9, 0.045, 13, KPK_UI.C_DIM);
 		m_AdminName = KPK_UI.Edit(left, 0.04, 0.745, 0.92, 0.06);
-		AddButton(left, B_A_INSPECT, "СМОТРЕТЬ КПК", 0.04, 0.83, 0.45, 0.06);
-		AddButton(left, B_A_SELF, "СВОЙ КПК", 0.51, 0.83, 0.45, 0.06);
-		AddButton(left, B_A_ADD, "+ АДМИН", 0.04, 0.91, 0.45, 0.06);
-		AddButton(left, B_A_DEL, "- АДМИН", 0.51, 0.91, 0.45, 0.06);
+		AddButton(left, B_T_INSPECT, "СМОТРЕТЬ КПК", 0.04, 0.83, 0.45, 0.06);
+		AddButton(left, B_T_SELF, "СВОЙ КПК", 0.51, 0.83, 0.45, 0.06);
+		AddButton(left, B_T_ADMIN_ADD, "+ АДМИН", 0.04, 0.91, 0.45, 0.06);
+		AddButton(left, B_T_ADMIN_DEL, "- АДМИН", 0.51, 0.91, 0.45, 0.06);
 
 		Widget right = KPK_UI.Card(page, 0.44, 0, 0.56, 1, "СВЕДЕНИЯ");
-		m_AdminText = KPK_UI.MText(right, 0.04, 0.08, 0.92, 0.88, 15, KPK_UI.C_TEXT);
+		m_TermText = KPK_UI.MText(right, 0.04, 0.08, 0.92, 0.88, 15, KPK_UI.C_TEXT);
 		return page;
 	}
 
@@ -1723,7 +1723,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected void RefreshAdmin()
 	{
 		KPK_View v = KPK_Client.s_View;
-		if (!v || !m_PlayerList || !m_AdminText)
+		if (!v || !m_PlayerList || !m_TermText)
 			return;
 		array<string> names = new array<string>();
 		array<int> colors = new array<int>();
@@ -1776,7 +1776,7 @@ class KPK_Menu extends UIScriptedMenu
 		}
 		text += "Группировки: состав, лидер, шифрование — во вкладке «Группировки» (панель администратора).\n";
 		text += "[А] — администратор. Добавленный админ может пользоваться «Куратором».";
-		m_AdminText.SetText(text);
+		m_TermText.SetText(text);
 	}
 
 	protected Widget BuildContacts()
@@ -2465,18 +2465,18 @@ class KPK_Menu extends UIScriptedMenu
 				break;
 
 			// contacts
-			case B_A_INSPECT:
+			case B_T_INSPECT:
 				if (m_AdminName)
 					KPK_Client.SendText(KPK_C.ADMIN, m_AdminName.GetText(), "", KPK_AdminCmd.INSPECT);
 				break;
-			case B_A_SELF:
+			case B_T_SELF:
 				KPK_Client.SendText(KPK_C.ADMIN, "", "", KPK_AdminCmd.INSPECT);
 				break;
-			case B_A_ADD:
+			case B_T_ADMIN_ADD:
 				if (m_AdminName)
 					KPK_Client.SendText(KPK_C.ADMIN, m_AdminName.GetText(), "", KPK_AdminCmd.ADD_ADMIN);
 				break;
-			case B_A_DEL:
+			case B_T_ADMIN_DEL:
 				if (m_AdminName)
 					KPK_Client.SendText(KPK_C.ADMIN, m_AdminName.GetText(), "", KPK_AdminCmd.REMOVE_ADMIN);
 				break;
