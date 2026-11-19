@@ -342,11 +342,47 @@ class KPK_Menu extends UIScriptedMenu
 		device.SetSize(wFrac, hFrac);
 
 		// the case picture lies under the interface: the screen sits a hair inside the window edge
-		float pad = 0.004;
+		float pad = 0.0015;
 		m_Screen.SetPos(su - pad, sv - pad * aspect);
 		m_Screen.SetSize(sw + pad * 2, sh + pad * 2 * aspect);
 
 		// an ImageWidget without a picture draws a plain white box, so it stays hidden until one loads
+		// chamfered windows (ВПК-7М, Монолит): the rectangular screen would cover the cut corners of the
+		// case, so each corner gets a 45° patch in the colour of the case edge there
+		float screenMM = 0;
+		int c0 = 0;
+		int c1 = 0;
+		int c2 = 0;
+		int c3 = 0;
+		if (model == KPK_Model.MILITARY)
+		{
+			screenMM = 149.7;
+			c0 = ARGB(255, 158, 151, 138); c1 = ARGB(255, 168, 163, 150); c2 = ARGB(255, 159, 154, 142); c3 = ARGB(255, 161, 151, 138);
+		}
+		else if (model == KPK_Model.MONOLITH)
+		{
+			screenMM = 122.0;
+			c0 = ARGB(255, 127, 124, 119); c1 = ARGB(255, 135, 133, 127); c2 = ARGB(255, 124, 122, 116); c3 = ARGB(255, 128, 125, 120);
+		}
+		if (screenMM > 0)
+		{
+			float cw = sw * 8.5 / screenMM;
+			float ch = cw * aspect;
+			array<int> cornerColors = {c0, c1, c2, c3};
+			for (int ci = 0; ci < 4; ci++)
+			{
+				float cx = su;
+				float cy = sv;
+				if (ci == 1 || ci == 3)
+					cx = su + sw;
+				if (ci >= 2)
+					cy = sv + sh;
+				Widget patch = KPK_UI.Panel(device, cx - cw * 0.5, cy - ch * 0.5, cw, ch, cornerColors[ci]);
+				patch.SetRotation(0, 0, 45);
+				patch.SetSort(20);
+			}
+		}
+
 		ImageWidget img = ImageWidget.Cast(layoutRoot.FindAnyWidget("Art"));
 		if (!img)
 			return;
@@ -1159,7 +1195,7 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(m_FactionManage, B_F_INVITE, "ПРИНЯТЬ В РЯДЫ", 0.5, 0.62, 0.23, 0.3);
 		AddButton(m_FactionManage, B_F_LEAVE, "ПОКИНУТЬ", 0.74, 0.62, 0.24, 0.3);
 
-		m_AdminBox = KPK_UI.Card(page, 0, 0.79, 1, 0.21, "АДМИНИСТРАТОР: выбранная группировка");
+		m_AdminBox = KPK_UI.Card(page, 0, 0.79, 1, 0.21, "АДМИНИСТРАТОР", 0.19);
 		float bw = 0.118;
 		float gap = 0.006;
 		AddButton(m_AdminBox, B_A_ENC_DESC, "ШИФР ОПИС.", 0.01, 0.2, bw, 0.22);

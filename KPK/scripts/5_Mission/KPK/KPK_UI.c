@@ -80,7 +80,7 @@ class KPK_UI
 	}
 
 	// a card: dark panel with a title strip
-	static Widget Card(Widget parent, float x, float y, float w, float h, string title)
+	static Widget Card(Widget parent, float x, float y, float w, float h, string title, float titleH = 0.07)
 	{
 		Widget card = Panel(parent, x, y, w, h, C_CARD, true);
 		Panel(card, 0, 0, 1, 0.003, C_EDGE);
@@ -89,7 +89,7 @@ class KPK_UI
 			string shown = title;
 			if (s_Glitch)
 				shown = KPK_Theme.Noise(title, 0.45);
-			Text(card, shown, 0.03, 0.01, 0.94, 0.07, 14, C_ACCENT);
+			Text(card, shown, 0.03, 0.01, 0.94, titleH, 14, C_ACCENT);
 		}
 		return card;
 	}
