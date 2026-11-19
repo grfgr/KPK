@@ -253,7 +253,7 @@ class CfgSoundSets
 	class KPK_hiss_SoundSet
 	{
 		soundShaders[] = {"KPK_hiss_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.29;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
@@ -262,7 +262,7 @@ class CfgSoundSets
 	class KPK_modem_SoundSet
 	{
 		soundShaders[] = {"KPK_modem_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.6;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
@@ -280,7 +280,7 @@ class CfgSoundSets
 	class KPK_tab_SoundSet
 	{
 		soundShaders[] = {"KPK_tab_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.6;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
