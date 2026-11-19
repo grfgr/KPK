@@ -12,6 +12,22 @@ class KPK_Sound
 			snd.SetSoundAutodestroy(true);
 	}
 
+	// soft white noise of the speaker while the KPK is open (looped; stop it with StopHiss)
+	static EffectSound StartHiss()
+	{
+		if (!GetGame() || GetGame().IsDedicatedServer())
+			return null;
+		return SEffectManager.PlaySound("KPK_hiss_SoundSet", GetGame().GetCurrentCameraPosition(), 0.4, 0.3, true);
+	}
+
+	static void StopHiss(EffectSound snd)
+	{
+		if (!snd)
+			return;
+		snd.SetSoundAutodestroy(true);
+		snd.SoundStop();
+	}
+
 	static void Ambient(bool monolith)
 	{
 		int roll = Math.RandomInt(0, 4);

@@ -99,6 +99,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected MultilineTextWidget m_SideInfo;
 	protected float m_SessionTime;
 	protected float m_AmbientTime = 12;
+	protected EffectSound m_Hiss;
 	protected int m_Signal = 4;
 	protected float m_SignalTime;
 	protected Widget m_MapHolder;
@@ -239,6 +240,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Client.s_OnStatus.Remove(OnStatus);
 		KPK_Client.s_OnMates.Remove(OnMates);
 		KPK_Client.s_OnChat.Remove(OnChat);
+		KPK_Sound.StopHiss(m_Hiss);
 		if (layoutRoot)
 			layoutRoot.Unlink();
 	}
@@ -378,6 +380,8 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		super.OnShow();
 		m_Visible = true;
+		if (!m_Hiss)
+			m_Hiss = KPK_Sound.StartHiss();
 		GetGame().GetMission().AddActiveInputExcludes({"menu"});
 		GetGame().GetInput().ChangeGameFocus(1);
 		GetGame().GetUIManager().ShowUICursor(true);
@@ -395,6 +399,8 @@ class KPK_Menu extends UIScriptedMenu
 		GetGame().GetUIManager().ShowUICursor(false);
 		if (GetGame().GetMission().GetHud())
 			GetGame().GetMission().GetHud().Show(true);
+		KPK_Sound.StopHiss(m_Hiss);
+		m_Hiss = null;
 		KPK_Client.NotifyClosed();
 	}
 

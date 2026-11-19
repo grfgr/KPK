@@ -240,10 +240,25 @@ class CfgSoundShaders
 		volume = 1.0;
 		range = 6;
 	};
+	class KPK_hiss_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_hiss", 1}};
+		volume = 1.0;
+		range = 6;
+	};
 };
 
 class CfgSoundSets
 {
+	class KPK_hiss_SoundSet
+	{
+		soundShaders[] = {"KPK_hiss_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 1;
+	};
 	class KPK_modem_SoundSet
 	{
 		soundShaders[] = {"KPK_modem_SoundShader"};
@@ -274,7 +289,7 @@ class CfgSoundSets
 	class KPK_beep1_SoundSet
 	{
 		soundShaders[] = {"KPK_beep1_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.6;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
@@ -283,7 +298,7 @@ class CfgSoundSets
 	class KPK_beep2_SoundSet
 	{
 		soundShaders[] = {"KPK_beep2_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.6;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
@@ -292,7 +307,7 @@ class CfgSoundSets
 	class KPK_data_SoundSet
 	{
 		soundShaders[] = {"KPK_data_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.6;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
@@ -301,7 +316,7 @@ class CfgSoundSets
 	class KPK_static_SoundSet
 	{
 		soundShaders[] = {"KPK_static_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.6;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
@@ -319,7 +334,7 @@ class CfgSoundSets
 	class KPK_msg_SoundSet
 	{
 		soundShaders[] = {"KPK_msg_SoundShader"};
-		volumeFactor = 1.0;
+		volumeFactor = 0.6;
 		frequencyFactor = 1.0;
 		spatial = 0;
 		doppler = 0;
