@@ -36,14 +36,14 @@ band = Image.new("RGBA", (N, N), (0, 0, 0, 0)); bd = ImageDraw.Draw(band)
 for y in range(N - 250, N):
     bd.line([(0, y), (N, y)], fill=(4, 8, 6, int(min(235, (y - (N - 250)) * 2.2))))
 bg = Image.alpha_composite(bg, band); d = ImageDraw.Draw(bg)
-fb = ImageFont.truetype("/usr/share/fonts/opentype/inter/Inter-Black.otf", 190)
+fb = ImageFont.truetype("/usr/share/fonts/opentype/inter/Inter-Black.otf", 190 if len(sys.argv) <= 3 else 120)
 fm = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 34)
-title = "КПК"
-tw = d.textlength(title, font=fb); tx = (N - tw) / 2; ty = N - 262
+title = sys.argv[3] if len(sys.argv) > 3 else "КПК"
+tw = d.textlength(title, font=fb); tx = (N - tw) / 2; ty = N - (262 if len(sys.argv) <= 3 else 205)
 gl = Image.new("RGBA", (N, N), (0, 0, 0, 0)); ImageDraw.Draw(gl).text((tx, ty), title, font=fb, fill=(120, 255, 130, 160))
 bg = Image.alpha_composite(bg, gl.filter(ImageFilter.GaussianBlur(14))); d = ImageDraw.Draw(bg)
 d.text((tx, ty), title, font=fb, fill=(214, 240, 200))
-sub = "КАРМАННЫЙ ПЕРСОНАЛЬНЫЙ КОМПЬЮТЕР"
+sub = sys.argv[4] if len(sys.argv) > 4 else "КАРМАННЫЙ ПЕРСОНАЛЬНЫЙ КОМПЬЮТЕР"
 sw = d.textlength(sub, font=fm); d.text(((N - sw) / 2, N - 62), sub, font=fm, fill=(230, 170, 60))
 # scanlines
 sl = Image.new("RGBA", (N, N), (0, 0, 0, 0)); sd = ImageDraw.Draw(sl)
