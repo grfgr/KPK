@@ -44,6 +44,7 @@ class KPK_Settings
 
 	// 3D labels require a KPK (any, no battery check) in the inventory
 	bool LabelsRequireDevice = true;
+	float LabelMaxDistance = 300;   // m; the 3D label of a mate disappears farther away (0 = always shown)
 
 	// notes
 	int MaxNotes = 20;

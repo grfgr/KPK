@@ -182,3 +182,132 @@ class CfgVehicles
 		};
 	};
 };
+
+// interface sounds (source/sounds/gen_sounds.py); played on the client only, at the camera
+class CfgSoundShaders
+{
+	class KPK_click_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_click", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+	class KPK_tab_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_tab", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+	class KPK_beep1_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_beep1", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+	class KPK_beep2_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_beep2", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+	class KPK_data_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_data", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+	class KPK_static_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_static", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+	class KPK_whisper_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_whisper", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+	class KPK_msg_SoundShader
+	{
+		samples[] = {{"KPK\data\sounds\kpk_msg", 1}};
+		volume = 1.0;
+		range = 6;
+	};
+};
+
+class CfgSoundSets
+{
+	class KPK_click_SoundSet
+	{
+		soundShaders[] = {"KPK_click_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+	class KPK_tab_SoundSet
+	{
+		soundShaders[] = {"KPK_tab_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+	class KPK_beep1_SoundSet
+	{
+		soundShaders[] = {"KPK_beep1_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+	class KPK_beep2_SoundSet
+	{
+		soundShaders[] = {"KPK_beep2_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+	class KPK_data_SoundSet
+	{
+		soundShaders[] = {"KPK_data_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+	class KPK_static_SoundSet
+	{
+		soundShaders[] = {"KPK_static_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+	class KPK_whisper_SoundSet
+	{
+		soundShaders[] = {"KPK_whisper_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+	class KPK_msg_SoundSet
+	{
+		soundShaders[] = {"KPK_msg_SoundShader"};
+		volumeFactor = 1.0;
+		frequencyFactor = 1.0;
+		spatial = 0;
+		doppler = 0;
+		loop = 0;
+	};
+};

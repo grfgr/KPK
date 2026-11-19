@@ -124,6 +124,11 @@ class KPK_WorldLabels
 			}
 
 			int distance = vector.Distance(cam, pos);
+			if (msg.LabelMaxDistance > 0 && distance > msg.LabelMaxDistance)
+			{
+				label.Show(false);
+				continue;
+			}
 			TextWidget name = TextWidget.Cast(label.FindAnyWidget("name"));
 			TextWidget dist = TextWidget.Cast(label.FindAnyWidget("dist"));
 			name.SetText(mate.Callsign);

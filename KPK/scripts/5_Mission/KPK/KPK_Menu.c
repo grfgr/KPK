@@ -98,6 +98,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected TextWidget m_StatusRight;
 	protected MultilineTextWidget m_SideInfo;
 	protected float m_SessionTime;
+	protected float m_AmbientTime = 12;
 	protected int m_Signal = 4;
 	protected float m_SignalTime;
 	protected Widget m_MapHolder;
@@ -563,6 +564,7 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void StartBoot()
 	{
+		KPK_Sound.Play("beep2");
 		m_Booting = true;
 		m_BootTime = 0;
 		ShowPage(P_BOOT);
@@ -1789,6 +1791,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (v && line.From != v.Callsign && v.LoggedIn)
 		{
+			KPK_Sound.Play("msg");
 			if (line.To != "")
 				SetStatus("Личное сообщение от " + line.From);
 			else
@@ -1918,6 +1921,14 @@ class KPK_Menu extends UIScriptedMenu
 		m_Skin.Update(timeslice);
 		m_SessionTime += timeslice;
 
+		// now and then the device beeps or crackles by itself
+		m_AmbientTime -= timeslice;
+		if (m_AmbientTime <= 0)
+		{
+			m_AmbientTime = Math.RandomFloat(14.0, 40.0);
+			KPK_Sound.Ambient(m_Theme.Glitch);
+		}
+
 		m_SignalTime -= timeslice;
 		if (m_SignalTime <= 0)
 		{
@@ -2028,6 +2039,7 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			if (!list.Click(w))
 				continue;
+			KPK_Sound.Play("click");
 			OnListClicked(list);
 			return true;
 		}
@@ -2037,7 +2049,14 @@ class KPK_Menu extends UIScriptedMenu
 			if (b.m_Root != w)
 				continue;
 			if (b.m_Enabled)
+			{
+				// module tabs blip, every other key clicks
+				if (b.m_Id >= B_TAB && b.m_Id < B_TAB + TAB_COUNT)
+					KPK_Sound.Play("tab");
+				else
+					KPK_Sound.Play("click");
 				OnButton(b.m_Id);
+			}
 			return true;
 		}
 		return super.OnClick(w, x, y, button);

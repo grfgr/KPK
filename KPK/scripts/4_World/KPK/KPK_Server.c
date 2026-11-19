@@ -1195,6 +1195,7 @@ class KPK_Server
 		{
 			KPK_MatesMsg msg = new KPK_MatesMsg();
 			msg.RequireDevice = m_Settings.LabelsRequireDevice;
+			msg.LabelMaxDistance = m_Settings.LabelMaxDistance;
 			vector myPos = player.GetPosition();
 
 			KPK_Party party = PartyOf(steamId);

@@ -427,6 +427,7 @@ class KPK_MatePos
 class KPK_MatesMsg
 {
 	bool RequireDevice;
+	float LabelMaxDistance = 300;
 	ref array<ref KPK_MatePos> Mates;
 
 	void KPK_MatesMsg()
