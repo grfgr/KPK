@@ -2012,6 +2012,9 @@ class KPK_Server
 	{
 		if (model == KPK_Model.ADMIN)
 			return m_Settings.IsAdmin(steamId);
+		// admins switch faction devices on safely (as ordinary users: the admin powers stay in «Куратор»)
+		if (m_Settings.AdminsBypassDeviceLock && m_Settings.IsAdmin(steamId))
+			return true;
 		string lockFaction = DeviceFaction(model);
 		if (lockFaction == "")
 			return true;

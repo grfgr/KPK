@@ -61,7 +61,7 @@ class KPK_Settings
 	string ScienceFaction = "nii";
 	string MonolithFaction = "monolith";
 	string StalkerFaction = "";
-	bool AdminsBypassDeviceLock = false;   // old option, no longer used: admin powers live in the admin KPK only
+	bool AdminsBypassDeviceLock = true;   // admins may switch on faction-locked devices (no admin powers there)
 	// leaders and deputies enrol a player at once (no invite to accept); the player must not be in another faction
 	bool FactionDirectAdd = true;
 	// leaders / members written by the server owner; entries with an invalid SteamId are skipped
