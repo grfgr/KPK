@@ -2,7 +2,7 @@
 # rewrite the landscape p3d files: held by the right side bezel, preview centred via boundingbox points
 # usage: rebuild_p3d.sh <scratch dir with kpk5/final_* and m1/final>
 S=$1; REF=$(cd "$(dirname "$0")" && pwd)/ref; R=$(cd "$(dirname "$0")/../.." && pwd)/KPK/data
-for spec in "$REF/v3_mil:kpk_mil:0.7" "$REF/v3_mono:kpk_mono:0.5" "$REF/v3_nii:kpk_nii:0.55" "$REF/v3_m1:kpk_m1:0.45"; do
+for spec in "$REF/v3_mil:kpk_mil:0.7" "$REF/v3_mono:kpk_mono:0.5" "$REF/v3_nii:kpk_nii:0.55" "$REF/v3_m1:kpk_m1:0.45" "$REF/../admin/out:kpk_admin:0.4"; do
   IFS=: read d n mass <<<"$spec"
   read xo yo < <(python3 -c "
 import json;v=json.load(open('$d/mesh.json'))['verts']
