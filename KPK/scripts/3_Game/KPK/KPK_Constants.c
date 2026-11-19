@@ -32,7 +32,17 @@ enum KPK_C
 	CONTACT_DEL,     // S1 callsign
 	CALL_START,      // S1 callsign (brick only)
 	CALL_ANSWER,     // I1 = 1 accept, 0 decline
-	CALL_END
+	CALL_END,
+	ADMIN            // admin KPK: I1 = KPK_AdminCmd, S1 = callsign
+};
+
+// ADMIN sub-commands (KPK_Req.I1), only on the admin KPK «Куратор»
+enum KPK_AdminCmd
+{
+	ADD_ADMIN = 1,   // S1 callsign
+	REMOVE_ADMIN,    // S1 callsign
+	INSPECT,         // S1 callsign, "" = back to the own KPK
+	TEST_NOTIFY
 };
 
 // radio call of the brick (KPK_View.CallState)
@@ -86,7 +96,8 @@ enum KPK_Model
 	STALKER,       // КПК-М1
 	MILITARY,      // ВПК-7М (ОКСОП)
 	MONOLITH,      // ПИК №ОС-031
-	SCIENCE        // ПИК №042 (НИИ)
+	SCIENCE,       // ПИК №042 (НИИ)
+	ADMIN          // КПК-А «Куратор»: administrators only, the only device with admin powers
 };
 
 // faction roles
@@ -129,6 +140,7 @@ class KPK_Const
 			case KPK_Model.MILITARY: return "ВПК-7М";
 			case KPK_Model.MONOLITH: return "ПИК №ОС-031";
 			case KPK_Model.SCIENCE: return "ПИК №042";
+			case KPK_Model.ADMIN: return "КПК-А «Куратор»";
 		}
 		return "КПК";
 	}

@@ -354,6 +354,15 @@ class KPK_Vitals
 	float PosZ;
 };
 
+// admin KPK: one registered player in the list
+class KPK_PlayerEntry
+{
+	string Callsign;
+	bool Online;
+	bool Admin;
+	string Faction;
+};
+
 class KPK_View
 {
 	// account state
@@ -402,8 +411,14 @@ class KPK_View
 	bool ShowSelfOnMap;
 	int NoteMaxLength;
 
+	// admin KPK «Куратор» only
+	ref array<ref KPK_PlayerEntry> Players;   // every registered player, online first
+	string Inspect;                           // callsign of the player whose KPK is being viewed, "" = own
+	string InspectInfo;                       // a short summary of that player (groups, role, counts)
+
 	void KPK_View()
 	{
+		Players = new array<ref KPK_PlayerEntry>();
 		Stats = new KPK_Stats();
 		Vitals = new KPK_Vitals();
 		Reputation = new array<ref KPK_RepView>();

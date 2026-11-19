@@ -69,6 +69,7 @@ class KPK_Theme
 			case KPK_Model.MILITARY: t.Military(); break;
 			case KPK_Model.MONOLITH: t.Monolith(); break;
 			case KPK_Model.SCIENCE: t.Science(); break;
+			case KPK_Model.ADMIN: t.Admin(); break;
 			default: t.Brick(); break;
 		}
 		return t;
@@ -144,6 +145,30 @@ class KPK_Theme
 		Boot.Insert("> Загрузка профиля ........ OK");
 		Welcome = "Добро пожаловать, сталкер %1. Удачной охоты.";
 		ProfileTitle = "ДОСЬЕ СТАЛКЕРА"; RankLabel = "Ранг"; NoFaction = "вольный сталкер";
+		SetRanks("Новичок", "Сталкер", "Опытный", "Ветеран", "Мастер", "Легенда Зоны");
+	}
+
+	// КПК-А «Куратор», administrators: navy screen, orange accent
+	protected void Admin()
+	{
+		Text = 0xFFC8D8F0; Dim = 0xFF6F84A8; Accent = 0xFFF0963C; White = 0xFFE8EEF8;
+		Btn = 0xFF16233C; BtnHover = 0xFF22345A; BtnActive = 0xFF34507E; BtnOff = 0xFF0C1220;
+		Row = 0xFF101A2E; RowHover = 0xFF18263F; RowSel = 0xFF2A4068;
+		Card = 0xFF0C1424; Edge = 0xFF4C70A8; Line = 0xFF1C2C48;
+		Screen = 0xFF060A14; TitleBar = 0xFF12203A; MenuBar = 0xFF0C1628; Side = 0xFF0A1220; Title = 0xFFF0F4FA;
+		Tint = 0x224080F0; Grid = 0x186090E0;
+		Case = 0xFF343C48; Bezel = 0xFF0E1014; Grip = 0xFF18181A; BrandColor = 0xFFE07830;
+		Brand = "КПК-А  «КУРАТОР»"; Maker = "АДМИНИСТРАТОР СЕТИ"; Sticker = "ROOT";
+		OsName = "КУРАТОР  ·  АДМИН-ТЕРМИНАЛ";
+		MenuLine = "Сеть     Игроки     Группировки     Журнал     Справка";
+		SetTabs("ТЕРМИНАЛ", "КАРТА", "ГРУППА", "ГРУППИРОВКИ", "ЗАДАНИЯ", "ЗАМЕТКИ", "ЧАТ", "КОНТАКТЫ");
+		Boot.Insert("КПК-А «КУРАТОР»  ·  ROOT");
+		Boot.Insert("> Ключ администратора ..... принят");
+		Boot.Insert("> Сеть Зоны ............... %NET%");
+		Boot.Insert("> Реестр игроков .......... загружен");
+		Boot.Insert("> Журнал событий .......... OK");
+		Welcome = "Администратор %1, терминал готов.";
+		ProfileTitle = "ПРОФИЛЬ"; RankLabel = "Ранг"; NoFaction = "администратор";
 		SetRanks("Новичок", "Сталкер", "Опытный", "Ветеран", "Мастер", "Легенда Зоны");
 	}
 

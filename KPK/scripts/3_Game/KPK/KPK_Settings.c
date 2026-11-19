@@ -61,7 +61,7 @@ class KPK_Settings
 	string ScienceFaction = "nii";
 	string MonolithFaction = "monolith";
 	string StalkerFaction = "";
-	bool AdminsBypassDeviceLock = true;
+	bool AdminsBypassDeviceLock = false;   // old option, no longer used: admin powers live in the admin KPK only
 	// leaders and deputies enrol a player at once (no invite to accept); the player must not be in another faction
 	bool FactionDirectAdd = true;
 	// leaders / members written by the server owner; entries with an invalid SteamId are skipped
@@ -260,5 +260,35 @@ class KPK_Settings
 	bool IsAdmin(string steamId)
 	{
 		return Admins.Find(steamId) != -1;
+	}
+
+	// from the admin KPK: the list is kept in settings.json and admins.txt (rewritten)
+	void AddAdmin(string steamId)
+	{
+		if (Admins.Find(steamId) == -1)
+			Admins.Insert(steamId);
+		WriteAdminsTxt();
+		Save();
+	}
+
+	void RemoveAdmin(string steamId)
+	{
+		int i = Admins.Find(steamId);
+		if (i != -1)
+			Admins.Remove(i);
+		WriteAdminsTxt();
+		Save();
+	}
+
+	protected void WriteAdminsTxt()
+	{
+		FileHandle handle = OpenFile(ADMINS_FILE, FileMode.WRITE);
+		if (handle == 0)
+			return;
+		FPrintln(handle, "// Steam64 ID администраторов КПК, по одному в строке. Строки с // не читаются.");
+		FPrintln(handle, "// Список меняется и из админского КПК «Куратор».");
+		foreach (string id : Admins)
+			FPrintln(handle, id);
+		CloseFile(handle);
 	}
 };

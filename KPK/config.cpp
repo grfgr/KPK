@@ -2,7 +2,7 @@ class CfgPatches
 {
 	class KPK
 	{
-		units[] = {"KPK_Device", "KPK_Stalker", "KPK_Military", "KPK_Monolith", "KPK_Science", "KPK_Broken"};
+		units[] = {"KPK_Device", "KPK_Admin", "KPK_Stalker", "KPK_Military", "KPK_Monolith", "KPK_Science", "KPK_Broken"};
 		weapons[] = {};
 		requiredVersion = 0.1;
 		requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Gear_Navigation", "DZ_Radio"};
@@ -123,6 +123,15 @@ class CfgVehicles
 		descriptionShort = "Карманный персональный компьютер, модель 1. Полная версия сети сталкеров: карта, группа, группировки, задания, заметки. Батарейка 9V.";
 		model = "\KPK\data\kpk_m1.p3d";
 		weight = 450;
+		itemSize[] = {3, 2};
+	};
+	class KPK_Admin: KPK_Base
+	{
+		scope = 2;
+		displayName = "КПК-А «Куратор»";
+		descriptionShort = "Административный терминал сети Зоны. Работает только у администраторов: состав группировок, лидеры, шифрование, просмотр КПК любого игрока. Батарейка 9V.";
+		model = "\KPK\data\kpk_admin.p3d";
+		weight = 400;
 		itemSize[] = {3, 2};
 	};
 	class KPK_Military: KPK_Base

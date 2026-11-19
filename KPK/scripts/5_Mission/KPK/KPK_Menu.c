@@ -70,6 +70,11 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_K_PARTY = 703;
 	static const int CHAT_LINES = 11;
 	static const int B_R_CALL = 800;
+	static const int B_A_INSPECT = 900;
+	static const int B_A_SELF = 901;
+	static const int B_A_ADD = 902;
+	static const int B_A_DEL = 903;
+	static const int B_A_TEST = 904;
 	static const int B_R_ANSWER = 801;
 	static const int B_R_END = 802;
 
@@ -191,6 +196,11 @@ class KPK_Menu extends UIScriptedMenu
 
 	// contacts
 	protected ref KPK_List m_ContactList;
+	// admin KPK «Куратор»: the terminal page instead of the profile
+	protected bool m_Admin;
+	protected ref KPK_List m_PlayerList;
+	protected EditBoxWidget m_AdminName;
+	protected MultilineTextWidget m_AdminText;
 	protected EditBoxWidget m_ContactName;
 	protected MultilineTextWidget m_ContactText;
 
@@ -267,7 +277,11 @@ class KPK_Menu extends UIScriptedMenu
 		// must never be on the password box (the box appeared, the input inside it did not)
 		Widget loginPage = BuildLogin();
 		Widget bootPage = BuildBoot();
-		m_Pages.Insert(BuildProfile());
+		m_Admin = model == KPK_Model.ADMIN;
+		if (m_Admin)
+			m_Pages.Insert(BuildAdmin());
+		else
+			m_Pages.Insert(BuildProfile());
 		m_Pages.Insert(BuildMap());
 		m_Pages.Insert(BuildParty());
 		// the brick never shows these pages: not building them keeps the menu far below the engine's
@@ -322,6 +336,9 @@ class KPK_Menu extends UIScriptedMenu
 				break;
 			case KPK_Model.SCIENCE:
 				art = "kpk_ui_nii"; aspect = 2.0; su = 0.22051; sv = 0.19430; sw = 0.59730; sh = 0.65590;
+				break;
+			case KPK_Model.ADMIN:
+				art = "kpk_ui_admin"; aspect = 2.0; su = 0.15244; sv = 0.12195; sw = 0.59146; sh = 0.64634;
 				break;
 			case KPK_Model.MONOLITH:
 				art = "kpk_ui_mono"; aspect = 2.0; su = 0.18821; sv = 0.15213; sw = 0.56682; sh = 0.70821;
@@ -1667,6 +1684,97 @@ class KPK_Menu extends UIScriptedMenu
 
 	// =================================================================== contacts
 
+	// =================================================================== admin terminal («Куратор»)
+
+	protected Widget BuildAdmin()
+	{
+		Widget page = Content();
+		Widget left = KPK_UI.Card(page, 0, 0, 0.42, 1, "ИГРОКИ СЕТИ");
+		m_PlayerList = new KPK_List(left, 0.04, 0.06, 0.92, 0.62, 9, "— игроков нет —");
+		m_Lists.Insert(m_PlayerList);
+		KPK_UI.Text(left, "Позывной или Steam ID", 0.04, 0.695, 0.9, 0.045, 13, KPK_UI.C_DIM);
+		m_AdminName = KPK_UI.Edit(left, 0.04, 0.745, 0.92, 0.06);
+		AddButton(left, B_A_INSPECT, "СМОТРЕТЬ КПК", 0.04, 0.83, 0.45, 0.06);
+		AddButton(left, B_A_SELF, "СВОЙ КПК", 0.51, 0.83, 0.45, 0.06);
+		AddButton(left, B_A_ADD, "+ АДМИН", 0.04, 0.91, 0.45, 0.06);
+		AddButton(left, B_A_DEL, "- АДМИН", 0.51, 0.91, 0.45, 0.06);
+
+		Widget right = KPK_UI.Card(page, 0.44, 0, 0.56, 1, "СВЕДЕНИЯ");
+		m_AdminText = KPK_UI.MText(right, 0.04, 0.08, 0.92, 0.78, 15, KPK_UI.C_TEXT);
+		AddButton(right, B_A_TEST, "ТЕСТ УВЕДОМЛЕНИЯ", 0.04, 0.9, 0.5, 0.07);
+		return page;
+	}
+
+	protected KPK_PlayerEntry SelectedPlayer()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v || !m_PlayerList)
+			return null;
+		int i = m_PlayerList.Selected();
+		if (i < 0 || i >= v.Players.Count())
+			return null;
+		return v.Players[i];
+	}
+
+	protected void RefreshAdmin()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v || !m_PlayerList || !m_AdminText)
+			return;
+		array<string> names = new array<string>();
+		array<int> colors = new array<int>();
+		int online = 0;
+		foreach (KPK_PlayerEntry pe : v.Players)
+		{
+			string row = pe.Callsign;
+			if (pe.Admin)
+				row += "  [А]";
+			if (pe.Faction != "")
+				row += "  · " + pe.Faction;
+			names.Insert(row);
+			if (pe.Online)
+			{
+				online++;
+				colors.Insert(KPK_UI.C_ACCENT);
+			}
+			else
+				colors.Insert(KPK_UI.C_DIM);
+		}
+		m_PlayerList.Set(names, colors);
+
+		string text = "";
+		if (!v.IsAdmin)
+			text = "Нет прав администратора.\n";
+		if (v.Inspect != "")
+		{
+			text += "ПРОСМОТР КПК (только чтение)\n" + v.InspectInfo + "\n\n";
+			text += "Вкладки «Карта», «Группа», «Группировки», «Задания», «Заметки», «Чат» и «Контакты» показывают его КПК.\n";
+			text += "Кнопка «СВОЙ КПК» возвращает к вашему.\n\n";
+		}
+		else
+		{
+			text += "Администратор: " + v.Callsign + "\n";
+			text += "Игроков в сети: " + online.ToString() + " из " + v.Players.Count().ToString() + "\n\n";
+		}
+		KPK_PlayerEntry sel = SelectedPlayer();
+		if (sel)
+		{
+			text += "Выбран: " + sel.Callsign;
+			if (sel.Online)
+				text += "  · в сети";
+			else
+				text += "  · не в сети";
+			if (sel.Admin)
+				text += "  · администратор";
+			if (sel.Faction != "")
+				text += "\nГруппировка: " + sel.Faction;
+			text += "\n\n";
+		}
+		text += "Группировки: состав, лидер, шифрование — во вкладке «Группировки» (панель администратора).\n";
+		text += "[А] — администратор. Добавленный админ может пользоваться «Куратором».";
+		m_AdminText.SetText(text);
+	}
+
 	protected Widget BuildContacts()
 	{
 		Widget page = Content();
@@ -1828,7 +1936,12 @@ class KPK_Menu extends UIScriptedMenu
 		switch (m_Page)
 		{
 			case P_LOGIN: RefreshLogin(); break;
-			case P_PROFILE: RefreshProfile(); break;
+			case P_PROFILE:
+				if (m_Admin)
+					RefreshAdmin();
+				else
+					RefreshProfile();
+				break;
 			case P_MAP: RefreshMap(); break;
 			case P_PARTY: RefreshParty(); break;
 			case P_FACTIONS: RefreshFactions(); break;
@@ -1862,6 +1975,11 @@ class KPK_Menu extends UIScriptedMenu
 		}
 		m_Skin.SetLed(low);
 		string header = m_Theme.OsName + "  —  " + PageName(m_Page);
+		if (v && v.Inspect != "")
+		{
+			header = "ПРОСМОТР КПК: " + v.Inspect + "  ·  только чтение  —  " + PageName(m_Page);
+			user = v.Inspect + " (просмотр)";
+		}
 		if (m_Theme.Glitch)
 			header = KPK_Theme.Noise(header, 0.3);
 		m_HeaderLeft.SetText(header);
@@ -2088,6 +2206,13 @@ class KPK_Menu extends UIScriptedMenu
 		else if (list == m_ContactList)
 		{
 			RefreshContacts();
+		}
+		else if (list == m_PlayerList)
+		{
+			KPK_PlayerEntry pe = SelectedPlayer();
+			if (pe && m_AdminName)
+				m_AdminName.SetText(pe.Callsign);
+			RefreshAdmin();
 		}
 		else if (list == m_MarkerList)
 		{
@@ -2335,6 +2460,24 @@ class KPK_Menu extends UIScriptedMenu
 				break;
 
 			// contacts
+			case B_A_INSPECT:
+				if (m_AdminName)
+					KPK_Client.SendText(KPK_C.ADMIN, m_AdminName.GetText(), "", KPK_AdminCmd.INSPECT);
+				break;
+			case B_A_SELF:
+				KPK_Client.SendText(KPK_C.ADMIN, "", "", KPK_AdminCmd.INSPECT);
+				break;
+			case B_A_ADD:
+				if (m_AdminName)
+					KPK_Client.SendText(KPK_C.ADMIN, m_AdminName.GetText(), "", KPK_AdminCmd.ADD_ADMIN);
+				break;
+			case B_A_DEL:
+				if (m_AdminName)
+					KPK_Client.SendText(KPK_C.ADMIN, m_AdminName.GetText(), "", KPK_AdminCmd.REMOVE_ADMIN);
+				break;
+			case B_A_TEST:
+				KPK_Client.SendText(KPK_C.ADMIN, "", "", KPK_AdminCmd.TEST_NOTIFY);
+				break;
 			case B_K_ADD:
 				KPK_Client.SendText(KPK_C.CONTACT_ADD, m_ContactName.GetText());
 				m_ContactName.SetText("");

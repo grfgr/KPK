@@ -144,6 +144,8 @@ class KPK_Device extends PersonalRadio
 			return KPK_Model.MONOLITH;
 		if (item.IsKindOf("KPK_Science"))
 			return KPK_Model.SCIENCE;
+		if (item.IsKindOf("KPK_Admin"))
+			return KPK_Model.ADMIN;
 		return KPK_Model.BRICK;
 	}
 

@@ -35,6 +35,7 @@ class KPK_Server
 {
 	protected ref map<string, bool> m_MateHasDevice = new map<string, bool>();   // per mates tick
 	protected ref map<string, float> m_NoDeviceSec = new map<string, float>();   // logged in, but no KPK on the player
+	protected ref map<string, string> m_Inspect = new map<string, string>();     // admin -> player whose KPK he views
 	protected static ref KPK_Server s_Instance;
 
 	ref KPK_Settings m_Settings;
@@ -406,6 +407,7 @@ class KPK_Server
 		m_LastPos.Remove(steamId);
 		m_LastMatesCount.Remove(steamId);
 		m_NoDeviceSec.Remove(steamId);
+		m_Inspect.Remove(steamId);
 		m_Incoming.Remove(steamId);
 	}
 
@@ -563,7 +565,7 @@ class KPK_Server
 			model = openedWith;
 		view.DeviceModel = model;
 		// the brick keeps its three modules for everybody, admins included
-		bool isAdmin = m_Settings.IsAdmin(steamId);
+		bool isAdmin = AdminHere(steamId);
 		bool full = KPK_Const.FullAccess(model);
 
 		KPK_Account acc = GetAccount(steamId);
@@ -579,18 +581,41 @@ class KPK_Server
 
 		view.IsAdmin = isAdmin;
 		view.PrevOwner = TrackOwner(device, steamId);
+		if (isAdmin)
+			FillAdmin(view, steamId);
+
+		// admin KPK, inspect mode: everything below is the other player's KPK (read only)
+		string inspectId;
+		if (isAdmin && m_Inspect.Find(steamId, inspectId))
+		{
+			KPK_Account target = GetAccount(inspectId);
+			if (target)
+			{
+				view.Inspect = target.Callsign;
+				view.InspectInfo = InspectInfo(inspectId, target);
+				view.Callsign = target.Callsign;
+				view.PrevOwner = "";
+				steamId = inspectId;
+				acc = target;
+				player = FindOnline(inspectId);
+			}
+		}
 		view.RegisteredDate = acc.Registered;
 		view.Stats = acc.Stats;
 		view.Rank = KPK_Const.Rank(acc.Stats.PlayerKills + acc.Stats.ZombieKills / 20, acc.Stats.PlaytimeSec);
 
-		vector pos = player.GetPosition();
-		view.Vitals.Health = player.GetHealth("", "Health");
-		view.Vitals.Blood = player.GetHealth("", "Blood");
-		view.Vitals.Shock = player.GetHealth("", "Shock");
-		view.Vitals.Water = player.GetStatWater().Get();
-		view.Vitals.Energy = player.GetStatEnergy().Get();
-		view.Vitals.PosX = pos[0];
-		view.Vitals.PosZ = pos[2];
+		vector pos = vector.Zero;
+		if (player)   // an inspected player may be offline
+		{
+			pos = player.GetPosition();
+			view.Vitals.Health = player.GetHealth("", "Health");
+			view.Vitals.Blood = player.GetHealth("", "Blood");
+			view.Vitals.Shock = player.GetHealth("", "Shock");
+			view.Vitals.Water = player.GetStatWater().Get();
+			view.Vitals.Energy = player.GetStatEnergy().Get();
+			view.Vitals.PosX = pos[0];
+			view.Vitals.PosZ = pos[2];
+		}
 
 		map<string, PlayerBase> online = OnlinePlayers();
 		KPK_Faction myFaction = FactionOf(steamId);
@@ -733,6 +758,48 @@ class KPK_Server
 		}
 
 		return view;
+	}
+
+	// admin KPK: every registered player (online first) with faction and admin mark
+	protected void FillAdmin(KPK_View view, string adminId)
+	{
+		map<string, PlayerBase> online = OnlinePlayers();
+		for (int pass = 0; pass < 2; pass++)
+		{
+			foreach (KPK_IndexEntry e : m_Index.Accounts)
+			{
+				bool on = online.Contains(e.SteamId);
+				if ((pass == 0) != on)
+					continue;
+				KPK_PlayerEntry pe = new KPK_PlayerEntry();
+				pe.Callsign = e.Callsign;
+				pe.Online = on;
+				pe.Admin = m_Settings.IsAdmin(e.SteamId);
+				KPK_Faction pf = FactionOf(e.SteamId);
+				if (pf)
+					pe.Faction = pf.Name;
+				view.Players.Insert(pe);
+				if (view.Players.Count() >= 300)
+					return;
+			}
+		}
+	}
+
+	protected string InspectInfo(string steamId, KPK_Account acc)
+	{
+		string text = acc.Callsign;
+		if (FindOnline(steamId))
+			text += "  ·  в сети";
+		else
+			text += "  ·  не в сети";
+		KPK_Faction f = FactionOf(steamId);
+		if (f)
+			text += "  ·  " + f.Name + " (" + KPK_Const.RoleName(f.Find(steamId).Role) + ")";
+		KPK_Party party = PartyOf(steamId);
+		if (party)
+			text += "  ·  группа: " + party.Members.Count().ToString() + " чел.";
+		text += "  ·  заметок: " + acc.Notes.Count().ToString() + ", заданий: " + acc.Tasks.Count().ToString() + ", меток: " + acc.Markers.Count().ToString() + ", контактов: " + acc.Contacts.Count().ToString();
+		return text;
 	}
 
 	// the device remembers who uses it: a new user takes it over and the old one becomes "previous"
@@ -1329,6 +1396,7 @@ class KPK_Server
 				return;
 			case KPK_C.CLOSE:
 				m_Open.Remove(steamId);
+				m_Inspect.Remove(steamId);
 				return;
 			case KPK_C.REGISTER:
 				HandleRegister(player, steamId, req);
@@ -1359,8 +1427,16 @@ class KPK_Server
 			}
 		}
 
+		// viewing another player's KPK: look, do not touch (admin commands still work)
+		if (m_Inspect.Contains(steamId) && action != KPK_C.ADMIN && action != KPK_C.ADMIN_FACTION)
+		{
+			Msg(player, "Режим просмотра: изменения запрещены. Вернитесь к своему КПК");
+			return;
+		}
+
 		switch (action)
 		{
+			case KPK_C.ADMIN: HandleAdminCmd(player, acc, req); break;
 			case KPK_C.MARKER_ADD: HandleMarkerAdd(player, acc, req); break;
 			case KPK_C.MARKER_DEL: HandleMarkerDel(player, acc, req); break;
 			case KPK_C.MARKER_EDIT: HandleMarkerEdit(player, acc, req); break;
@@ -1789,6 +1865,12 @@ class KPK_Server
 		int deviceModel = KPK_Device.ModelOf(device);
 		if (!MayUse(steamId, deviceModel))
 		{
+			// the admin KPK simply refuses everybody else
+			if (deviceModel == KPK_Model.ADMIN)
+			{
+				SendRaw(player, KPK_S.DENIED, "ДОСТУП ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ");
+				return;
+			}
 			PunishStranger(player, ItemBase.Cast(device), deviceModel);
 			return;
 		}
@@ -1802,12 +1884,21 @@ class KPK_Server
 		SendView(player);
 	}
 
+	// admin powers exist only in the admin KPK «Куратор», opened by an admin
+	bool AdminHere(string steamId)
+	{
+		if (!m_Settings.IsAdmin(steamId) || !m_Open.Contains(steamId))
+			return false;
+		int model;
+		return m_OpenModel.Find(steamId, model) && model == KPK_Model.ADMIN;
+	}
+
 	bool MayUse(string steamId, int model)
 	{
+		if (model == KPK_Model.ADMIN)
+			return m_Settings.IsAdmin(steamId);
 		string lockFaction = DeviceFaction(model);
 		if (lockFaction == "")
-			return true;
-		if (m_Settings.AdminsBypassDeviceLock && m_Settings.IsAdmin(steamId))
 			return true;
 		KPK_Faction f = FactionOf(steamId);
 		return f && f.Id == lockFaction;
@@ -2123,7 +2214,7 @@ class KPK_Server
 					KPK_Marker fm = m_Factions.FactionMarkers[i];
 					if (fm.Id != id || fm.FactionId != faction.Id)
 						continue;
-					if (fm.Author == acc.Callsign || role >= KPK_Role.DEPUTY || m_Settings.IsAdmin(acc.SteamId))
+					if (fm.Author == acc.Callsign || role >= KPK_Role.DEPUTY || AdminHere(acc.SteamId))
 					{
 						m_Factions.FactionMarkers.RemoveOrdered(i);
 						SaveFactions();
@@ -2184,7 +2275,7 @@ class KPK_Server
 						marker = fm;
 				}
 				if (marker)
-					allowed = marker.Author == acc.Callsign || faction.Find(acc.SteamId).Role >= KPK_Role.DEPUTY || m_Settings.IsAdmin(acc.SteamId);
+					allowed = marker.Author == acc.Callsign || faction.Find(acc.SteamId).Role >= KPK_Role.DEPUTY || AdminHere(acc.SteamId);
 				break;
 			}
 		}
@@ -2595,7 +2686,7 @@ class KPK_Server
 	protected KPK_Faction ManagedFaction(KPK_Account acc, string adminFactionId, out int role)
 	{
 		role = KPK_Role.NONE;
-		if (m_Settings.IsAdmin(acc.SteamId) && adminFactionId != "")
+		if (AdminHere(acc.SteamId) && adminFactionId != "")
 		{
 			role = KPK_Role.LEADER + 1;   // above the leader
 			return FindFaction(adminFactionId);
@@ -2661,11 +2752,94 @@ class KPK_Server
 
 	// =================================================================== admin
 
+	// admin KPK «Куратор»: admins list, viewing another player's KPK, a test notification
+	protected void HandleAdminCmd(PlayerBase player, KPK_Account acc, KPK_Req req)
+	{
+		if (!AdminHere(acc.SteamId))
+		{
+			Msg(player, "Доступно только в КПК-А «Куратор»");
+			return;
+		}
+		string targetId = "";
+		if (req.S1 != "")
+		{
+			targetId = SteamIdOfCallsign(req.S1);
+			if (targetId == "" && IsSteamId(req.S1.Trim()))
+				targetId = req.S1.Trim();
+		}
+		switch (req.I1)
+		{
+			case KPK_AdminCmd.ADD_ADMIN:
+			{
+				if (targetId == "")
+				{
+					Msg(player, "Игрок не найден: " + req.S1);
+					return;
+				}
+				m_Settings.AddAdmin(targetId);
+				Msg(player, CallsignOf(targetId) + " теперь администратор");
+				Print("[KPK] admin added by " + acc.SteamId + ": " + targetId);
+				PlayerBase added = FindOnline(targetId);
+				if (added)
+					Notify(added, "КПК", "Вам выданы права администратора: КПК-А «Куратор»");
+				break;
+			}
+			case KPK_AdminCmd.REMOVE_ADMIN:
+			{
+				if (targetId == "" || !m_Settings.IsAdmin(targetId))
+				{
+					Msg(player, "Это не администратор: " + req.S1);
+					return;
+				}
+				if (m_Settings.Admins.Count() <= 1)
+				{
+					Msg(player, "Нельзя снять последнего администратора");
+					return;
+				}
+				if (targetId == acc.SteamId)
+				{
+					Msg(player, "Себя снять нельзя: попросите другого администратора");
+					return;
+				}
+				m_Settings.RemoveAdmin(targetId);
+				m_Inspect.Remove(targetId);
+				Msg(player, CallsignOf(targetId) + " больше не администратор");
+				Print("[KPK] admin removed by " + acc.SteamId + ": " + targetId);
+				break;
+			}
+			case KPK_AdminCmd.INSPECT:
+			{
+				if (req.S1 == "")
+				{
+					m_Inspect.Remove(acc.SteamId);
+					Msg(player, "Ваш КПК");
+					break;
+				}
+				if (targetId == "" || !GetAccount(targetId))
+				{
+					Msg(player, "Игрок не найден: " + req.S1);
+					return;
+				}
+				if (targetId == acc.SteamId)
+					m_Inspect.Remove(acc.SteamId);
+				else
+					m_Inspect.Set(acc.SteamId, targetId);
+				Msg(player, "Просмотр КПК: " + CallsignOf(targetId));
+				Print("[KPK] admin " + acc.SteamId + " views the KPK of " + targetId);
+				break;
+			}
+			case KPK_AdminCmd.TEST_NOTIFY:
+				Notify(player, "КПК: проверка", "Тестовое уведомление сервера. Звук и карточка работают.");
+				break;
+		}
+		SendView(player);
+	}
+
 	protected void HandleAdmin(PlayerBase player, KPK_Account acc, KPK_Req req)
 	{
-		if (!m_Settings.IsAdmin(acc.SteamId))
+		if (!AdminHere(acc.SteamId))
 		{
-			Msg(player, "Нет прав администратора");
+			Msg(player, "Управление доступно только в КПК-А «Куратор»");
 			return;
 		}
 
