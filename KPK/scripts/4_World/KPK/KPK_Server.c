@@ -1690,7 +1690,20 @@ class KPK_Server
 		GetGame().RPCSingleParam(player, KPK_RPC_RADIO, new Param2<bool, int>(true, room.Channel), true, player.GetIdentity());
 		m_CallDevice.Set(steamId, radio);
 		m_CallState.Set(steamId, KPK_CallState.ACTIVE);
-		Msg(player, "На связи: ТЕСТ. Говорите с «Вестником» в руках: после каждой фразы ТЕСТ ответит, дошёл ли голос");
+
+		// the test subscriber answers through a brick lying on the ground nearby: the server switches it on
+		// exactly as the brick of a real callee, so the caller hears himself from it if the whole call works
+		TransmitterBase ground = GroundBrickNear(player.GetPosition(), 40);
+		if (ground)
+		{
+			StartRadio(ground, room.Channel);
+			m_CallDevice.Set(TEST_ID, ground);
+			Msg(player, "На связи: ТЕСТ, отвечает «Вестник» на земле. Отойдите от него и говорите со своим «Вестником» в руках: если вы слышите себя из него, звонок работает");
+		}
+		else
+		{
+			Msg(player, "На связи: ТЕСТ. Положите на землю второй «Вестник» с батарейкой в 40 м и позвоните снова, чтобы услышать себя из него");
+		}
 		SendView(player);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TestTalk, 1000, false, steamId, roomId, 0);
 	}
@@ -1704,6 +1717,26 @@ class KPK_Server
 	protected ref map<string, int> m_TestSilent = new map<string, int>();      // quiet seconds after it
 	protected ref map<string, int> m_TestNoRadio = new map<string, int>();     // seconds spoken outside the radio
 	protected ref map<string, string> m_TestOther = new map<string, string>(); // another radio in the hands: its state
+
+	// a brick on the ground (not carried by anybody) within range, with a battery
+	protected TransmitterBase GroundBrickNear(vector pos, float range)
+	{
+		array<Object> objects = new array<Object>();
+		array<CargoBase> proxies = new array<CargoBase>();
+		GetGame().GetObjectsAtPosition(pos, range, objects, proxies);
+		foreach (Object obj : objects)
+		{
+			EntityAI ent = EntityAI.Cast(obj);
+			if (!ent || !KPK_Device.IsBrick(ent) || ent.IsRuined())
+				continue;
+			if (ent.GetHierarchyRootPlayer())
+				continue;
+			if (KPK_Device.GetBatteryLevel(ent) <= 0)
+				continue;
+			return TransmitterBase.Cast(ent);
+		}
+		return null;
+	}
 
 	void TestTalk(string steamId, int roomId, int tick)
 	{
