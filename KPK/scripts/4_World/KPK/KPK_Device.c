@@ -61,9 +61,6 @@ class KPK_Device extends PersonalRadio
 		int shownChannel = channel + 1;
 		if (on)
 			KPK_Client.Toast("КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", 5, true);
-		// a short check a moment later: what the radio of the brick really is set to
-		if (on)
-			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(KPK_Device.RadioReport, 1500, false, player);
 	}
 
 	// call diagnostics: frequency, transmit / receive, power and whether the brick is in the hands

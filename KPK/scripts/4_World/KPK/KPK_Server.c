@@ -2050,9 +2050,9 @@ class KPK_Server
 		}
 	}
 
-	// a participant drops when he dies, leaves, loses the brick or its battery runs flat. A problem has to
-	// last two checks in a row (about 6 s): moving the brick between the hands and the inventory must not
-	// cut the call. The reason goes to the player and to the server log.
+	// a participant drops when he dies, leaves, loses the brick or its battery runs flat. A brick problem
+	// has to last about 15 s: moving the brick between the hands, the strap and the backpack must not cut
+	// the call. The reason goes to the player and to the server log.
 	protected ref map<string, int> m_CallBad = new map<string, int>();
 
 	void TickCalls()
@@ -2066,11 +2066,15 @@ class KPK_Server
 			PlayerBase p = FindOnline(sid);
 			EntityAI device;
 			m_CallDevice.Find(sid, device);
-			// for now only a dead or disconnected player drops: where the brick is (hands, inventory,
-			// strap), its battery and state are not checked while the calls are being tested
 			string why = "";
 			if (!p || !p.IsAlive())
 				why = "игрок вне сети";
+			else if (!device || device.IsRuined())
+				why = "«Вестник» потерян или сломан";
+			else if (device.GetHierarchyRootPlayer() != p)
+				why = "«Вестника» нет при себе";
+			else if (KPK_Device.GetBatteryLevel(device) <= 0)
+				why = "села батарейка «Вестника»";
 			if (why == "")
 			{
 				m_CallBad.Remove(sid);
@@ -2080,7 +2084,9 @@ class KPK_Server
 			m_CallBad.Find(sid, bad);
 			bad++;
 			m_CallBad.Set(sid, bad);
-			if (bad >= 2)
+			// a dead or disconnected player drops at once; a brick problem must last about 15 s (5 checks):
+			// moving the brick between the hands, the strap and the backpack must not cut the call
+			if (bad >= 5 || !p || !p.IsAlive())
 			{
 				drop.Insert(sid);
 				reasons.Insert(why);
