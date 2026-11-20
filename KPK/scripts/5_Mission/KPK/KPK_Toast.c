@@ -5,6 +5,7 @@ class KPK_ToastItem
 	Widget m_Root;
 	float m_Left;
 	float m_Age;
+	float m_H;
 };
 
 class KPK_Toast
@@ -21,23 +22,34 @@ class KPK_Toast
 	{
 		if (!GetGame() || GetGame().IsDedicatedServer())
 			return;
-		Widget root = KPK_UI.Frame(null, -W, Y, W, H);
+		// the card grows with the text: about 44 characters per line
+		float est = text.Length() / 44.0;
+		int lines = Math.Ceil(est);
+		if (lines < 1)
+			lines = 1;
+		if (lines > 7)
+			lines = 7;
+		float h = Math.Max(H, 0.034 + lines * 0.0215);
+		float titleH = 0.024 / h;
+		Widget root = KPK_UI.Frame(null, -W, Y, W, h);
 		if (!root)
 			return;
 		root.SetSort(1000);
 		root.SetFlags(WidgetFlags.IGNOREPOINTER);
 		KPK_UI.Panel(root, 0, 0, 1, 1, 0xE6081209);
 		KPK_UI.Panel(root, 0, 0, 0.012, 1, 0xFFE6AA3C);
-		KPK_UI.Panel(root, 0.012, 0, 0.988, 0.03, 0xFF5A8C4D);
-		KPK_UI.Panel(root, 0.012, 0.97, 0.988, 0.03, 0x805A8C4D);
-		KPK_UI.Text(root, title, 0.04, 0.06, 0.92, 0.34, 17, 0xFFE6AA3C);
-		MultilineTextWidget body = KPK_UI.MText(root, 0.04, 0.42, 0.92, 0.54, 15, 0xFFC8E8B8);
+		KPK_UI.Panel(root, 0.012, 0, 0.988, 0.002 / h, 0xFF5A8C4D);
+		KPK_UI.Panel(root, 0.012, 1 - 0.002 / h, 0.988, 0.002 / h, 0x805A8C4D);
+		KPK_UI.Text(root, title, 0.04, 0.004 / h, 0.92, titleH, 17, 0xFFE6AA3C);
+		float bodyY = (0.006 + 0.024) / h;
+		MultilineTextWidget body = KPK_UI.MText(root, 0.04, bodyY, 0.92, 1 - bodyY - 0.004 / h, 15, 0xFFC8E8B8);
 		if (body)
 			body.SetText(text);
 
 		KPK_ToastItem item = new KPK_ToastItem();
 		item.m_Root = root;
-		item.m_Left = Math.Max(seconds, 2.0);
+		item.m_Left = Math.Max(seconds, 2.0 + lines);
+		item.m_H = h;
 		s_Items.InsertAt(item, 0);
 		while (s_Items.Count() > 4)
 		{
@@ -73,6 +85,7 @@ class KPK_Toast
 	// slide in from the left, slide back out at the end; stacked downwards from Y
 	protected static void Layout()
 	{
+		float y = Y;
 		for (int i = 0; i < s_Items.Count(); i++)
 		{
 			KPK_ToastItem it = s_Items[i];
@@ -84,7 +97,8 @@ class KPK_Toast
 			if (it.m_Left < 0)
 				k = Math.Max(0.0, 1 + it.m_Left / SLIDE);
 			k = 1 - (1 - k) * (1 - k);
-			it.m_Root.SetPos(-W + (X + W) * k, Y + i * (H + GAP));
+			it.m_Root.SetPos(-W + (X + W) * k, y);
+			y += it.m_H + GAP;
 		}
 	}
 

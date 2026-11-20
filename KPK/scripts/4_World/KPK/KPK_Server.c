@@ -466,15 +466,17 @@ class KPK_Server
 			Notify(player, "КПК", "Нет связи: у одного из вас нет аккаунта в сети КПК");
 			return;
 		}
-		if (!m_Open.Contains(targetId))
+		// both need a working KPK on them (not ruined, powered, not somebody else's faction device);
+		// it does not have to be open
+		if (!WorkingDevice(target, targetId))
 		{
-			Notify(player, "КПК", "У сталкера не включён КПК");
+			Notify(player, "КПК", "У сталкера нет рабочего КПК");
 			return;
 		}
-		EntityAI mine = KPK_Device.FindOn(player, true);
+		EntityAI mine = WorkingDevice(player, steamId);
 		if (!mine)
 		{
-			Notify(player, "КПК", "Нужен включённый КПК с батарейкой");
+			Notify(player, "КПК", "Нужен рабочий КПК с батарейкой");
 			return;
 		}
 		KPK_Req req = new KPK_Req();
@@ -2063,6 +2065,35 @@ class KPK_Server
 		return KPK_Device.FindOn(player, true);
 	}
 
+	void KnockOut(PlayerBase player)
+	{
+		if (player && player.IsAlive())
+			player.SetHealth("", "Shock", 0);
+	}
+
+	// a KPK the player can really use: not ruined, powered, not locked to another faction
+	EntityAI WorkingDevice(PlayerBase player, string steamId)
+	{
+		if (!player)
+			return null;
+		array<EntityAI> items = new array<EntityAI>();
+		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
+		if (inHands)
+			items.Insert(inHands);
+		player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+		foreach (EntityAI item : items)
+		{
+			if (!KPK_Device.IsKPK(item) || item.IsRuined())
+				continue;
+			if (m_Settings.RequireBattery && KPK_Device.GetBatteryLevel(item) <= 0)
+				continue;
+			if (!MayUse(steamId, KPK_Device.ModelOf(item)))
+				continue;
+			return item;
+		}
+		return null;
+	}
+
 	protected void PunishStranger(PlayerBase player, ItemBase device, int model)
 	{
 		if (!device)
@@ -2079,10 +2110,13 @@ class KPK_Server
 			Notify(player, KPK_Const.ModelName(model), "…ЧУЖОЙ… МОНОЛИТ НЕ ПРИНИМАЕТ ТЕБЯ…");
 			GetGame().RPCSingleParam(player, KPK_RPC_FX, new Param1<vector>(device.GetPosition()), true);
 			device.SetHealth("", "", 0);
-			player.ProcessDirectDamage(DamageType.CLOSE_COMBAT, device, "", "TripWireHit", "0 0 0", 1);
+			// out of the hands first: being knocked out while holding the item (or mid hit reaction)
+			// could leave the player stuck on the ground
+			if (player.GetHumanInventory().GetEntityInHands() == device)
+				player.ServerDropEntity(device);
 			player.AddHealth("", "Health", -m_Settings.MonolithTrapDamage);
 			if (m_Settings.MonolithTrapKnockout)
-				player.SetHealth("", "Shock", 0);
+				GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(KnockOut, 800, false, player);
 			Print("[KPK] Monolith device blew up in the hands of " + steamId);
 			return;
 		}

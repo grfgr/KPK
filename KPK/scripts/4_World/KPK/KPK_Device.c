@@ -202,7 +202,7 @@ class KPK_Device extends PersonalRadio
 
 		EntityAI best = null;
 		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
-		if (IsKPK(inHands))
+		if (IsKPK(inHands) && !inHands.IsRuined())
 		{
 			if (!needPower || GetBatteryLevel(inHands) > 0)
 				return inHands;

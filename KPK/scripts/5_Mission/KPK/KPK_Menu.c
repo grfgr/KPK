@@ -197,6 +197,10 @@ class KPK_Menu extends UIScriptedMenu
 	protected ref KPK_List m_ContactList;
 	// admin KPK «Куратор»: the terminal page instead of the profile
 	protected bool m_Admin;
+	protected int m_FitW;          // screen size the device was fitted for
+	protected int m_FitH;
+	protected int m_FitModel;
+	protected Widget m_Device;
 	protected ref KPK_List m_PlayerList;
 	protected EditBoxWidget m_AdminName;
 	protected MultilineTextWidget m_TermText;
@@ -268,6 +272,8 @@ class KPK_Menu extends UIScriptedMenu
 		m_Screen = layoutRoot.FindAnyWidget("Screen");
 		m_Screen.SetColor(m_Theme.Screen);
 		Widget device = layoutRoot.FindAnyWidget("Device");
+		m_Device = device;
+		m_FitModel = model;
 		FitDevice(device, model);
 		m_Skin = new KPK_Skin();
 
@@ -347,6 +353,14 @@ class KPK_Menu extends UIScriptedMenu
 		// keep the render's proportions on any screen: as large as fits
 		int scrW, scrH;
 		GetScreenSize(scrW, scrH);
+		// a zero size (window minimised / not ready) made the device NaN: the interface filled the screen
+		if (scrW <= 0 || scrH <= 0)
+		{
+			scrW = 1920;
+			scrH = 1080;
+		}
+		m_FitW = scrW;
+		m_FitH = scrH;
 		float hFrac = 0.92;
 		float wFrac = hFrac * scrH * aspect / scrW;
 		if (wFrac > 0.97)
@@ -2069,6 +2083,11 @@ class KPK_Menu extends UIScriptedMenu
 		if (m_Clock > 1)
 		{
 			m_Clock = 0;
+			// the screen size changed (or was not known when the KPK opened): fit the device again
+			int nowW, nowH;
+			GetScreenSize(nowW, nowH);
+			if (m_Device && nowW > 0 && nowH > 0 && (nowW != m_FitW || nowH != m_FitH))
+				FitDevice(m_Device, m_FitModel);
 			RefreshHeader();
 		}
 
