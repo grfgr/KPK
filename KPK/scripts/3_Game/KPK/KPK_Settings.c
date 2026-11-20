@@ -103,6 +103,7 @@ class KPK_Settings
 	const static string FACTIONS_FILE = "$profile:KPK/factions.json";
 	static bool s_LoadFailed;
 	const static string SALT_FILE = "$profile:KPK/password_salt.txt";
+	const static int RADIO_FREQUENCIES = 9;   // frequencies of the vanilla walkie-talkie
 	const static string ADMINS_FILE = "$profile:KPK/admins.txt";
 	const static string INDEX_FILE = "$profile:KPK/accounts_index.json";
 	const static string OWNERS_FILE = "$profile:KPK/device_owners.json";
@@ -141,6 +142,12 @@ class KPK_Settings
 			settings.Admins = new array<string>();
 		if (!settings.ReputationFactions)
 			settings.ReputationFactions = new array<string>();
+		// the walkie-talkie the brick is built on has 9 frequencies: more channels would put calls on the
+		// same frequency (they would hear each other)
+		if (settings.CallChannels > RADIO_FREQUENCIES)
+			settings.CallChannels = RADIO_FREQUENCIES;
+		if (settings.CallChannels < 1)
+			settings.CallChannels = 1;
 		if (!settings.MatesRateFixed)
 		{
 			if (settings.MatesUpdateSec > 1.0)
