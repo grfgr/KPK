@@ -1605,11 +1605,40 @@ class KPK_Server
 		RefreshRoom(room);
 	}
 
+	// channels other radios of players are transmitting on right now: vanilla walkie-talkies, phones of
+	// other mods (SFP mobiles are radios too and pick their channel without asking anybody)
+	protected array<int> ForeignChannels()
+	{
+		array<int> busy = new array<int>();
+		map<string, PlayerBase> online = OnlinePlayers();
+		foreach (string sid, PlayerBase p : online)
+		{
+			array<EntityAI> items = new array<EntityAI>();
+			EntityAI inHands = p.GetHumanInventory().GetEntityInHands();
+			if (inHands)
+				items.Insert(inHands);
+			p.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+			foreach (EntityAI it : items)
+			{
+				TransmitterBase radio = TransmitterBase.Cast(it);
+				if (!radio || KPK_Device.IsBrick(it) || !radio.IsBroadcasting())
+					continue;
+				int idx = radio.GetTunedFrequencyIndex();
+				if (busy.Find(idx) == -1)
+					busy.Insert(idx);
+			}
+		}
+		return busy;
+	}
+
 	// a channel no call uses, -1 when all are taken (two calls on one channel would hear each other)
 	protected int FreeChannel()
 	{
+		array<int> foreign = ForeignChannels();
 		for (int ch = 0; ch < m_Settings.CallChannels; ch++)
 		{
+			if (foreign.Find(ch) != -1)
+				continue;
 			bool used = false;
 			foreach (int rid, KPK_CallRoom r : m_Calls)
 			{
