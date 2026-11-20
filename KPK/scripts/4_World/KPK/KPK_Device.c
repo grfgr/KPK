@@ -46,8 +46,25 @@ class KPK_Device extends PersonalRadio
 	// the client side of a brick call: only the notice. The radio itself (frequency, transmit, receive) is
 	// set by the server alone, as the SFP phones do: switching it on here as well made the client believe
 	// it was on air (the player heard himself from his own radio) while the server relayed nothing
+	static float s_RadioVolumeBefore = -1;   // the player's radio volume before the call, -1 = not boosted
+
 	static void RadioClient(PlayerBase player, bool on, int channel)
 	{
+		// the voice from the radio is twice as loud during a KPK call; the previous volume comes back after
+		AbstractSoundScene scene = GetGame().GetSoundScene();
+		if (scene)
+		{
+			if (on && s_RadioVolumeBefore < 0)
+			{
+				s_RadioVolumeBefore = scene.GetRadioVolume();
+				scene.SetRadioVolume(s_RadioVolumeBefore * 2.0, 0.5);
+			}
+			else if (!on && s_RadioVolumeBefore >= 0)
+			{
+				scene.SetRadioVolume(s_RadioVolumeBefore, 0.5);
+				s_RadioVolumeBefore = -1;
+			}
+		}
 		int shownChannel = channel + 1;
 		if (on)
 			KPK_Client.Toast("КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", 5, true);
