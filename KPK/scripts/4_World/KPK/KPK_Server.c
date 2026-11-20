@@ -2033,17 +2033,11 @@ class KPK_Server
 			PlayerBase p = FindOnline(sid);
 			EntityAI device;
 			m_CallDevice.Find(sid, device);
+			// for now only a dead or disconnected player drops: where the brick is (hands, inventory,
+			// strap), its battery and state are not checked while the calls are being tested
 			string why = "";
 			if (!p || !p.IsAlive())
 				why = "игрок вне сети";
-			else if (!device)
-				why = "«Вестник» потерян";
-			else if (device.IsRuined())
-				why = "«Вестник» сломан";
-			else if (device.GetHierarchyRootPlayer() != p)
-				why = "«Вестника» нет при себе";
-			else if (KPK_Device.GetBatteryLevel(device) <= 0)
-				why = "села батарейка «Вестника»";
 			if (why == "")
 			{
 				m_CallBad.Remove(sid);
