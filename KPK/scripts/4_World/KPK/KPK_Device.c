@@ -6,10 +6,8 @@ class KPK_Device extends PersonalRadio
 	override void SetActions()
 	{
 		super.SetActions();
-		// the radio is driven by the KPK calls only: no manual on / off / tuning
-		RemoveAction(ActionTurnOnTransmitter);
-		RemoveAction(ActionTurnOffTransmitter);
-		RemoveAction(ActionTuneFrequency);
+		// the walkie-talkie actions stay (switch on / off, change frequency): the brick also works as a
+		// plain radio, and that tells apart a broken call set-up from a radio that cannot transmit
 		AddAction(ActionKPKOpen);
 	}
 
