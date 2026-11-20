@@ -2017,10 +2017,15 @@ class KPK_Server
 		}
 	}
 
-	// a participant drops when he dies, leaves, loses the brick or its battery runs flat
+	// a participant drops when he dies, leaves, loses the brick or its battery runs flat. A problem has to
+	// last two checks in a row (about 6 s): moving the brick between the hands and the inventory must not
+	// cut the call. The reason goes to the player and to the server log.
+	protected ref map<string, int> m_CallBad = new map<string, int>();
+
 	void TickCalls()
 	{
 		array<string> drop = new array<string>();
+		array<string> reasons = new array<string>();
 		foreach (string sid, int state : m_CallState)
 		{
 			if (state != KPK_CallState.ACTIVE)
@@ -2028,15 +2033,40 @@ class KPK_Server
 			PlayerBase p = FindOnline(sid);
 			EntityAI device;
 			m_CallDevice.Find(sid, device);
-			bool ok = p && p.IsAlive() && device && !device.IsRuined() && device.GetHierarchyRootPlayer() == p;
-			if (ok && KPK_Device.GetBatteryLevel(device) <= 0)
-				ok = false;
-			if (!ok)
+			string why = "";
+			if (!p || !p.IsAlive())
+				why = "игрок вне сети";
+			else if (!device)
+				why = "«Вестник» потерян";
+			else if (device.IsRuined())
+				why = "«Вестник» сломан";
+			else if (device.GetHierarchyRootPlayer() != p)
+				why = "«Вестника» нет при себе";
+			else if (KPK_Device.GetBatteryLevel(device) <= 0)
+				why = "села батарейка «Вестника»";
+			if (why == "")
+			{
+				m_CallBad.Remove(sid);
+				continue;
+			}
+			int bad = 0;
+			m_CallBad.Find(sid, bad);
+			bad++;
+			m_CallBad.Set(sid, bad);
+			if (bad >= 2)
+			{
 				drop.Insert(sid);
+				reasons.Insert(why);
+			}
 		}
-		foreach (string dropId : drop)
-			EndCall(dropId, "Связь потеряна");
+		for (int i = 0; i < drop.Count(); i++)
+		{
+			m_CallBad.Remove(drop[i]);
+			Print("[KPK] call dropped for " + drop[i] + ": " + reasons[i]);
+			EndCall(drop[i], "Связь потеряна: " + reasons[i]);
+		}
 	}
+
 
 	// =================================================================== chat and contacts
 
