@@ -43,24 +43,11 @@ class KPK_Device extends PersonalRadio
 		return item && (item.IsKindOf("KPK_Device") || item.IsKindOf("KPK_Base"));
 	}
 
-	// the client side of a brick call: every brick on this player tuned and transmitting / receiving
+	// the client side of a brick call: only the notice. The radio itself (frequency, transmit, receive) is
+	// set by the server alone, as the SFP phones do: switching it on here as well made the client believe
+	// it was on air (the player heard himself from his own radio) while the server relayed nothing
 	static void RadioClient(PlayerBase player, bool on, int channel)
 	{
-		array<EntityAI> items = new array<EntityAI>();
-		player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
-		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
-		if (inHands)
-			items.Insert(inHands);
-		foreach (EntityAI it : items)
-		{
-			TransmitterBase radio = TransmitterBase.Cast(it);
-			if (!radio || !KPK_Device.IsBrick(it))
-				continue;
-			if (on)
-				radio.SetFrequencyByIndex(channel);
-			radio.EnableBroadcast(on);
-			radio.EnableReceive(on);
-		}
 		int shownChannel = channel + 1;
 		if (on)
 			KPK_Client.Toast("КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", 5, true);
