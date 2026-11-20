@@ -1767,8 +1767,8 @@ class KPK_Server
 				else if (level == VoiceLevelShout)
 					lvl = "крик";
 				string text = "Принял " + secs.ToString() + " с голоса (" + lvl + ", уровень " + maxAmp.ToString() + "). ";
+				int shownCh = room.Channel + 1;
 				if (noRadio == 0)
-					int shownCh = room.Channel + 1;
 					text += "«Вестник» был в руках и передавал: голос дошёл до сервера и ушёл в рацию на канале " + shownCh.ToString() + ".";
 				else if (!inHands)
 					text += "Но «Вестник» не в руках (" + noRadio.ToString() + " с): голос слышен только вокруг вас, в рацию не идёт.";
