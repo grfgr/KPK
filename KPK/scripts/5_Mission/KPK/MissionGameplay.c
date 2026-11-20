@@ -19,7 +19,7 @@ modded class MissionGameplay
 		KPK_Client.s_OnNotify.Remove(KPK_Toast.Show);
 		KPK_Client.s_OnSound.Remove(KPK_Sound.Play);
 		KPK_Toast.Clear();
-		KPK_Menu.CloseIfOpen();
+		KPK_Menu.Shutdown();
 		m_KPKLabels = null;
 		super.OnMissionFinish();
 	}

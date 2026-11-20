@@ -197,6 +197,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected ref KPK_List m_ContactList;
 	// admin KPK «Куратор»: the terminal page instead of the profile
 	protected bool m_Admin;
+	int m_BuiltModel = -1;        // the model the widgets were built for
 	protected int m_FitW;          // screen size the device was fitted for
 	protected int m_FitH;
 	protected int m_FitModel;
@@ -218,9 +219,17 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (IsOpen())
 			return;
-		// the previous window may still be alive (the UI manager can keep the menu object), and every
-		// open built hundreds of widgets more: after a few opens the engine refused to create new ones
-		// (empty black screen, "text widget not created"). Destroy it before building the new one.
+		// the window is built once and then only shown again: building it anew on every open made the
+		// engine refuse new text widgets after a few opens (empty fields, black screen), even with the
+		// old window destroyed. It is rebuilt only for another KPK model.
+		int model = KPK_Model.BRICK;
+		if (KPK_Client.s_View)
+			model = KPK_Client.s_View.DeviceModel;
+		if (s_Instance && s_Instance.layoutRoot && s_Instance.m_BuiltModel == model)
+		{
+			GetGame().GetUIManager().ShowScriptedMenu(s_Instance, null);
+			return;
+		}
 		if (s_Instance)
 			s_Instance.ReleaseLayout();
 		s_Instance = new KPK_Menu();
@@ -231,6 +240,15 @@ class KPK_Menu extends UIScriptedMenu
 	static bool JustClosed()
 	{
 		return GetGame().GetTime() - s_ClosedAt < 400;
+	}
+
+	// leaving the server: the kept window goes away
+	static void Shutdown()
+	{
+		CloseIfOpen();
+		if (s_Instance)
+			s_Instance.ReleaseLayout();
+		s_Instance = null;
 	}
 
 	static void CloseIfOpen()
@@ -282,10 +300,17 @@ class KPK_Menu extends UIScriptedMenu
 
 	override Widget Init()
 	{
+		// shown again: the widgets are there, only the boot sequence and the data start over
+		if (layoutRoot)
+		{
+			StartBoot();
+			return layoutRoot;
+		}
 		// every model has its own theme; the view already says which device was opened
 		int model = KPK_Model.BRICK;
 		if (KPK_Client.s_View)
 			model = KPK_Client.s_View.DeviceModel;
+		m_BuiltModel = model;
 		m_Theme = KPK_Theme.Get(model);
 		m_Full = KPK_Const.FullAccess(model);
 		KPK_UI.Apply(m_Theme);
@@ -432,8 +457,15 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		super.OnShow();
 		m_Visible = true;
+		if (layoutRoot)
+			layoutRoot.Show(true);
 		if (!m_Hiss)
 			m_Hiss = KPK_Sound.StartHiss();
+		// reopened window: the theme colours are static, put this window's theme back and boot again
+		if (m_Theme)
+			KPK_UI.Apply(m_Theme);
+		if (!m_Booting && m_Pages && m_Pages.Count() > P_BOOT)
+			StartBoot();
 		GetGame().GetMission().AddActiveInputExcludes({"menu"});
 		GetGame().GetInput().ChangeGameFocus(1);
 		GetGame().GetUIManager().ShowUICursor(true);
@@ -446,6 +478,8 @@ class KPK_Menu extends UIScriptedMenu
 		super.OnHide();
 		m_Visible = false;
 		s_ClosedAt = GetGame().GetTime();
+		if (layoutRoot)
+			layoutRoot.Show(false);
 		GetGame().GetMission().RemoveActiveInputExcludes({"menu"}, true);
 		GetGame().GetInput().ResetGameFocus();
 		GetGame().GetUIManager().ShowUICursor(false);
@@ -454,7 +488,6 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Sound.StopHiss(m_Hiss);
 		m_Hiss = null;
 		KPK_Client.NotifyClosed();
-		GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(ReleaseIfHidden, 500, false);
 	}
 
 	override void OnPlayerDeath()
