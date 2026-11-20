@@ -1938,6 +1938,9 @@ class KPK_Server
 			TransmitterBase radio = TransmitterBase.Cast(FindBrick(mp));
 			if (!mp || !radio)
 				continue;
+			// like SFP: the one who answers gets the brick into empty hands, ready to talk
+			if (mid == acc.SteamId && !mp.GetHumanInventory().GetEntityInHands() && radio.GetHierarchyRootPlayer() == mp)
+				mp.ServerTakeEntityToHands(radio);
 			StartRadio(radio, room.Channel);
 			GetGame().RPCSingleParam(mp, KPK_RPC_RADIO, new Param2<bool, int>(true, room.Channel), true, mp.GetIdentity());
 			m_CallDevice.Set(mid, radio);
@@ -1951,12 +1954,13 @@ class KPK_Server
 	// (the test subscriber showed "voice reached the server, the radio did not transmit")
 	protected void StartRadio(TransmitterBase radio, int channel)
 	{
+		// the same steps in the same order as the SFP phones (their calls work on the same servers)
 		radio.SetFrequencyByIndex(channel);
-		if (radio.HasEnergyManager() && !radio.GetCompEM().IsWorking())
-			radio.GetCompEM().SwitchOn();
 		radio.EnableBroadcast(true);
 		radio.EnableReceive(true);
 		radio.SwitchOn(true);
+		if (radio.HasEnergyManager() && radio.GetCompEM() && !radio.GetCompEM().IsWorking())
+			radio.GetCompEM().SwitchOn();
 		radio.SetSynchDirty();
 	}
 

@@ -2507,7 +2507,16 @@ class KPK_Menu extends UIScriptedMenu
 				m_RadioName.SetText("");
 				break;
 			case B_R_ANSWER:
+			{
+				// like SFP: the brick goes into empty hands when answering
+				PlayerBase answerer = PlayerBase.Cast(GetGame().GetPlayer());
+				EntityAI myBrick = null;
+				if (answerer)
+					myBrick = KPK_Device.FindOn(answerer);
+				if (answerer && myBrick && KPK_Device.IsBrick(myBrick) && !answerer.GetHumanInventory().GetEntityInHands())
+					answerer.PredictiveTakeEntityToHands(myBrick);
 				KPK_Client.SendText(KPK_C.CALL_ANSWER, "", "", 1);
+			}
 				break;
 			case B_R_END:
 			{
