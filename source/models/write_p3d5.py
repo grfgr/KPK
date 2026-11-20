@@ -114,10 +114,40 @@ def free_pose(v):
     return (v[0] - C[0], v[1] - C[1], -v[2] - C[2])
 
 
+def cluster(m, cell):
+    """far LODs: vertex clustering - vertices in one grid cell merge, triangles that collapse go away.
+    Corner normals, UVs and materials stay, so the far model keeps its look with far fewer triangles"""
+    keys, newv, remap = {}, [], []
+    for v in m["verts"]:
+        k = (round(v[0] / cell), round(v[1] / cell), round(v[2] / cell))
+        if k not in keys:
+            keys[k] = len(newv)
+            newv.append([0.0, 0.0, 0.0, 0])
+        acc = newv[keys[k]]
+        acc[0] += v[0]; acc[1] += v[1]; acc[2] += v[2]; acc[3] += 1
+        remap.append(keys[k])
+    verts = [[a[0] / a[3], a[1] / a[3], a[2] / a[3]] for a in newv]
+    tris, seen = [], set()
+    for t in m["tris"]:
+        a, b, c = remap[t[0][0]], remap[t[1][0]], remap[t[2][0]]
+        if a == b or b == c or a == c:
+            continue
+        key = tuple(sorted((a, b, c)))
+        if key in seen:
+            continue
+        seen.add(key)
+        nt = [[a, t[0][1], t[0][2]], [b, t[1][1], t[1][2]], [c, t[2][1], t[2][2]]] + list(t[3:])
+        tris.append(nt)
+    out = {"verts": verts, "tris": tris}
+    if "mats" in m:
+        out["mats"] = m["mats"]
+    return out
+
+
 def visual_lod(path, resolution):
     """three copies of the mesh: in the hands ("kpk_hand", origin at the grip), on a strap ("kpk_strap")
     and free ("kpk_free", centred); the model.cfg hide animations show one, the script sets the phases"""
-    m = json.load(open(path))
+    m = path if isinstance(path, dict) else json.load(open(path))
     nv = len(m["verts"])
     hand = [to_p3d(v) for v in m["verts"]]
     # portrait models: on a strap as in the hands, pushed out by ZBACK so the case clears the strap
@@ -180,9 +210,20 @@ def box_lod(mn, mx, resolution, mass=None, component=True, triangles=False):
 
 
 _src = json.load(open(src + "/mesh.json"))["verts"]
+# KPK_CENTER_BODY: the centre (strap and inventory copies) from the body only, without the antenna above
+# YMAX; the admin KPK hung off its strap sideways by half the antenna otherwise
+if _os.environ.get("KPK_CENTER_BODY"):
+    _src = [v for v in _src if v[1] <= YMAX]
 C = tuple((min(v[i] * (-1 if i == 2 else 1) for v in _src) + max(v[i] * (-1 if i == 2 else 1) for v in _src)) / 2 for i in range(3))
 lod0, pts, hand_pts, strap_pts = visual_lod(src + "/mesh.json", 1.0)
-lod1 = visual_lod(src + "/mesh_lod1.json", 2.0)[0]
+_m1 = json.load(open(src + "/mesh_lod1.json"))
+lod1 = visual_lod(_m1, 2.0)[0]
+# far LODs: the same model, simplified (about 5 mm, then 12 mm grid)
+_far1 = cluster(_m1, 0.005)
+_far2 = cluster(_m1, 0.012)
+lod2 = visual_lod(_far1, 6.0)[0]
+lod3 = visual_lod(_far2, 15.0)[0]
+print("lods tris", len(_m1["tris"]), len(_far1["tris"]), len(_far2["tris"]))
 
 # collision / view / fire geometry: the body with bumpers, without the antenna
 xs = [p[0] for p in pts]
@@ -227,7 +268,7 @@ gx = box_lod(mn, mx, 1e13, mass=MASS)
 end = gx.rfind(b"\1#EndOfFile#")
 gx = gx[:end] + prop("autocenter", "0") + gx[end:]
 
-lods = [lod0, lod1, gx, memory, view_geo, fire_geo, shadow]
+lods = [lod0, lod1, lod2, lod3, gx, memory, view_geo, fire_geo, shadow]
 with open(out, "wb") as f:
     f.write(b"MLOD" + struct.pack("<II", 257, len(lods)))
     for l in lods:
