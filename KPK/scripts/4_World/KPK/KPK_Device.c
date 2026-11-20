@@ -77,6 +77,19 @@ class KPK_Device extends PersonalRadio
 		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
 		if (inHands)
 			items.Insert(inHands);
+		// comparison: an ordinary walkie-talkie in the hands
+		TransmitterBase handRadio = TransmitterBase.Cast(inHands);
+		if (handRadio && !KPK_Device.IsBrick(inHands))
+		{
+			string handTx = "НЕТ";
+			if (handRadio.IsBroadcasting())
+				handTx = "да";
+			string handRx = "НЕТ";
+			if (handRadio.IsReceiving())
+				handRx = "да";
+			int handCh = handRadio.GetTunedFrequencyIndex() + 1;
+			KPK_Client.Toast("КПК: обычная рация в руках", inHands.GetDisplayName() + ": канал " + handCh.ToString() + ", передача: " + handTx + ", приём: " + handRx + ".", 10, false);
+		}
 		player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
 		foreach (EntityAI it : items)
 		{

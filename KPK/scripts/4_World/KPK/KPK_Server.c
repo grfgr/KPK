@@ -1703,6 +1703,7 @@ class KPK_Server
 	protected ref map<string, float> m_TestLoud = new map<string, float>();    // loudest amplitude of it
 	protected ref map<string, int> m_TestSilent = new map<string, int>();      // quiet seconds after it
 	protected ref map<string, int> m_TestNoRadio = new map<string, int>();     // seconds spoken outside the radio
+	protected ref map<string, string> m_TestOther = new map<string, string>(); // another radio in the hands: its state
 
 	void TestTalk(string steamId, int roomId, int tick)
 	{
@@ -1726,8 +1727,22 @@ class KPK_Server
 		TransmitterBase radio = TransmitterBase.Cast(device);
 		float amp = player.IsPlayerSpeaking();
 		bool speaking = amp > 0.1;
-		bool inHands = device && player.GetHumanInventory().GetEntityInHands() == device;
+		EntityAI handItem = player.GetHumanInventory().GetEntityInHands();
+		bool inHands = device && handItem == device;
 		bool tx = radio && radio.IsBroadcasting();
+		// comparison: any other radio in the hands (a vanilla walkie-talkie switched on by the player)
+		TransmitterBase handRadio = TransmitterBase.Cast(handItem);
+		if (speaking && handRadio && handItem != device)
+		{
+			string otherTx = "НЕТ";
+			if (handRadio.IsBroadcasting())
+				otherTx = "да";
+			string otherOn = "нет";
+			if (handRadio.HasEnergyManager() && handRadio.GetCompEM().IsWorking())
+				otherOn = "да";
+			int otherCh = handRadio.GetTunedFrequencyIndex() + 1;
+			m_TestOther.Set(steamId, handItem.GetDisplayName() + ": включена " + otherOn + ", канал " + otherCh.ToString() + ", передача " + otherTx);
+		}
 
 		float spoke = 0;
 		m_TestSpoke.Find(steamId, spoke);
@@ -1780,6 +1795,9 @@ class KPK_Server
 					int charge = KPK_Device.GetBatteryLevel(device) * 100;
 					text += "Но на сервере рация «Вестника» не в режиме передачи (" + noRadio.ToString() + " с). Питание рации: " + working + ", батарея " + charge.ToString() + "%. Смотрите карточку «проверка рации» вашего клиента.";
 				}
+				string other;
+				if (m_TestOther.Find(steamId, other))
+					text += " В руках была другая рация — " + other + ".";
 				SendRaw(player, KPK_S.TEST_VOICE, text);
 				TestReset(steamId);
 			}
@@ -1801,6 +1819,7 @@ class KPK_Server
 		m_TestLoud.Remove(steamId);
 		m_TestSilent.Remove(steamId);
 		m_TestNoRadio.Remove(steamId);
+		m_TestOther.Remove(steamId);
 	}
 
 	// a channel no call uses, -1 when all are taken (two calls on one channel would hear each other)
