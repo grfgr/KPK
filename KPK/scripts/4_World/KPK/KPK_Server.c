@@ -1859,7 +1859,9 @@ class KPK_Server
 	protected int FreeChannel()
 	{
 		array<int> foreign = ForeignChannels();
-		for (int ch = 0; ch < m_Settings.CallChannels; ch++)
+		// the first frequency of the walkie-talkie (80 MHz, index 0) does not carry voice in this game
+		// version: calls use the frequencies from the second one on
+		for (int ch = 1; ch <= m_Settings.CallChannels; ch++)
 		{
 			if (foreign.Find(ch) != -1)
 				continue;

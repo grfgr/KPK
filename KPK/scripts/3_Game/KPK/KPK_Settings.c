@@ -144,8 +144,8 @@ class KPK_Settings
 			settings.ReputationFactions = new array<string>();
 		// the walkie-talkie the brick is built on has 9 frequencies: more channels would put calls on the
 		// same frequency (they would hear each other)
-		if (settings.CallChannels > RADIO_FREQUENCIES)
-			settings.CallChannels = RADIO_FREQUENCIES;
+		if (settings.CallChannels > RADIO_FREQUENCIES - 1)
+			settings.CallChannels = RADIO_FREQUENCIES - 1;   // the first frequency is not used
 		if (settings.CallChannels < 1)
 			settings.CallChannels = 1;
 		if (!settings.MatesRateFixed)
