@@ -1773,7 +1773,13 @@ class KPK_Server
 				else if (!inHands)
 					text += "Но «Вестник» не в руках (" + noRadio.ToString() + " с): голос слышен только вокруг вас, в рацию не идёт.";
 				else
-					text += "Но рация «Вестника» не передавала (" + noRadio.ToString() + " с): проверьте батарейку.";
+				{
+					string working = "нет";
+					if (radio && radio.HasEnergyManager() && radio.GetCompEM().IsWorking())
+						working = "да";
+					int charge = KPK_Device.GetBatteryLevel(device) * 100;
+					text += "Но рация «Вестника» не передавала (" + noRadio.ToString() + " с). Питание рации: " + working + ", батарея " + charge.ToString() + "%.";
+				}
 				SendRaw(player, KPK_S.TEST_VOICE, text);
 				TestReset(steamId);
 			}
@@ -1889,19 +1895,30 @@ class KPK_Server
 		RefreshRoom(room);
 	}
 
+	// transmit and receive are switched on explicitly: only switching the power on left the radio silent
+	// (the test subscriber showed "voice reached the server, the radio did not transmit")
 	protected void StartRadio(TransmitterBase radio, int channel)
 	{
 		radio.SetFrequencyByIndex(channel);
-		radio.SetSynchDirty();
-		if (radio.HasEnergyManager() && !radio.GetCompEM().IsSwitchedOn())
+		if (radio.HasEnergyManager() && !radio.GetCompEM().IsWorking())
 			radio.GetCompEM().SwitchOn();
+		radio.EnableBroadcast(true);
+		radio.EnableReceive(true);
+		radio.SwitchOn(true);
+		radio.SetSynchDirty();
 	}
 
 	protected void StopRadio(EntityAI device)
 	{
 		TransmitterBase radio = TransmitterBase.Cast(device);
-		if (radio && radio.HasEnergyManager() && radio.GetCompEM().IsSwitchedOn())
+		if (!radio)
+			return;
+		radio.EnableBroadcast(false);
+		radio.EnableReceive(false);
+		radio.SwitchOn(false);
+		if (radio.HasEnergyManager() && radio.GetCompEM().IsWorking())
 			radio.GetCompEM().SwitchOff();
+		radio.SetSynchDirty();
 	}
 
 	// leaves the call: the radio of this player stops; a call with fewer than two people left (and nobody
