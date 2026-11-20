@@ -2114,9 +2114,12 @@ class KPK_Server
 			// could leave the player stuck on the ground
 			if (player.GetHumanInventory().GetEntityInHands() == device)
 				player.ServerDropEntity(device);
+			// the blast throws the player back (tripwire hit reaction); the knockout waits until that
+			// animation is over, both at once is what could leave the player stuck on the ground
+			player.ProcessDirectDamage(DamageType.CLOSE_COMBAT, device, "", "TripWireHit", "0 0 0", 1);
 			player.AddHealth("", "Health", -m_Settings.MonolithTrapDamage);
 			if (m_Settings.MonolithTrapKnockout)
-				GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(KnockOut, 800, false, player);
+				GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(KnockOut, 1800, false, player);
 			Print("[KPK] Monolith device blew up in the hands of " + steamId);
 			return;
 		}
