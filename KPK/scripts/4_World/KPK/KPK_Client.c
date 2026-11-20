@@ -109,7 +109,11 @@ class KPK_Client
 			{
 				// the test subscriber answers: a radio beep and the line as a card
 				s_OnSound.Invoke("beep2");
-				Toast("ТЕСТ (эфир)", json, 7, false);
+				Toast("ТЕСТ (эфир)", json, 9, false);
+				// and how the radio looks on this client (the speaking client decides what goes on air)
+				PlayerBase me = PlayerBase.Cast(GetGame().GetPlayer());
+				if (me && json.IndexOf("Принял") == 0)
+					KPK_Device.RadioReport(me);
 				break;
 			}
 			case KPK_S.NOTIFY:

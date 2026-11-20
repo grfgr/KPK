@@ -1778,7 +1778,7 @@ class KPK_Server
 					if (radio && radio.HasEnergyManager() && radio.GetCompEM().IsWorking())
 						working = "да";
 					int charge = KPK_Device.GetBatteryLevel(device) * 100;
-					text += "Но рация «Вестника» не передавала (" + noRadio.ToString() + " с). Питание рации: " + working + ", батарея " + charge.ToString() + "%.";
+					text += "Но на сервере рация «Вестника» не в режиме передачи (" + noRadio.ToString() + " с). Питание рации: " + working + ", батарея " + charge.ToString() + "%. Смотрите карточку «проверка рации» вашего клиента.";
 				}
 				SendRaw(player, KPK_S.TEST_VOICE, text);
 				TestReset(steamId);

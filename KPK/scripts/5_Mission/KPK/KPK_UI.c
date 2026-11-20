@@ -118,7 +118,20 @@ class KPK_UI
 		else if (size <= 17)
 			file = "kpk_text17.layout";
 		Widget box = Make(file, parent, x, y, w, h);
+		return FillText(box, text, color, file);
+	}
+
+	// the engine sometimes refuses to create the text inside the box (widget limit): no crash then
+	protected static TextWidget FillText(Widget box, string text, int color, string file)
+	{
+		if (!box)
+			return null;
 		TextWidget t = TextWidget.Cast(box.FindAnyWidget("text"));
+		if (!t)
+		{
+			Print("[KPK] !!! text widget not created: " + file);
+			return null;
+		}
 		t.SetText(text);
 		t.SetColor(color);
 		return t;
@@ -128,10 +141,7 @@ class KPK_UI
 	static TextWidget TextC(Widget parent, string text, float x, float y, float w, float h, int color)
 	{
 		Widget box = Make("kpk_text13c.layout", parent, x, y, w, h);
-		TextWidget t = TextWidget.Cast(box.FindAnyWidget("text"));
-		t.SetText(text);
-		t.SetColor(color);
-		return t;
+		return FillText(box, text, color, "kpk_text13c.layout");
 	}
 
 	static MultilineTextWidget MText(Widget parent, float x, float y, float w, float h, int size = 15, int color = 0)
@@ -149,7 +159,8 @@ class KPK_UI
 		else if (size <= 15)
 			file = "kpk_mtext15.layout";
 		MultilineTextWidget t = MultilineTextWidget.Cast(Make(file, parent, x, y, w, h));
-		t.SetColor(color);
+		if (t)
+			t.SetColor(color);
 		return t;
 	}
 
