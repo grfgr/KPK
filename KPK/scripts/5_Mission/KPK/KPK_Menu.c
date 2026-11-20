@@ -218,6 +218,11 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (IsOpen())
 			return;
+		// the previous window may still be alive (the UI manager can keep the menu object), and every
+		// open built hundreds of widgets more: after a few opens the engine refused to create new ones
+		// (empty black screen, "text widget not created"). Destroy it before building the new one.
+		if (s_Instance)
+			s_Instance.ReleaseLayout();
 		s_Instance = new KPK_Menu();
 		GetGame().GetUIManager().ShowScriptedMenu(s_Instance, null);
 	}
@@ -245,6 +250,23 @@ class KPK_Menu extends UIScriptedMenu
 		m_ById = new map<int, ref KPK_Button>();
 		m_MapHandler = new KPK_MapHandler();
 		m_MapHandler.m_Menu = this;
+	}
+
+	void ReleaseLayout()
+	{
+		DestroyMap();
+		if (layoutRoot)
+		{
+			layoutRoot.Unlink();
+			layoutRoot = null;
+		}
+	}
+
+	// a closed KPK frees its widgets a moment later (not inside OnHide, the manager still works with it)
+	void ReleaseIfHidden()
+	{
+		if (!m_Visible)
+			ReleaseLayout();
 	}
 
 	void ~KPK_Menu()
@@ -432,6 +454,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Sound.StopHiss(m_Hiss);
 		m_Hiss = null;
 		KPK_Client.NotifyClosed();
+		GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(ReleaseIfHidden, 500, false);
 	}
 
 	override void OnPlayerDeath()
