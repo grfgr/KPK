@@ -2414,9 +2414,10 @@ class KPK_Menu extends UIScriptedMenu
 					break;
 				if (m_ConfirmRemove == f.Id)
 				{
+					// send first: Admin() takes the faction from the selection
 					m_ConfirmRemove = "";
-					m_FactionList.m_Selected = -1;
 					Admin(KPK_AdminOp.REMOVE);
+					m_FactionList.m_Selected = -1;
 				}
 				else
 				{
