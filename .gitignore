@@ -2,3 +2,4 @@
 *.bisign
 *.bikey
 @KPK/
+__pycache__/
