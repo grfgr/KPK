@@ -16,6 +16,7 @@ class KPK_Client
 	static ref ScriptInvoker s_OnMates = new ScriptInvoker();    // ()
 	static ref ScriptInvoker s_OnChat = new ScriptInvoker();     // (KPK_ChatMessage) new line arrived
 	static ref ScriptInvoker s_OnNotify = new ScriptInvoker();   // (string title, string text, float seconds, bool sound)
+	static ref ScriptInvoker s_OnSound = new ScriptInvoker();    // (string name) an interface sound
 
 	// a KPK notification on the left of the screen (drawn in 5_Mission by KPK_Toast)
 	static void Toast(string title, string text, float seconds = 5, bool sound = true)
@@ -102,6 +103,13 @@ class KPK_Client
 			{
 				s_Status = json;
 				s_OnStatus.Invoke(json);
+				break;
+			}
+			case KPK_S.TEST_VOICE:
+			{
+				// the test subscriber answers: a radio beep and the line as a card
+				s_OnSound.Invoke("beep2");
+				Toast("ТЕСТ (эфир)", json, 7, false);
 				break;
 			}
 			case KPK_S.NOTIFY:

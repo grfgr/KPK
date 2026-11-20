@@ -1512,7 +1512,10 @@ class KPK_Server
 				continue;
 			if (text != "")
 				text += ", ";
-			text += CallsignOf(mid);
+			if (mid == TEST_ID)
+				text += "ТЕСТ";
+			else
+				text += CallsignOf(mid);
 		}
 		foreach (string rid : room.Ringing)
 		{
@@ -1520,7 +1523,10 @@ class KPK_Server
 				continue;
 			if (text != "")
 				text += ", ";
-			text += CallsignOf(rid) + " (вызов)";
+			if (rid == TEST_ID)
+				text += "ТЕСТ (вызов)";
+			else
+				text += CallsignOf(rid) + " (вызов)";
 		}
 		return text;
 	}
@@ -1541,6 +1547,12 @@ class KPK_Server
 			return;
 		}
 		string name = KPK_Util.Clean(req.S1, 64);
+		// test subscriber for an admin alone on the server
+		if (m_Settings.TestCallEnabled && m_Settings.IsAdmin(acc.SteamId) && KPK_Util.Lower(name) == "тест")
+		{
+			StartTestCall(player, acc);
+			return;
+		}
 		string targetId = SteamIdOfCallsign(name);
 		if (targetId == "")
 		{
@@ -1629,6 +1641,160 @@ class KPK_Server
 			}
 		}
 		return busy;
+	}
+
+	// ---- test subscriber "ТЕСТ": rings 3 s, answers, then says a line every 7 s while the call lasts
+	static const string TEST_ID = "#test";
+
+	protected void StartTestCall(PlayerBase player, KPK_Account acc)
+	{
+		if (m_CallState.Contains(acc.SteamId))
+		{
+			Msg(player, "Тестовый абонент: сначала завершите текущий звонок");
+			return;
+		}
+		if (FreeChannel() < 0)
+		{
+			Msg(player, "Все каналы заняты, попробуйте позже");
+			return;
+		}
+		KPK_CallRoom room = new KPK_CallRoom();
+		room.Id = m_NextCallId;
+		m_NextCallId++;
+		room.Members.Insert(acc.SteamId);
+		room.Ringing.Insert(TEST_ID);
+		m_Calls.Set(room.Id, room);
+		m_CallOf.Set(acc.SteamId, room.Id);
+		m_CallState.Set(acc.SteamId, KPK_CallState.OUTGOING);
+		Msg(player, "Вызов: ТЕСТ . . .");
+		SendView(player);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TestAnswer, 3000, false, acc.SteamId, room.Id);
+	}
+
+	void TestAnswer(string steamId, int roomId)
+	{
+		KPK_CallRoom room;
+		if (!m_Calls.Find(roomId, room) || room.Ringing.Find(TEST_ID) == -1)
+			return;
+		PlayerBase player = FindOnline(steamId);
+		TransmitterBase radio = TransmitterBase.Cast(FindBrick(player));
+		room.Channel = FreeChannel();
+		if (!player || !radio || room.Channel < 0)
+		{
+			LeaveCall(steamId, "Тестовый абонент: связь не установлена (нет «Вестника» с питанием или занят канал)");
+			return;
+		}
+		room.Ringing.RemoveItem(TEST_ID);
+		room.Members.Insert(TEST_ID);
+		StartRadio(radio, room.Channel);
+		GetGame().RPCSingleParam(player, KPK_RPC_RADIO, new Param2<bool, int>(true, room.Channel), true, player.GetIdentity());
+		m_CallDevice.Set(steamId, radio);
+		m_CallState.Set(steamId, KPK_CallState.ACTIVE);
+		Msg(player, "На связи: ТЕСТ. Говорите с «Вестником» в руках: после каждой фразы ТЕСТ ответит, дошёл ли голос");
+		SendView(player);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TestTalk, 1000, false, steamId, roomId, 0);
+	}
+
+	// the test subscriber listens: once a second the server checks whether the caller speaks (voice
+	// amplitude the engine reports to the server) and whether that voice goes into the radio: brick in
+	// the hands, transmitting. After every phrase it answers what it "received". It cannot hear the sound
+	// itself (scripts have no access to voice audio), but it shows each link of the chain up to the radio.
+	protected ref map<string, float> m_TestSpoke = new map<string, float>();   // seconds of the current phrase
+	protected ref map<string, float> m_TestLoud = new map<string, float>();    // loudest amplitude of it
+	protected ref map<string, int> m_TestSilent = new map<string, int>();      // quiet seconds after it
+	protected ref map<string, int> m_TestNoRadio = new map<string, int>();     // seconds spoken outside the radio
+
+	void TestTalk(string steamId, int roomId, int tick)
+	{
+		KPK_CallRoom room;
+		if (!m_Calls.Find(roomId, room) || room.Members.Find(TEST_ID) == -1 || room.Members.Find(steamId) == -1)
+		{
+			TestReset(steamId);
+			return;
+		}
+		PlayerBase player = FindOnline(steamId);
+		if (!player)
+		{
+			TestReset(steamId);
+			return;
+		}
+		if (tick == 0)
+			SendRaw(player, KPK_S.TEST_VOICE, "ТЕСТ слушает. Возьмите «Вестник» в руки и скажите что-нибудь в голосовой чат.");
+
+		EntityAI device;
+		m_CallDevice.Find(steamId, device);
+		TransmitterBase radio = TransmitterBase.Cast(device);
+		float amp = player.IsPlayerSpeaking();
+		bool speaking = amp > 0.1;
+		bool inHands = device && player.GetHumanInventory().GetEntityInHands() == device;
+		bool tx = radio && radio.IsBroadcasting();
+
+		float spoke = 0;
+		m_TestSpoke.Find(steamId, spoke);
+		if (speaking)
+		{
+			m_TestSpoke.Set(steamId, spoke + 1);
+			float loud = 0;
+			m_TestLoud.Find(steamId, loud);
+			if (amp > loud)
+				m_TestLoud.Set(steamId, amp);
+			if (!inHands || !tx)
+			{
+				int outside = 0;
+				m_TestNoRadio.Find(steamId, outside);
+				m_TestNoRadio.Set(steamId, outside + 1);
+			}
+			m_TestSilent.Set(steamId, 0);
+		}
+		else if (spoke > 0)
+		{
+			int quiet = 0;
+			m_TestSilent.Find(steamId, quiet);
+			quiet++;
+			m_TestSilent.Set(steamId, quiet);
+			// the phrase is over: report
+			if (quiet >= 2)
+			{
+				float maxAmp = 0;
+				m_TestLoud.Find(steamId, maxAmp);
+				int noRadio = 0;
+				m_TestNoRadio.Find(steamId, noRadio);
+				int secs = spoke;
+				int level = GetGame().GetVoiceLevel(player);
+				string lvl = "обычный голос";
+				if (level == VoiceLevelWhisper)
+					lvl = "шёпот";
+				else if (level == VoiceLevelShout)
+					lvl = "крик";
+				string text = "Принял " + secs.ToString() + " с голоса (" + lvl + ", уровень " + maxAmp.ToString() + "). ";
+				if (noRadio == 0)
+					int shownCh = room.Channel + 1;
+					text += "«Вестник» был в руках и передавал: голос дошёл до сервера и ушёл в рацию на канале " + shownCh.ToString() + ".";
+				else if (!inHands)
+					text += "Но «Вестник» не в руках (" + noRadio.ToString() + " с): голос слышен только вокруг вас, в рацию не идёт.";
+				else
+					text += "Но рация «Вестника» не передавала (" + noRadio.ToString() + " с): проверьте батарейку.";
+				SendRaw(player, KPK_S.TEST_VOICE, text);
+				TestReset(steamId);
+			}
+		}
+
+		// three minutes, then the test subscriber hangs up
+		if (tick >= 180)
+		{
+			TestReset(steamId);
+			LeaveCall(TEST_ID, "", "ТЕСТ отключился");
+			return;
+		}
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TestTalk, 1000, false, steamId, roomId, tick + 1);
+	}
+
+	protected void TestReset(string steamId)
+	{
+		m_TestSpoke.Remove(steamId);
+		m_TestLoud.Remove(steamId);
+		m_TestSilent.Remove(steamId);
+		m_TestNoRadio.Remove(steamId);
 	}
 
 	// a channel no call uses, -1 when all are taken (two calls on one channel would hear each other)

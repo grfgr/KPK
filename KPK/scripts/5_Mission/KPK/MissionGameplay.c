@@ -7,6 +7,7 @@ modded class MissionGameplay
 		super.OnInit();
 		m_KPKLabels = new KPK_WorldLabels();
 		KPK_Client.s_OnNotify.Insert(KPK_Toast.Show);
+		KPK_Client.s_OnSound.Insert(KPK_Sound.Play);
 		KPK_Client.s_OnOpen.Insert(KPK_OnOpen);
 		KPK_Client.s_OnDenied.Insert(KPK_OnDenied);
 	}
@@ -16,6 +17,7 @@ modded class MissionGameplay
 		KPK_Client.s_OnOpen.Remove(KPK_OnOpen);
 		KPK_Client.s_OnDenied.Remove(KPK_OnDenied);
 		KPK_Client.s_OnNotify.Remove(KPK_Toast.Show);
+		KPK_Client.s_OnSound.Remove(KPK_Sound.Play);
 		KPK_Toast.Clear();
 		KPK_Menu.CloseIfOpen();
 		m_KPKLabels = null;

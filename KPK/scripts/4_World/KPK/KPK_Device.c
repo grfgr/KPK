@@ -63,6 +63,49 @@ class KPK_Device extends PersonalRadio
 		int shownChannel = channel + 1;
 		if (on)
 			KPK_Client.Toast("КПК: связь", "Канал " + shownChannel.ToString() + ". Возьмите «Вестник» в руки и говорите.", 5, true);
+		// a short check a moment later: what the radio of the brick really is set to
+		if (on)
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(KPK_Device.RadioReport, 1500, false, player);
+	}
+
+	// call diagnostics: frequency, transmit / receive, power and whether the brick is in the hands
+	static void RadioReport(PlayerBase player)
+	{
+		if (!player)
+			return;
+		array<EntityAI> items = new array<EntityAI>();
+		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
+		if (inHands)
+			items.Insert(inHands);
+		player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+		foreach (EntityAI it : items)
+		{
+			TransmitterBase radio = TransmitterBase.Cast(it);
+			if (!radio || !KPK_Device.IsBrick(it))
+				continue;
+			string yes = "да";
+			string no = "НЕТ";
+			string tx = no;
+			string rx = no;
+			string hands = no;
+			string power = no;
+			if (radio.IsBroadcasting())
+				tx = yes;
+			if (radio.IsReceiving())
+				rx = yes;
+			if (it == inHands)
+				hands = yes;
+			if (radio.HasEnergyManager() && radio.GetCompEM().IsWorking())
+				power = yes;
+			float mhz = radio.GetTunedFrequency();
+			int battery = KPK_Device.GetBatteryLevel(it) * 100;
+			int tunedCh = radio.GetTunedFrequencyIndex() + 1;
+			string text = "Частота " + mhz.ToString() + " МГц (канал " + tunedCh.ToString() + "). ";
+			text += "Передача: " + tx + ", приём: " + rx + ", рация работает: " + power + ", батарея " + battery.ToString() + "%, в руках: " + hands + ".";
+			KPK_Client.Toast("КПК: проверка рации", text, 10, false);
+			return;
+		}
+		KPK_Client.Toast("КПК: проверка рации", "«Вестник» не найден у игрока", 6, false);
 	}
 
 	static bool IsBrick(EntityAI item)

@@ -61,7 +61,8 @@ enum KPK_S
 	MSG,          // status line text
 	DENIED,       // cannot open (no battery, no device) - text in json
 	CHAT,         // one new chat message (KPK_ChatMessage)
-	NOTIFY        // a KPK notification (KPK_NotifyMsg), shown on the left with the message sound
+	NOTIFY,       // a KPK notification (KPK_NotifyMsg), shown on the left with the message sound
+	TEST_VOICE    // the test subscriber of a brick call says a line (text in json)
 };
 
 // ADMIN_FACTION sub-operations (KPK_Req.I1)
