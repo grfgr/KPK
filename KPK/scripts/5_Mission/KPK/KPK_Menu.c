@@ -176,6 +176,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected Widget m_FactionManage;
 	protected Widget m_AdminBox;
 	protected EditBoxWidget m_AdminText;
+	protected TextWidget m_ManageHint;
 	protected TextWidget m_FactionHint;
 	protected ref map<int, ref KPK_Button> m_ById;
 	protected string m_ConfirmRemove = "";
@@ -1285,40 +1286,44 @@ class KPK_Menu extends UIScriptedMenu
 		m_MemberList = new KPK_List(members, 0.05, 0.08, 0.9, 0.9, 8, "— данные недоступны —");
 		m_Lists.Insert(m_MemberList);
 
-		// management: leader / deputy of the selected (own) faction, or an admin
-		m_FactionManage = KPK_UI.Card(page, 0.285, 0.6, 0.715, 0.17, "УПРАВЛЕНИЕ");
-		AddButton(m_FactionManage, B_F_KICK, "ИСКЛЮЧИТЬ", 0.02, 0.26, 0.15, 0.3);
-		AddButton(m_FactionManage, B_F_MEMBER, "В БОЙЦЫ", 0.18, 0.26, 0.15, 0.3);
-		AddButton(m_FactionManage, B_F_DEPUTY, "В ЗАМЫ", 0.34, 0.26, 0.15, 0.3);
-		AddButton(m_FactionManage, B_F_LEADER, "СДЕЛАТЬ ЛИДЕРОМ", 0.5, 0.26, 0.23, 0.3);
-		AddButton(m_FactionManage, B_F_MAP, "НА КАРТЕ", 0.74, 0.26, 0.24, 0.3);
-		m_FactionInviteName = KPK_UI.Edit(m_FactionManage, 0.02, 0.62, 0.47, 0.3);
-		AddButton(m_FactionManage, B_F_INVITE, "ПРИНЯТЬ В РЯДЫ", 0.5, 0.62, 0.23, 0.3);
+		// management: leader / deputy of the own faction, or the admin (any faction)
+		m_FactionManage = KPK_UI.Card(page, 0.285, 0.6, 0.715, 0.17, "УПРАВЛЕНИЕ СОСТАВОМ");
+		m_ManageHint = KPK_UI.Text(m_FactionManage, "Боец, выбранный в «Составе»:", 0.02, 0.27, 0.3, 0.28, 12, KPK_UI.C_DIM);
+		AddButton(m_FactionManage, B_F_KICK, "ИСКЛЮЧИТЬ", 0.31, 0.26, 0.14, 0.3);
+		// ranks: only the admin («Куратор») appoints leaders and deputies
+		AddButton(m_FactionManage, B_F_MEMBER, "В БОЙЦЫ", 0.46, 0.26, 0.12, 0.3);
+		AddButton(m_FactionManage, B_F_DEPUTY, "В ЗАМЫ", 0.59, 0.26, 0.12, 0.3);
+		AddButton(m_FactionManage, B_F_LEADER, "В ЛИДЕРЫ", 0.72, 0.26, 0.12, 0.3);
+		AddButton(m_FactionManage, B_F_MAP, "НА КАРТЕ", 0.85, 0.26, 0.13, 0.3);
+		m_FactionInviteName = KPK_UI.Edit(m_FactionManage, 0.02, 0.62, 0.42, 0.3);
+		AddButton(m_FactionManage, B_F_INVITE, "ПРИНЯТЬ В РЯДЫ", 0.46, 0.62, 0.25, 0.3);
 		AddButton(m_FactionManage, B_F_LEAVE, "ПОКИНУТЬ", 0.74, 0.62, 0.24, 0.3);
 
-		m_AdminBox = KPK_UI.Card(page, 0, 0.79, 1, 0.21, "АДМИНИСТРАТОР", 0.19);
+		// admin: settings of the selected faction
+		m_AdminBox = KPK_UI.Card(page, 0, 0.79, 1, 0.21, "АДМИНИСТРАТОР · НАСТРОЙКИ ВЫБРАННОЙ ГРУППИРОВКИ", 0.19);
 		float bw = 0.118;
 		float gap = 0.006;
-		AddButton(m_AdminBox, B_A_ENC_DESC, "ШИФР ОПИС.", 0.01, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_ENC_LEADER, "ШИФР ЛИДЕР", 0.01 + (bw + gap), 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_ENC_MEMBERS, "ШИФР СОСТАВ", 0.01 + (bw + gap) * 2, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_ENC_LOC, "ШИФР МЕСТО", 0.01 + (bw + gap) * 3, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_HIDDEN, "СКРЫТА", 0.01 + (bw + gap) * 4, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_MATES, "МЕТКИ", 0.01 + (bw + gap) * 5, 0.2, bw, 0.22);
-		AddButton(m_AdminBox, B_A_COLOR, "ЦВЕТ", 0.01 + (bw + gap) * 6, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_DESC, "", 0.01, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_LEADER, "", 0.01 + (bw + gap), 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_MEMBERS, "", 0.01 + (bw + gap) * 2, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_ENC_LOC, "", 0.01 + (bw + gap) * 3, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_HIDDEN, "", 0.01 + (bw + gap) * 4, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_MATES, "", 0.01 + (bw + gap) * 5, 0.2, bw, 0.22);
+		AddButton(m_AdminBox, B_A_COLOR, "ЦВЕТ >", 0.01 + (bw + gap) * 6, 0.2, bw, 0.22);
 		AddButton(m_AdminBox, B_A_REMOVE, "УДАЛИТЬ", 0.01 + (bw + gap) * 7, 0.2, bw, 0.22);
 
-		m_AdminText = KPK_UI.Edit(m_AdminBox, 0.01, 0.48, 0.358, 0.22);
-		AddButton(m_AdminBox, B_A_LOC_TEXT, "МЕСТО", 0.01 + (bw + gap) * 3, 0.48, bw, 0.22);
-		AddButton(m_AdminBox, B_A_LOC_ME, "Я ТУТ", 0.01 + (bw + gap) * 4, 0.48, bw, 0.22);
-		AddButton(m_AdminBox, B_A_LOC_CLEAR, "С КАРТЫ", 0.01 + (bw + gap) * 5, 0.48, bw, 0.22);
-		AddButton(m_AdminBox, B_A_DESC, "ОПИСАНИЕ", 0.01 + (bw + gap) * 6, 0.48, bw * 2 + gap, 0.22);
+		// one text field: place, description or the name of a new faction
+		KPK_UI.Text(m_AdminBox, "Текст:", 0.01, 0.48, 0.05, 0.22, 12, KPK_UI.C_DIM);
+		m_AdminText = KPK_UI.Edit(m_AdminBox, 0.06, 0.48, 0.432, 0.22);
+		AddButton(m_AdminBox, B_A_LOC_TEXT, "ТЕКСТ -> МЕСТО", 0.5, 0.48, 0.16, 0.22);
+		AddButton(m_AdminBox, B_A_DESC, "ТЕКСТ -> ОПИСАНИЕ", 0.665, 0.48, 0.16, 0.22);
+		AddButton(m_AdminBox, B_A_CREATE, "НОВАЯ ГРУППИРОВКА", 0.83, 0.48, 0.16, 0.22);
 
-		AddButton(m_AdminBox, B_A_LEADER, "ЛИДЕР", 0.01, 0.75, bw * 1.5, 0.22);
-		AddButton(m_AdminBox, B_A_ADD, "ЗАЧИСЛИТЬ", 0.01 + bw * 1.5 + gap, 0.75, bw * 1.5, 0.22);
-		AddButton(m_AdminBox, B_A_CREATE, "СОЗДАТЬ ГРУППИРОВКУ", 0.01 + (bw * 1.5 + gap) * 2, 0.75, bw * 3, 0.22);
-		MultilineTextWidget ah = KPK_UI.MText(m_AdminBox, 0.01 + (bw * 1.5 + gap) * 2 + bw * 3 + gap, 0.72, 0.99 - (0.01 + (bw * 1.5 + gap) * 2 + bw * 3 + gap), 0.28, 11, KPK_UI.C_DIM);
-		ah.SetText("Текст / позывной / название — в поле слева.");
+		KPK_UI.Text(m_AdminBox, "Точка на карте:", 0.01, 0.75, 0.12, 0.22, 12, KPK_UI.C_DIM);
+		AddButton(m_AdminBox, B_A_LOC_ME, "ГДЕ Я СТОЮ", 0.13, 0.75, 0.15, 0.22);
+		AddButton(m_AdminBox, B_A_LOC_CLEAR, "УБРАТЬ С КАРТЫ", 0.29, 0.75, 0.15, 0.22);
+		MultilineTextWidget ah = KPK_UI.MText(m_AdminBox, 0.46, 0.72, 0.53, 0.28, 11, KPK_UI.C_DIM);
+		ah.SetText("Зачислить игрока — поле «УПРАВЛЕНИЕ СОСТАВОМ» (позывной или Steam64 ID). Звания — выберите бойца в «Составе».");
 		return page;
 	}
 
@@ -1479,31 +1484,51 @@ class KPK_Menu extends UIScriptedMenu
 
 		bool mine = f.IsMine;
 		bool canManage = v.IsAdmin || (mine && v.MyRole >= KPK_Role.DEPUTY);
-		bool isLeader = v.IsAdmin || (mine && v.MyRole == KPK_Role.LEADER);
 		m_FactionManage.Show(mine || v.IsAdmin || f.HasLocationPos);
-		m_ById.Get(B_F_KICK).SetEnabled(canManage);
-		m_ById.Get(B_F_MEMBER).SetEnabled(isLeader);
-		m_ById.Get(B_F_DEPUTY).SetEnabled(isLeader);
-		m_ById.Get(B_F_LEADER).SetEnabled(isLeader);
-		m_ById.Get(B_F_INVITE).SetEnabled(mine && v.MyRole >= KPK_Role.DEPUTY);
-		m_ById.Get(B_F_LEAVE).SetEnabled(mine);
+		m_ManageHint.Show(canManage);
+		m_ById.Get(B_F_KICK).Show(canManage);
+		// ranks are given by the admin only: on the ordinary KPKs these buttons are gone
+		m_ById.Get(B_F_MEMBER).Show(v.IsAdmin);
+		m_ById.Get(B_F_DEPUTY).Show(v.IsAdmin);
+		m_ById.Get(B_F_LEADER).Show(v.IsAdmin);
+		m_FactionInviteName.GetParent().Show(canManage);
+		m_ById.Get(B_F_INVITE).Show(canManage);
+		// the admin enrols at once (callsign or Steam64 ID), the leader / deputy sends an invitation
+		if (v.IsAdmin)
+			m_ById.Get(B_F_INVITE).SetText("ЗАЧИСЛИТЬ");
+		else
+			m_ById.Get(B_F_INVITE).SetText("ПРИНЯТЬ В РЯДЫ");
+		m_ById.Get(B_F_LEAVE).Show(mine);
 		m_ById.Get(B_F_MAP).SetEnabled(f.HasLocationPos && !f.LocationEnc);
 
 		m_AdminBox.Show(v.IsAdmin);
 		if (v.IsAdmin)
 		{
-			m_ById.Get(B_A_ENC_DESC).SetActive(f.FlagDescription);
-			m_ById.Get(B_A_ENC_LEADER).SetActive(f.FlagLeader);
-			m_ById.Get(B_A_ENC_MEMBERS).SetActive(f.FlagMembers);
-			m_ById.Get(B_A_ENC_LOC).SetActive(f.FlagLocation);
-			m_ById.Get(B_A_HIDDEN).SetActive(f.Hidden);
-			m_ById.Get(B_A_MATES).SetActive(f.ShowMatesInWorld);
+			AdminToggle(B_A_ENC_DESC, "ОПИСАНИЕ", f.FlagDescription, "ШИФР", "ОТКР");
+			AdminToggle(B_A_ENC_LEADER, "ЛИДЕР", f.FlagLeader, "ШИФР", "ОТКР");
+			AdminToggle(B_A_ENC_MEMBERS, "СОСТАВ", f.FlagMembers, "ШИФР", "ОТКР");
+			AdminToggle(B_A_ENC_LOC, "МЕСТО", f.FlagLocation, "ШИФР", "ОТКР");
+			AdminToggle(B_A_HIDDEN, "В СПИСКЕ", !f.Hidden, "ДА", "НЕТ");
+			AdminToggle(B_A_MATES, "МЕТКИ", f.ShowMatesInWorld, "ВКЛ", "ВЫКЛ");
 			m_ById.Get(B_A_COLOR).SetTextColor(f.Color);
 			if (m_ConfirmRemove == f.Id)
 				m_ById.Get(B_A_REMOVE).SetText("ТОЧНО УДАЛИТЬ?");
 			else
 				m_ById.Get(B_A_REMOVE).SetText("УДАЛИТЬ");
 		}
+	}
+
+	// a toggle of the admin box: "СОСТАВ: ШИФР", lit while on
+	protected void AdminToggle(int id, string name, bool on, string onText, string offText)
+	{
+		KPK_Button b = m_ById.Get(id);
+		if (!b)
+			return;
+		if (on)
+			b.SetText(name + ": " + onText);
+		else
+			b.SetText(name + ": " + offText);
+		b.SetActive(on);
 	}
 
 	protected void Admin(int op, string text = "", int arg = 0)
@@ -2653,7 +2678,10 @@ class KPK_Menu extends UIScriptedMenu
 				KPK_Client.Send(KPK_C.FACTION_LEAVE);
 				break;
 			case B_F_INVITE:
-				KPK_Client.SendText(KPK_C.FACTION_INVITE, m_FactionInviteName.GetText());
+				if (KPK_Client.s_View && KPK_Client.s_View.IsAdmin)
+					Admin(KPK_AdminOp.ADD_MEMBER, m_FactionInviteName.GetText());
+				else
+					KPK_Client.SendText(KPK_C.FACTION_INVITE, m_FactionInviteName.GetText());
 				m_FactionInviteName.SetText("");
 				break;
 			case B_F_KICK:
@@ -2698,8 +2726,6 @@ class KPK_Menu extends UIScriptedMenu
 			case B_A_LOC_ME: Admin(KPK_AdminOp.SET_LOCATION, m_AdminText.GetText(), 1); break;
 			case B_A_LOC_CLEAR: Admin(KPK_AdminOp.CLEAR_LOCATION_POS); break;
 			case B_A_DESC: Admin(KPK_AdminOp.SET_DESC, m_AdminText.GetText()); break;
-			case B_A_LEADER: Admin(KPK_AdminOp.SET_LEADER, m_AdminText.GetText()); break;
-			case B_A_ADD: Admin(KPK_AdminOp.ADD_MEMBER, m_AdminText.GetText()); break;
 			case B_A_CREATE: Admin(KPK_AdminOp.CREATE, m_AdminText.GetText()); break;
 			case B_A_REMOVE:
 			{

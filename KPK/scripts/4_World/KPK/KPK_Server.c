@@ -3736,9 +3736,10 @@ class KPK_Server
 	{
 		int myRole;
 		KPK_Faction faction = ManagedFaction(acc, req.S2, myRole);
-		if (!faction || myRole < KPK_Role.LEADER)
+		// leaders and deputies are appointed by the admin only (КПК-А «Куратор»)
+		if (!faction || myRole <= KPK_Role.LEADER)
 		{
-			Msg(player, "Менять звания может только лидер");
+			Msg(player, "Звания назначает только администратор");
 			return;
 		}
 		string targetId = SteamIdOfCallsign(req.S1);
@@ -3756,6 +3757,7 @@ class KPK_Server
 			}
 		}
 		target.Role = newRole;
+		Msg(player, CallsignOf(targetId) + ": " + KPK_Const.RoleName(newRole));
 		SaveFactions();
 		RefreshAllOpen();
 	}
@@ -3907,6 +3909,7 @@ class KPK_Server
 				}
 				member.Role = KPK_Role.LEADER;
 			}
+			Msg(player, CallsignOf(targetId) + " зачислен в «" + f.Name + "»: " + KPK_Const.RoleName(member.Role));
 			SaveFactions();
 			RefreshAllOpen();
 			return;
