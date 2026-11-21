@@ -37,9 +37,8 @@ class KPK_Settings
 	int MaxFactionMarkers = 100;
 	int MaxGroupTasks = 20;          // tasks the party leader / faction leader and deputies can post
 	int PublicTasksPerFaction = 2;   // tasks a faction can post for every stalker on the server
-	// factions where every member (not only the leader and deputies) writes tasks for the faction
+	// factions where every member (not only the leader and deputies) writes tasks for the faction; empty by default
 	ref array<string> MemberTaskFactions;
-	bool MemberTaskDefaultsAdded;
 
 	// party
 	int PartyMaxSize = 6;
@@ -156,12 +155,7 @@ class KPK_Settings
 			settings.ReputationFactions = new array<string>();
 		if (!settings.MemberTaskFactions)
 			settings.MemberTaskFactions = new array<string>();
-		if (!settings.MemberTaskDefaultsAdded)
-		{
-			if (settings.MemberTaskFactions.Find("loners") == -1)
-				settings.MemberTaskFactions.Insert("loners");
-			settings.MemberTaskDefaultsAdded = true;
-		}
+
 		// the walkie-talkie the brick is built on has 9 frequencies: more channels would put calls on the
 		// same frequency (they would hear each other)
 		if (settings.CallChannels > RADIO_FREQUENCIES - 1)
