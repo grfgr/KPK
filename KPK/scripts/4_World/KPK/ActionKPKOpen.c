@@ -110,7 +110,7 @@ class ActionKPKWorldContact : ActionInteractBase
 		PlayerBase other = PlayerBase.Cast(target.GetObject());
 		if (!other || other == player || !other.IsAlive())
 			return false;
-		if (!m_Invite && ContactNeedsHands())
+		if (ContactNeedsHands())
 			return HoldsKPK(player) && HoldsKPK(other);
 		return KPK_Device.FindOn(player) != null;
 	}

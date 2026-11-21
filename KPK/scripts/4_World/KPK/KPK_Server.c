@@ -811,6 +811,17 @@ class KPK_Server
 			foreach (KPK_Task ft : myFaction.Tasks)
 				view.Tasks.Insert(ft);
 		}
+		// public tasks of the other factions
+		foreach (KPK_Faction tf : m_Factions.Factions)
+		{
+			if (tf == myFaction)
+				continue;
+			foreach (KPK_Task gt : tf.Tasks)
+			{
+				if (gt.Scope == KPK_TASK_PUBLIC)
+					view.Tasks.Insert(gt);
+			}
+		}
 		foreach (KPK_Note n : acc.Notes)
 			view.Notes.Insert(n);
 
@@ -2320,26 +2331,8 @@ class KPK_Server
 				Msg(player, "Список контактов заполнен");
 				return;
 			}
-			// contacts are exchanged face to face: both hold a working KPK in their hands
-			if (m_Settings.ContactNeedsHands)
-			{
-				PlayerBase other = FindOnline(targetId);
-				if (!WorkingDeviceInHands(player, acc.SteamId))
-				{
-					Msg(player, "Для обмена контактами держите КПК в руках");
-					return;
-				}
-				if (!other || !WorkingDeviceInHands(other, targetId))
-				{
-					Msg(player, "У сталкера «" + CallsignOf(targetId) + "» нет КПК в руках");
-					return;
-				}
-				if (!m_WorldAction && vector.Distance(player.GetPosition(), other.GetPosition()) > m_Settings.ContactMaxDistance)
-				{
-					Msg(player, "Сталкер «" + CallsignOf(targetId) + "» слишком далеко, подойдите ближе");
-					return;
-				}
-			}
+			if (!FaceToFace(player, acc.SteamId, targetId, "обмена контактами"))
+				return;
 			acc.Contacts.Insert(targetId);
 			Msg(player, "Контакт «" + CallsignOf(targetId) + "» добавлен");
 		}
@@ -2478,6 +2471,31 @@ class KPK_Server
 	{
 		if (player && player.IsAlive())
 			player.SetHealth("", "Shock", 0);
+	}
+
+	// contacts and party invites happen face to face: both hold a working KPK in their hands and,
+	// when done by callsign from the KPK pages, stand close to each other
+	bool FaceToFace(PlayerBase player, string steamId, string targetId, string what)
+	{
+		if (!m_Settings.ContactNeedsHands)
+			return true;
+		PlayerBase other = FindOnline(targetId);
+		if (!WorkingDeviceInHands(player, steamId))
+		{
+			Msg(player, "Для " + what + " держите КПК в руках");
+			return false;
+		}
+		if (!other || !WorkingDeviceInHands(other, targetId))
+		{
+			Msg(player, "У сталкера «" + CallsignOf(targetId) + "» нет КПК в руках");
+			return false;
+		}
+		if (!m_WorldAction && vector.Distance(player.GetPosition(), other.GetPosition()) > m_Settings.ContactMaxDistance)
+		{
+			Msg(player, "Сталкер «" + CallsignOf(targetId) + "» слишком далеко, подойдите ближе");
+			return false;
+		}
+		return true;
 	}
 
 	// the same, but only the KPK in the hands counts
@@ -2997,28 +3015,52 @@ class KPK_Server
 			where = "группы";
 			RefreshParty(party);
 		}
-		else if (req.I1 == KPK_Scope.FACTION)
+		else if (req.I1 == KPK_Scope.FACTION || req.I1 == KPK_TASK_PUBLIC)
 		{
 			KPK_Faction faction = FactionOf(acc.SteamId);
 			if (!faction || faction.Find(acc.SteamId).Role < KPK_Role.DEPUTY)
 			{
-				Msg(player, "Задания группировке дают лидер и заместитель");
+				Msg(player, "Задания от группировки дают лидер и заместитель");
 				return;
 			}
-			if (faction.Tasks.Count() >= m_Settings.MaxGroupTasks)
+			bool isPublic = req.I1 == KPK_TASK_PUBLIC;
+			int sameKind = 0;
+			foreach (KPK_Task old : faction.Tasks)
+			{
+				if ((old.Scope == KPK_TASK_PUBLIC) == isPublic)
+					sameKind++;
+			}
+			if (isPublic && sameKind >= m_Settings.PublicTasksPerFaction)
+			{
+				Msg(player, "У группировки уже " + m_Settings.PublicTasksPerFaction.ToString() + " общих задания, удалите одно");
+				return;
+			}
+			if (!isPublic && sameKind >= m_Settings.MaxGroupTasks)
 			{
 				Msg(player, "Слишком много заданий группировки, удалите старые");
 				return;
 			}
 			task.Id = "f" + faction.NextTaskId.ToString();
 			faction.NextTaskId++;
+			task.FactionId = faction.Id;
 			task.Issuer = faction.Name + " · " + KPK_Const.RoleName(faction.Find(acc.SteamId).Role) + " " + acc.Callsign;
 			faction.Tasks.Insert(task);
-			foreach (KPK_FactionMember fm : faction.Members)
-				ids.Insert(fm.SteamId);
-			where = "группировки «" + faction.Name + "»";
 			SaveFactions();
-			RefreshFaction(faction);
+			if (isPublic)
+			{
+				map<string, PlayerBase> everyone = OnlinePlayers();
+				foreach (string onlineId, PlayerBase op : everyone)
+					ids.Insert(onlineId);
+				where = "от группировки «" + faction.Name + "»";
+				RefreshIds(ids);
+			}
+			else
+			{
+				foreach (KPK_FactionMember fm : faction.Members)
+					ids.Insert(fm.SteamId);
+				where = "группировки «" + faction.Name + "»";
+				RefreshFaction(faction);
+			}
 		}
 		else
 		{
@@ -3065,11 +3107,13 @@ class KPK_Server
 			return;
 		}
 
+		bool wasPublic = false;
 		for (int i = 0; i < list.Count(); i++)
 		{
 			KPK_Task task = list[i];
 			if (task.Id != id)
 				continue;
+			wasPublic = task.Scope == KPK_TASK_PUBLIC;
 			if (req.I2 == 1)
 			{
 				Msg(player, "Задание «" + task.Title + "» удалено");
@@ -3095,7 +3139,18 @@ class KPK_Server
 		else
 		{
 			SaveFactions();
-			RefreshFaction(faction);
+			if (wasPublic)
+			{
+				array<string> everybody = new array<string>();
+				map<string, PlayerBase> everyone = OnlinePlayers();
+				foreach (string onlineId, PlayerBase op : everyone)
+					everybody.Insert(onlineId);
+				RefreshIds(everybody);
+			}
+			else
+			{
+				RefreshFaction(faction);
+			}
 		}
 	}
 
@@ -3135,6 +3190,8 @@ class KPK_Server
 				return;
 			}
 		}
+		if (!FaceToFace(player, acc.SteamId, targetId, "приглашения в группу"))
+			return;
 
 		if (!FindInvite(targetId, 1, acc.SteamId, ""))
 		{

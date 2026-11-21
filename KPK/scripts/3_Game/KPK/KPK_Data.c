@@ -45,8 +45,9 @@ class KPK_Task
 	string Reward;
 	int Status;        // 0 active, 1 completed, 2 failed
 	string Date;
-	int Scope;         // KPK_Scope: PERSONAL (from scripts), PARTY or FACTION (written by the leaders)
+	int Scope;         // KPK_Scope: PERSONAL (from scripts), PARTY, FACTION or KPK_TASK_PUBLIC (written by the leaders)
 	string Author;     // callsign of whoever wrote a party / faction task
+	string FactionId;  // faction tasks: whose (public ones are shown to everybody)
 };
 
 // Reputation with a faction: groundwork. Change through KPK_Server.AddReputation().

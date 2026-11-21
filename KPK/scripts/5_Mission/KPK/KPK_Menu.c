@@ -1593,6 +1593,7 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (scope == KPK_Scope.PARTY) return "[ГР] ";
 		if (scope == KPK_Scope.FACTION) return "[ГП] ";
+		if (scope == KPK_TASK_PUBLIC) return "[ВСЕМ] ";
 		return "";
 	}
 
@@ -1605,6 +1606,8 @@ class KPK_Menu extends UIScriptedMenu
 			return v.TaskParty;
 		if (task.Scope == KPK_Scope.FACTION)
 			return v.TaskFaction;
+		if (task.Scope == KPK_TASK_PUBLIC)
+			return v.TaskFaction && task.FactionId == v.MyFactionId;
 		return false;
 	}
 
@@ -1619,20 +1622,52 @@ class KPK_Menu extends UIScriptedMenu
 		return v.Tasks[i];
 	}
 
+	protected bool TaskScopeAllowed(KPK_View v, int scope)
+	{
+		if (scope == KPK_Scope.PARTY)
+			return v.TaskParty;
+		return v.TaskFaction;
+	}
+
+	// party -> faction -> everybody, skipping what this player may not post
+	protected void NextTaskScope()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v)
+			return;
+		for (int step = 0; step < 3; step++)
+		{
+			if (m_TaskScope == KPK_Scope.PARTY)
+				m_TaskScope = KPK_Scope.FACTION;
+			else if (m_TaskScope == KPK_Scope.FACTION)
+				m_TaskScope = KPK_TASK_PUBLIC;
+			else
+				m_TaskScope = KPK_Scope.PARTY;
+			if (TaskScopeAllowed(v, m_TaskScope))
+				break;
+		}
+		UpdateTaskScope();
+	}
+
 	protected void UpdateTaskScope()
 	{
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
-		if (!v.TaskParty)
-			m_TaskScope = KPK_Scope.FACTION;
-		if (!v.TaskFaction)
-			m_TaskScope = KPK_Scope.PARTY;
-		if (m_TaskScope == KPK_Scope.FACTION)
+		if (!TaskScopeAllowed(v, m_TaskScope))
+		{
+			if (v.TaskParty)
+				m_TaskScope = KPK_Scope.PARTY;
+			else
+				m_TaskScope = KPK_Scope.FACTION;
+		}
+		if (m_TaskScope == KPK_TASK_PUBLIC)
+			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ВСЕМ");
+		else if (m_TaskScope == KPK_Scope.FACTION)
 			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ГРУППИРОВКЕ");
 		else
 			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ГРУППЕ");
-		m_ById.Get(B_TS_SCOPE).SetEnabled(v.TaskParty && v.TaskFaction);
+		m_ById.Get(B_TS_SCOPE).SetEnabled(true);
 	}
 
 	protected void StartTaskEdit()
@@ -1751,6 +1786,8 @@ class KPK_Menu extends UIScriptedMenu
 			text += "Тип:  задание группы\n";
 		else if (task.Scope == KPK_Scope.FACTION)
 			text += "Тип:  задание группировки\n";
+		else if (task.Scope == KPK_TASK_PUBLIC)
+			text += "Тип:  общее задание для всех сталкеров\n";
 		text += "Заказчик:  " + task.Issuer + "\n";
 		if (task.Reward != "")
 			text += "Награда:  " + task.Reward + "\n";
@@ -2654,11 +2691,7 @@ class KPK_Menu extends UIScriptedMenu
 				RefreshTasks();
 				break;
 			case B_TS_SCOPE:
-				if (m_TaskScope == KPK_Scope.PARTY)
-					m_TaskScope = KPK_Scope.FACTION;
-				else
-					m_TaskScope = KPK_Scope.PARTY;
-				UpdateTaskScope();
+				NextTaskScope();
 				break;
 			case B_TS_SEND:
 				SendTask();

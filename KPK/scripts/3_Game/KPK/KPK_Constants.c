@@ -119,6 +119,9 @@ enum KPK_Scope
 	FACTION
 };
 
+// task scope only (not a marker scope): a faction's task shown to every stalker
+const int KPK_TASK_PUBLIC = 3;
+
 // mate kinds for 3D labels
 enum KPK_MateKind
 {

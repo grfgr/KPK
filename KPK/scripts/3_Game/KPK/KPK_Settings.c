@@ -36,6 +36,7 @@ class KPK_Settings
 	int MaxPartyMarkers = 30;
 	int MaxFactionMarkers = 100;
 	int MaxGroupTasks = 20;          // tasks the party leader / faction leader and deputies can post
+	int PublicTasksPerFaction = 2;   // tasks a faction can post for every stalker on the server
 
 	// party
 	int PartyMaxSize = 6;
