@@ -1001,7 +1001,8 @@ class KPK_Server
 		}
 		if (myFaction)
 		{
-			view.TaskFaction = myFaction.Find(steamId).Role >= KPK_Role.DEPUTY;
+			view.TaskPublic = myFaction.Find(steamId).Role >= KPK_Role.DEPUTY;
+			view.TaskFaction = MayWriteFactionTask(myFaction, steamId);
 			foreach (KPK_Task ft : myFaction.Tasks)
 				view.Tasks.Insert(ft);
 		}
@@ -3171,6 +3172,19 @@ class KPK_Server
 
 	// =================================================================== group tasks
 
+	// faction tasks: the leader and deputies, in MemberTaskFactions (loners by default) every member
+	bool MayWriteFactionTask(KPK_Faction faction, string steamId)
+	{
+		if (!faction)
+			return false;
+		KPK_FactionMember fm = faction.Find(steamId);
+		if (!fm)
+			return false;
+		if (fm.Role >= KPK_Role.DEPUTY)
+			return true;
+		return m_Settings.MemberTaskFactions.Find(faction.Id) != -1;
+	}
+
 	// party tasks: any party member; faction tasks: the faction leader and deputies
 	protected void HandleTaskAdd(PlayerBase player, KPK_Account acc, KPK_Req req)
 	{
@@ -3217,12 +3231,22 @@ class KPK_Server
 		else if (req.I1 == KPK_Scope.FACTION || req.I1 == KPK_TASK_PUBLIC)
 		{
 			KPK_Faction faction = FactionOf(acc.SteamId);
-			if (!faction || faction.Find(acc.SteamId).Role < KPK_Role.DEPUTY)
+			bool isPublic = req.I1 == KPK_TASK_PUBLIC;
+			if (!faction)
 			{
-				Msg(player, "Задания от группировки дают лидер и заместитель");
+				Msg(player, "Вы не состоите в группировке");
 				return;
 			}
-			bool isPublic = req.I1 == KPK_TASK_PUBLIC;
+			if (isPublic && faction.Find(acc.SteamId).Role < KPK_Role.DEPUTY)
+			{
+				Msg(player, "Общие задания для всех дают лидер и заместитель");
+				return;
+			}
+			if (!isPublic && !MayWriteFactionTask(faction, acc.SteamId))
+			{
+				Msg(player, "Задания группировке дают лидер и заместитель");
+				return;
+			}
 			int sameKind = 0;
 			foreach (KPK_Task old : faction.Tasks)
 			{
@@ -3294,11 +3318,8 @@ class KPK_Server
 		else if (id.IndexOf("f") == 0)
 		{
 			faction = FactionOf(acc.SteamId);
-			if (!faction || faction.Find(acc.SteamId).Role < KPK_Role.DEPUTY)
-			{
-				Msg(player, "Менять задания группировки могут лидер и заместитель");
+			if (!faction)
 				return;
-			}
 			list = faction.Tasks;
 		}
 		else
@@ -3313,6 +3334,15 @@ class KPK_Server
 			if (task.Id != id)
 				continue;
 			wasPublic = task.Scope == KPK_TASK_PUBLIC;
+			if (faction)
+			{
+				bool deputy = faction.Find(acc.SteamId).Role >= KPK_Role.DEPUTY;
+				if ((wasPublic && !deputy) || (!wasPublic && !MayWriteFactionTask(faction, acc.SteamId)))
+				{
+					Msg(player, "Менять это задание могут лидер и заместитель");
+					return;
+				}
+			}
 			if (req.I2 == 1)
 			{
 				Msg(player, "Задание «" + task.Title + "» удалено");

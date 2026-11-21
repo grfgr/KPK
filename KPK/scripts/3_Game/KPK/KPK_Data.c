@@ -433,7 +433,8 @@ class KPK_View
 
 	ref array<ref KPK_Task> Tasks;            // personal, then party, then faction (Scope tells which)
 	bool TaskParty;                           // may write party tasks (party leader)
-	bool TaskFaction;                         // may write faction tasks (faction leader / deputy)
+	bool TaskFaction;                         // may write faction tasks (leader / deputy, every member of loners)
+	bool TaskPublic;                          // may write tasks for everybody (faction leader / deputy)
 	ref array<ref KPK_Note> Notes;
 
 	ref array<ref KPK_ChatMessage> Chat;        // general channel + own private messages, oldest first

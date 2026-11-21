@@ -617,6 +617,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void ShowPage(int page)
 	{
+		if (page != m_Page)
+			SetFocus(null);   // a field on a hidden page would keep taking the keys
 		m_Page = page;
 		for (int i = 0; i < m_Pages.Count(); i++)
 			m_Pages[i].Show(i == page);
@@ -1609,7 +1611,7 @@ class KPK_Menu extends UIScriptedMenu
 		if (task.Scope == KPK_Scope.FACTION)
 			return v.TaskFaction;
 		if (task.Scope == KPK_TASK_PUBLIC)
-			return v.TaskFaction && task.FactionId == v.MyFactionId;
+			return v.TaskPublic && task.FactionId == v.MyFactionId;
 		return false;
 	}
 
@@ -1628,6 +1630,8 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (scope == KPK_Scope.PARTY)
 			return v.TaskParty;
+		if (scope == KPK_TASK_PUBLIC)
+			return v.TaskPublic;
 		return v.TaskFaction;
 	}
 
@@ -2168,6 +2172,13 @@ class KPK_Menu extends UIScriptedMenu
 		}
 		else if (m_Page == P_LOGIN || m_Page == P_BOOT || m_Page < 0)
 		{
+			// the hidden login boxes must not keep the password nor the keyboard focus: the typing went
+			// on into the hidden box and its text showed up in other fields' commands
+			if (m_LoginPassword)
+				m_LoginPassword.SetText("");
+			if (m_LoginRepeat)
+				m_LoginRepeat.SetText("");
+			SetFocus(null);
 			ShowPage(m_LastTab);
 		}
 		else
@@ -2448,6 +2459,14 @@ class KPK_Menu extends UIScriptedMenu
 				return true;
 		}
 		return super.OnMouseLeave(w, enterW, x, y);
+	}
+
+	// a click into a text field always takes the keyboard there
+	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
+	{
+		if (button == MouseState.LEFT && w && (EditBoxWidget.Cast(w) || MultilineEditBoxWidget.Cast(w)))
+			SetFocus(w);
+		return super.OnMouseButtonDown(w, x, y, button);
 	}
 
 	override bool OnClick(Widget w, int x, int y, int button)
