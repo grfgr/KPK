@@ -35,7 +35,8 @@ enum KPK_C
 	CALL_END,
 	ADMIN,           // admin KPK: I1 = KPK_AdminCmd, S1 = callsign
 	TASK_ADD,        // I1 scope (PARTY / FACTION), S1 title, S2 description, S3 reward
-	TASK_SET         // S1 task id, I1 status (0 active, 1 done, 2 failed), I2 = 1 -> delete
+	TASK_SET,        // S1 task id, I1 status (0 active, 1 done, 2 failed), I2 = 1 -> delete
+	CHAT_OLDER       // I1 = id of the oldest chat line the client has: send older ones
 };
 
 // ADMIN sub-commands (KPK_Req.I1), only on the admin KPK «Куратор»
@@ -64,7 +65,8 @@ enum KPK_S
 	DENIED,       // cannot open (no battery, no device) - text in json
 	CHAT,         // one new chat message (KPK_ChatMessage)
 	NOTIFY,       // a KPK notification (KPK_NotifyMsg), shown on the left with the message sound
-	TEST_VOICE    // the test subscriber of a brick call says a line (text in json)
+	TEST_VOICE,   // the test subscriber of a brick call says a line (text in json)
+	CHAT_OLDER    // older chat lines (KPK_ChatOlderMsg)
 };
 
 // ADMIN_FACTION sub-operations (KPK_Req.I1)

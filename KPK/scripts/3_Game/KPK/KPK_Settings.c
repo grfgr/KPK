@@ -84,7 +84,8 @@ class KPK_Settings
 	float CallRingSec = 40;          // an unanswered call is dropped after this
 
 	// chat and contacts (not on the brick)
-	int ChatHistory = 100;           // messages the server keeps, saved to chat.json (survive restarts)
+	int ChatHistory = 100;           // newest messages sent with the KPK, older ones load when scrolling back
+	int ChatArchive = 10000;         // messages kept on disk ($profile:KPK/chat), survive restarts
 	bool ChatHistoryRaised;          // older files had 40: raised to 100 once
 	int ChatMaxLength = 160;
 	float ChatCooldownSec = 2;
@@ -107,7 +108,8 @@ class KPK_Settings
 	const static string FILE = "$profile:KPK/settings.json";
 	const static string FACTIONS_FILE = "$profile:KPK/factions.json";
 	const static string PARTIES_FILE = "$profile:KPK/parties.json";
-	const static string CHAT_FILE = "$profile:KPK/chat.json";
+	const static string CHAT_DIR = "$profile:KPK/chat";
+	const static string CHAT_INDEX = "$profile:KPK/chat/index.json";
 	static bool s_LoadFailed;
 	const static string SALT_FILE = "$profile:KPK/password_salt.txt";
 	const static int RADIO_FREQUENCIES = 9;   // frequencies of the vanilla walkie-talkie
@@ -165,6 +167,10 @@ class KPK_Settings
 			settings.ChatHistory = 10;
 		if (settings.ChatHistory > 300)
 			settings.ChatHistory = 300;
+		if (settings.ChatArchive < 500)
+			settings.ChatArchive = 500;
+		if (settings.ChatArchive > 100000)
+			settings.ChatArchive = 100000;
 		if (!settings.MatesRateFixed)
 		{
 			if (settings.MatesUpdateSec > 1.0)

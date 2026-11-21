@@ -307,6 +307,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Client.s_OnStatus.Remove(OnStatus);
 		KPK_Client.s_OnMates.Remove(OnMates);
 		KPK_Client.s_OnChat.Remove(OnChat);
+		KPK_Client.s_OnChatOlder.Remove(OnChatOlder);
 		KPK_Sound.StopHiss(m_Hiss);
 		if (layoutRoot)
 			layoutRoot.Unlink();
@@ -377,6 +378,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Client.s_OnStatus.Insert(OnStatus);
 		KPK_Client.s_OnMates.Insert(OnMates);
 		KPK_Client.s_OnChat.Insert(OnChat);
+		KPK_Client.s_OnChatOlder.Insert(OnChatOlder);
 
 		StartBoot();
 		return layoutRoot;
@@ -1906,6 +1908,14 @@ class KPK_Menu extends UIScriptedMenu
 		return "[" + m.Time + "] " + who + ": " + KPK_Util.FromWire(m.Text);
 	}
 
+	// older lines came from the server: scroll up onto them
+	void OnChatOlder(int added)
+	{
+		if (added > 0)
+			m_ChatOffset += CHAT_LINES / 2;
+		RefreshChat();
+	}
+
 	protected void RefreshChat()
 	{
 		if (!m_ChatLog)
@@ -1926,6 +1936,15 @@ class KPK_Menu extends UIScriptedMenu
 			first = 0;
 
 		string text = "";
+		if (count > 0 && first == 0)
+		{
+			if (KPK_Client.s_ChatLoading)
+				text = ". . . загрузка архива . . .";
+			else if (KPK_Client.s_ChatMore)
+				text = ". . . (/\\ — более старые сообщения)";
+			else
+				text = "— начало истории эфира —";
+		}
 		if (count == 0)
 			text = "В эфире тихо.\n\nСообщения общего канала видят все сталкеры с КПК в Зоне. Личное сообщение: вкладка контактов, кнопка «НАПИСАТЬ».";
 		for (int i = first; i <= last; i++)
@@ -2762,9 +2781,16 @@ class KPK_Menu extends UIScriptedMenu
 				RefreshChat();
 				break;
 			case B_C_OLDER:
+			{
+				if (!KPK_Client.s_View)
+					break;
+				int topOffset = KPK_Client.s_View.Chat.Count() - CHAT_LINES;
+				if (m_ChatOffset >= topOffset)
+					KPK_Client.RequestOlderChat();   // at the top: ask the server for the archive
 				m_ChatOffset += CHAT_LINES / 2;
 				RefreshChat();
 				break;
+			}
 			case B_C_NEWER:
 				m_ChatOffset -= CHAT_LINES / 2;
 				if (m_ChatOffset < 0)

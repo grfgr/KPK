@@ -53,16 +53,24 @@ class KPK_ChatEntry
 	ref KPK_ChatMessage Msg;
 };
 
-class KPK_ChatFile
+// chat archive: pages of KPK_Server.CHAT_PAGE messages in $profile:KPK/chat/page_<n>.json;
+// only the newest page is rewritten, older ones are read when someone scrolls back
+class KPK_ChatPageFile
 {
-	int Version = 1;
-	int NextId = 1;
 	ref array<ref KPK_ChatEntry> Entries;
 
-	void KPK_ChatFile()
+	void KPK_ChatPageFile()
 	{
 		Entries = new array<ref KPK_ChatEntry>();
 	}
+};
+
+class KPK_ChatIndex
+{
+	int Version = 1;
+	int FirstPage = 1;
+	int LastPage = 1;
+	int NextId = 1;
 };
 
 class KPK_Server
@@ -356,37 +364,175 @@ class KPK_Server
 		Print("[KPK] parties restored: " + m_Parties.Count());
 	}
 
+	static const int CHAT_PAGE = 500;
+	static const int CHAT_OLDER_LINES = 50;
+	protected ref KPK_ChatIndex m_ChatIndex;
+	protected ref array<ref KPK_ChatEntry> m_ChatPage = new array<ref KPK_ChatEntry>();   // the newest page
+	protected bool m_ChatDirty;
+	protected int m_ChatCachePageNo;                                                       // one older page kept read
+	protected ref array<ref KPK_ChatEntry> m_ChatCache;
+
+	protected string ChatPageFile(int page)
+	{
+		return KPK_Settings.CHAT_DIR + "/page_" + page.ToString() + ".json";
+	}
+
+	protected array<ref KPK_ChatEntry> ReadChatPage(int page)
+	{
+		if (m_ChatIndex && page == m_ChatIndex.LastPage)
+			return m_ChatPage;
+		if (m_ChatCache && m_ChatCachePageNo == page)
+			return m_ChatCache;
+		KPK_ChatPageFile file = new KPK_ChatPageFile();
+		if (FileExist(ChatPageFile(page)))
+			JsonFileLoader<KPK_ChatPageFile>.JsonLoadFile(ChatPageFile(page), file);
+		if (!file.Entries)
+			file.Entries = new array<ref KPK_ChatEntry>();
+		m_ChatCache = file.Entries;
+		m_ChatCachePageNo = page;
+		return m_ChatCache;
+	}
+
 	protected void LoadChat()
 	{
-		if (!FileExist(KPK_Settings.CHAT_FILE))
-			return;
-		KPK_ChatFile file = new KPK_ChatFile();
-		JsonFileLoader<KPK_ChatFile>.JsonLoadFile(KPK_Settings.CHAT_FILE, file);
-		if (!file.Entries)
-			return;
-		foreach (KPK_ChatEntry entry : file.Entries)
+		if (!FileExist(KPK_Settings.CHAT_DIR))
+			MakeDirectory(KPK_Settings.CHAT_DIR);
+		m_ChatIndex = new KPK_ChatIndex();
+		if (FileExist(KPK_Settings.CHAT_INDEX))
+			JsonFileLoader<KPK_ChatIndex>.JsonLoadFile(KPK_Settings.CHAT_INDEX, m_ChatIndex);
+		if (m_ChatIndex.FirstPage < 1)
+			m_ChatIndex.FirstPage = 1;
+		if (m_ChatIndex.LastPage < m_ChatIndex.FirstPage)
+			m_ChatIndex.LastPage = m_ChatIndex.FirstPage;
+		m_ChatNextId = m_ChatIndex.NextId;
+		if (m_ChatNextId < 1)
+			m_ChatNextId = 1;
+
+		KPK_ChatPageFile current = new KPK_ChatPageFile();
+		if (FileExist(ChatPageFile(m_ChatIndex.LastPage)))
+			JsonFileLoader<KPK_ChatPageFile>.JsonLoadFile(ChatPageFile(m_ChatIndex.LastPage), current);
+		if (current.Entries)
 		{
-			if (entry && entry.Msg)
+			foreach (KPK_ChatEntry ce : current.Entries)
 			{
-				m_Chat.Insert(entry);
-				if (entry.Msg.Id >= m_ChatNextId)
-					m_ChatNextId = entry.Msg.Id + 1;
+				if (ce && ce.Msg)
+					m_ChatPage.Insert(ce);
 			}
 		}
+
+		// the newest lines in memory: the previous page too when the current one is short
+		if (m_ChatPage.Count() < m_Settings.ChatHistory && m_ChatIndex.LastPage > m_ChatIndex.FirstPage)
+		{
+			array<ref KPK_ChatEntry> prev = ReadChatPage(m_ChatIndex.LastPage - 1);
+			foreach (KPK_ChatEntry pe : prev)
+			{
+				if (pe && pe.Msg)
+					m_Chat.Insert(pe);
+			}
+		}
+		foreach (KPK_ChatEntry me : m_ChatPage)
+			m_Chat.Insert(me);
 		while (m_Chat.Count() > m_Settings.ChatHistory)
 			m_Chat.RemoveOrdered(0);
-		if (file.NextId > m_ChatNextId)
-			m_ChatNextId = file.NextId;
-		Print("[KPK] chat history restored: " + m_Chat.Count());
+		foreach (KPK_ChatEntry ie : m_Chat)
+		{
+			if (ie.Msg.Id >= m_ChatNextId)
+				m_ChatNextId = ie.Msg.Id + 1;
+		}
+
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(SaveChat, 10000, true);
+		int pages = m_ChatIndex.LastPage - m_ChatIndex.FirstPage;
+		int total = pages * CHAT_PAGE + m_ChatPage.Count();
+		Print("[KPK] chat archive: about " + total + " messages");
+	}
+
+	// a new message goes to the archive (written every 10 s, a full page at once)
+	protected void ArchiveChat(KPK_ChatEntry entry)
+	{
+		m_ChatPage.Insert(entry);
+		m_ChatIndex.NextId = m_ChatNextId;
+		m_ChatDirty = true;
+		if (m_ChatPage.Count() < CHAT_PAGE)
+			return;
+
+		SaveChat();
+		m_ChatIndex.LastPage++;
+		m_ChatPage = new array<ref KPK_ChatEntry>();
+		// drop the oldest pages beyond the archive size
+		int keepPages = (m_Settings.ChatArchive + CHAT_PAGE - 1) / CHAT_PAGE + 1;
+		while (m_ChatIndex.LastPage - m_ChatIndex.FirstPage + 1 > keepPages)
+		{
+			DeleteFile(ChatPageFile(m_ChatIndex.FirstPage));
+			m_ChatIndex.FirstPage++;
+		}
+		m_ChatDirty = true;
+		SaveChat();
 	}
 
 	void SaveChat()
 	{
-		KPK_ChatFile file = new KPK_ChatFile();
-		file.NextId = m_ChatNextId;
-		foreach (KPK_ChatEntry entry : m_Chat)
+		if (!m_ChatDirty || !m_ChatIndex)
+			return;
+		m_ChatDirty = false;
+		KPK_ChatPageFile file = new KPK_ChatPageFile();
+		foreach (KPK_ChatEntry entry : m_ChatPage)
 			file.Entries.Insert(entry);
-		JsonFileLoader<KPK_ChatFile>.JsonSaveFile(KPK_Settings.CHAT_FILE, file);
+		JsonFileLoader<KPK_ChatPageFile>.JsonSaveFile(ChatPageFile(m_ChatIndex.LastPage), file);
+		JsonFileLoader<KPK_ChatIndex>.JsonSaveFile(KPK_Settings.CHAT_INDEX, m_ChatIndex);
+	}
+
+	// scrolling back: up to CHAT_OLDER_LINES visible lines older than beforeId, oldest first
+	protected void HandleChatOlder(PlayerBase player, string steamId, KPK_Req req)
+	{
+		int beforeId = req.I1;
+		array<KPK_ChatMessage> found = new array<KPK_ChatMessage>();
+		for (int page = m_ChatIndex.LastPage; page >= m_ChatIndex.FirstPage && found.Count() < CHAT_OLDER_LINES; page--)
+		{
+			array<ref KPK_ChatEntry> entries = ReadChatPage(page);
+			for (int i = entries.Count() - 1; i >= 0 && found.Count() < CHAT_OLDER_LINES; i--)
+			{
+				KPK_ChatEntry ce = entries[i];
+				if (!ce || !ce.Msg || ce.Msg.Id >= beforeId)
+					continue;
+				if (ce.ToId == "" || ce.ToId == steamId || ce.FromId == steamId)
+					found.Insert(ce.Msg);
+			}
+		}
+		KPK_ChatOlderMsg msg = new KPK_ChatOlderMsg();
+		msg.More = found.Count() >= CHAT_OLDER_LINES;
+		for (int f = found.Count() - 1; f >= 0; f--)
+			msg.Lines.Insert(found[f]);
+		SendRaw(player, KPK_S.CHAT_OLDER, KPK_Json<KPK_ChatOlderMsg>.To(msg));
+	}
+
+	// short faction tag before the callsign in the chat: [НИИ], [МОН], [ОКСОП]; loners have none.
+	// Set "Short" of a faction in factions.json to change it, "-" for no tag.
+	string ChatTag(string steamId, out int color)
+	{
+		color = 0;
+		KPK_Faction f = FactionOf(steamId);
+		if (!f)
+			return "";
+		string tag = f.Short;
+		if (tag == "")
+		{
+			switch (f.Id)
+			{
+				case "loners": tag = "-"; break;
+				case "nii": tag = "НИИ"; break;
+				case "monolith": tag = "МОН"; break;
+				case "oksop": tag = "ОКСОП"; break;
+				default:
+					tag = f.Name;
+					if (tag.LengthUtf8() > 8)
+						tag = tag.SubstringUtf8(0, 8);
+					break;
+			}
+		}
+		if (tag == "-")
+			return "";
+		color = KPK_Const.Palette(f.Color);
+		return tag;
 	}
 
 	void SaveParties()
@@ -451,6 +597,8 @@ class KPK_Server
 	{
 		SaveDirty();
 		SaveFactions();
+		SaveParties();
+		SaveChat();
 	}
 
 	static bool IsSteamId(string text)
@@ -1566,6 +1714,7 @@ class KPK_Server
 			blocked = blocked || action == KPK_C.FACTION_KICK || action == KPK_C.FACTION_SETROLE;
 			blocked = blocked || action == KPK_C.CHAT_SEND || action == KPK_C.CONTACT_ADD || action == KPK_C.CONTACT_DEL;
 			blocked = blocked || action == KPK_C.TASK_ADD || action == KPK_C.TASK_SET;
+			blocked = blocked || action == KPK_C.CHAT_OLDER;
 			blocked = blocked || ((action == KPK_C.MARKER_ADD || action == KPK_C.MARKER_EDIT || action == KPK_C.MARKER_DEL) && req.I2 == KPK_Scope.FACTION);
 			if (blocked)
 			{
@@ -1602,6 +1751,7 @@ class KPK_Server
 			case KPK_C.FACTION_SETROLE: HandleFactionSetRole(player, acc, req); break;
 			case KPK_C.ADMIN_FACTION: HandleAdmin(player, acc, req); break;
 			case KPK_C.CHAT_SEND: HandleChat(player, acc, req); break;
+			case KPK_C.CHAT_OLDER: HandleChatOlder(player, acc.SteamId, req); break;
 			case KPK_C.CONTACT_ADD: HandleContact(player, acc, req, true); break;
 			case KPK_C.CONTACT_DEL: HandleContact(player, acc, req, false); break;
 			case KPK_C.CALL_START: HandleCallStart(player, acc, req, openModel); break;
@@ -2298,10 +2448,8 @@ class KPK_Server
 		msg.From = acc.Callsign;
 		msg.To = toName;
 		msg.Text = text;
-		string tagName;
 		int tagColor;
-		PublicFaction(acc.SteamId, tagName, tagColor);
-		msg.Tag = tagName;
+		msg.Tag = ChatTag(acc.SteamId, tagColor);
 		msg.Color = tagColor;
 
 		KPK_ChatEntry entry = new KPK_ChatEntry();
@@ -2311,7 +2459,7 @@ class KPK_Server
 		m_Chat.Insert(entry);
 		while (m_Chat.Count() > m_Settings.ChatHistory && m_Chat.Count() > 0)
 			m_Chat.RemoveOrdered(0);
-		SaveChat();
+		ArchiveChat(entry);
 
 		Print("[KPK] chat " + acc.Callsign + " -> " + toName + ": " + text);
 		BroadcastChat(entry);

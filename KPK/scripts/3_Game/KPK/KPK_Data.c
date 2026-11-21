@@ -131,6 +131,7 @@ class KPK_Faction
 	string Description;
 	int Color;              // palette index (KPK_Const.Palette)
 	string Location;        // text, e.g. "Бар «100 рентген», Росток"
+	string Short;           // tag before the callsign in the chat, "" = default (НИИ, МОН, ОКСОП), "-" = none
 	bool HasLocationPos;
 	float LocX;
 	float LocZ;
@@ -332,6 +333,17 @@ class KPK_ChatMessage
 	int Color;         // faction color, 0 = default
 	string To;         // callsign of the receiver of a private message, "" = general channel
 	string Text;
+};
+
+class KPK_ChatOlderMsg
+{
+	ref array<ref KPK_ChatMessage> Lines;   // oldest first
+	bool More;
+
+	void KPK_ChatOlderMsg()
+	{
+		Lines = new array<ref KPK_ChatMessage>();
+	}
 };
 
 class KPK_ContactView

@@ -7,6 +7,20 @@ class KPK_Client
 	static bool s_WantOpen;
 	static bool s_LabelsEnabled = true;
 	static bool s_ContactNeedsHands = true;   // server setting, comes with the view
+	static bool s_ChatMore = true;             // older chat lines may exist on the server
+	static bool s_ChatLoading;
+	static ref ScriptInvoker s_OnChatOlder = new ScriptInvoker();   // (int added) older lines arrived
+
+	static void RequestOlderChat()
+	{
+		if (!s_View || s_ChatLoading || !s_ChatMore)
+			return;
+		int oldest = 2147483647;
+		if (s_View.Chat.Count() > 0)
+			oldest = s_View.Chat[0].Id;
+		s_ChatLoading = true;
+		SendText(KPK_C.CHAT_OLDER, "", "", oldest);
+	}
 
 	static ref KPK_Assembler s_Assembler = new KPK_Assembler();
 
@@ -82,6 +96,22 @@ class KPK_Client
 					s_OnDenied.Invoke("ОШИБКА ДАННЫХ: см. script.log");
 					return;
 				}
+				// keep older chat lines loaded by scrolling back (the view brings only the newest)
+				bool keptOlder = false;
+				if (s_View && s_View.Inspect == view.Inspect && view.Chat.Count() > 0)
+				{
+					int firstId = view.Chat[0].Id;
+					for (int oc = s_View.Chat.Count() - 1; oc >= 0; oc--)
+					{
+						if (s_View.Chat[oc].Id < firstId)
+						{
+							view.Chat.InsertAt(s_View.Chat[oc], 0);
+							keptOlder = true;
+						}
+					}
+				}
+				if (!keptOlder)
+					s_ChatMore = true;
 				s_View = view;
 				s_ContactNeedsHands = view.ContactNeedsHands;
 				s_OnView.Invoke();
@@ -133,10 +163,32 @@ class KPK_Client
 				if (s_View)
 				{
 					s_View.Chat.Insert(line);
-					while (s_View.Chat.Count() > Math.Max(40, s_View.ChatHistory))
+					while (s_View.Chat.Count() > 3000)
 						s_View.Chat.RemoveOrdered(0);
 				}
 				s_OnChat.Invoke(line);
+				break;
+			}
+			case KPK_S.CHAT_OLDER:
+			{
+				s_ChatLoading = false;
+				KPK_ChatOlderMsg older = new KPK_ChatOlderMsg();
+				if (!KPK_Json<KPK_ChatOlderMsg>.From(json, older) || !s_View)
+					return;
+				s_ChatMore = older.More;
+				int added = 0;
+				int keepBefore = 2147483647;
+				if (s_View.Chat.Count() > 0)
+					keepBefore = s_View.Chat[0].Id;
+				for (int ol = older.Lines.Count() - 1; ol >= 0; ol--)
+				{
+					if (older.Lines[ol].Id < keepBefore)
+					{
+						s_View.Chat.InsertAt(older.Lines[ol], 0);
+						added++;
+					}
+				}
+				s_OnChatOlder.Invoke(added);
 				break;
 			}
 			case KPK_S.DENIED:
