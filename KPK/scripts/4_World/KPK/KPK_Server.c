@@ -801,7 +801,7 @@ class KPK_Server
 			view.Tasks.Insert(t);
 		if (party)
 		{
-			view.TaskParty = party.LeaderId == steamId;
+			view.TaskParty = true;   // any party member writes and manages party tasks
 			foreach (KPK_Task pt : party.Tasks)
 				view.Tasks.Insert(pt);
 		}
@@ -2975,7 +2975,7 @@ class KPK_Server
 
 	// =================================================================== group tasks
 
-	// party tasks: the party leader; faction tasks: the faction leader and deputies
+	// party tasks: any party member; faction tasks: the faction leader and deputies
 	protected void HandleTaskAdd(PlayerBase player, KPK_Account acc, KPK_Req req)
 	{
 		string title = KPK_Util.Clean(req.S1, 60);
@@ -2997,9 +2997,9 @@ class KPK_Server
 		if (req.I1 == KPK_Scope.PARTY)
 		{
 			KPK_Party party = PartyOf(acc.SteamId);
-			if (!party || party.LeaderId != acc.SteamId)
+			if (!party)
 			{
-				Msg(player, "Задания группе даёт только лидер группы");
+				Msg(player, "Вы не в группе");
 				return;
 			}
 			if (party.Tasks.Count() >= m_Settings.MaxGroupTasks)
@@ -3009,7 +3009,10 @@ class KPK_Server
 			}
 			task.Id = "p" + party.NextTaskId.ToString();
 			party.NextTaskId++;
-			task.Issuer = "Лидер группы " + acc.Callsign;
+			if (party.LeaderId == acc.SteamId)
+				task.Issuer = "Лидер группы " + acc.Callsign;
+			else
+				task.Issuer = "Группа · " + acc.Callsign;
 			party.Tasks.Insert(task);
 			ids.Copy(party.Members);
 			where = "группы";
@@ -3085,9 +3088,9 @@ class KPK_Server
 		if (id.IndexOf("p") == 0)
 		{
 			party = PartyOf(acc.SteamId);
-			if (!party || party.LeaderId != acc.SteamId)
+			if (!party)
 			{
-				Msg(player, "Менять задания группы может только лидер");
+				Msg(player, "Вы не в группе");
 				return;
 			}
 			list = party.Tasks;
