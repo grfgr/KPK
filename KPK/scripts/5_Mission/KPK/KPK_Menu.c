@@ -2762,11 +2762,11 @@ class KPK_Menu extends UIScriptedMenu
 				RefreshChat();
 				break;
 			case B_C_OLDER:
-				m_ChatOffset += 3;
+				m_ChatOffset += CHAT_LINES / 2;
 				RefreshChat();
 				break;
 			case B_C_NEWER:
-				m_ChatOffset -= 3;
+				m_ChatOffset -= CHAT_LINES / 2;
 				if (m_ChatOffset < 0)
 					m_ChatOffset = 0;
 				RefreshChat();

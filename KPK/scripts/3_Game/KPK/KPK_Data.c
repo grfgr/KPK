@@ -427,6 +427,7 @@ class KPK_View
 	ref array<ref KPK_ChatMessage> Chat;        // general channel + own private messages, oldest first
 	ref array<ref KPK_ContactView> Contacts;
 	int ChatMaxLength;
+	int ChatHistory = 100;   // lines the client keeps
 
 	string PrevOwner;     // callsign of the previous owner of this device, "" = none
 	int CallState;        // KPK_CallState (brick)

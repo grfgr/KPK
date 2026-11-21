@@ -133,7 +133,7 @@ class KPK_Client
 				if (s_View)
 				{
 					s_View.Chat.Insert(line);
-					while (s_View.Chat.Count() > 40)
+					while (s_View.Chat.Count() > Math.Max(40, s_View.ChatHistory))
 						s_View.Chat.RemoveOrdered(0);
 				}
 				s_OnChat.Invoke(line);

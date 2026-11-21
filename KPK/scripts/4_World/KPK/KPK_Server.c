@@ -53,6 +53,18 @@ class KPK_ChatEntry
 	ref KPK_ChatMessage Msg;
 };
 
+class KPK_ChatFile
+{
+	int Version = 1;
+	int NextId = 1;
+	ref array<ref KPK_ChatEntry> Entries;
+
+	void KPK_ChatFile()
+	{
+		Entries = new array<ref KPK_ChatEntry>();
+	}
+};
+
 class KPK_Server
 {
 	protected ref map<string, bool> m_MateHasDevice = new map<string, bool>();   // per mates tick
@@ -145,6 +157,7 @@ class KPK_Server
 		RemoveOldExampleFactions();
 		ApplyRoster();
 		LoadParties();
+		LoadChat();
 
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickStats, m_Settings.StatsTickSec * 1000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickMates, m_Settings.MatesUpdateSec * 1000, true);
@@ -341,6 +354,39 @@ class KPK_Server
 				m_NextPartyId = party.Id + 1;
 		}
 		Print("[KPK] parties restored: " + m_Parties.Count());
+	}
+
+	protected void LoadChat()
+	{
+		if (!FileExist(KPK_Settings.CHAT_FILE))
+			return;
+		KPK_ChatFile file = new KPK_ChatFile();
+		JsonFileLoader<KPK_ChatFile>.JsonLoadFile(KPK_Settings.CHAT_FILE, file);
+		if (!file.Entries)
+			return;
+		foreach (KPK_ChatEntry entry : file.Entries)
+		{
+			if (entry && entry.Msg)
+			{
+				m_Chat.Insert(entry);
+				if (entry.Msg.Id >= m_ChatNextId)
+					m_ChatNextId = entry.Msg.Id + 1;
+			}
+		}
+		while (m_Chat.Count() > m_Settings.ChatHistory)
+			m_Chat.RemoveOrdered(0);
+		if (file.NextId > m_ChatNextId)
+			m_ChatNextId = file.NextId;
+		Print("[KPK] chat history restored: " + m_Chat.Count());
+	}
+
+	void SaveChat()
+	{
+		KPK_ChatFile file = new KPK_ChatFile();
+		file.NextId = m_ChatNextId;
+		foreach (KPK_ChatEntry entry : m_Chat)
+			file.Entries.Insert(entry);
+		JsonFileLoader<KPK_ChatFile>.JsonSaveFile(KPK_Settings.CHAT_FILE, file);
 	}
 
 	void SaveParties()
@@ -825,10 +871,11 @@ class KPK_Server
 		foreach (KPK_Note n : acc.Notes)
 			view.Notes.Insert(n);
 
-		// chat: the general channel and the player's own private messages, newest 30
+		// chat: the general channel and the player's own private messages, the whole kept history
 		view.ChatMaxLength = m_Settings.ChatMaxLength;
+		view.ChatHistory = m_Settings.ChatHistory;
 		array<KPK_ChatMessage> visible = new array<KPK_ChatMessage>();
-		for (int ci = m_Chat.Count() - 1; ci >= 0 && visible.Count() < 30; ci--)
+		for (int ci = m_Chat.Count() - 1; ci >= 0 && visible.Count() < m_Settings.ChatHistory; ci--)
 		{
 			KPK_ChatEntry ce = m_Chat[ci];
 			if (ce.ToId == "" || ce.ToId == steamId || ce.FromId == steamId)
@@ -2264,6 +2311,7 @@ class KPK_Server
 		m_Chat.Insert(entry);
 		while (m_Chat.Count() > m_Settings.ChatHistory && m_Chat.Count() > 0)
 			m_Chat.RemoveOrdered(0);
+		SaveChat();
 
 		Print("[KPK] chat " + acc.Callsign + " -> " + toName + ": " + text);
 		BroadcastChat(entry);
