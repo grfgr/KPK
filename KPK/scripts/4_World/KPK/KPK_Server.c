@@ -1,4 +1,4 @@
-// Runtime party: lives until the server restarts.
+// Party: kept in $profile:KPK/parties.json, survives restarts and mod updates.
 class KPK_Party
 {
 	int Id;
@@ -6,11 +6,33 @@ class KPK_Party
 	ref array<string> Members;
 	ref array<ref KPK_Marker> Markers;
 	int NextMarkerId = 1;
+	ref array<ref KPK_Task> Tasks;    // tasks written by the leader for the party
+	int NextTaskId = 1;
 
 	void KPK_Party()
 	{
 		Members = new array<string>();
 		Markers = new array<ref KPK_Marker>();
+		Tasks = new array<ref KPK_Task>();
+	}
+
+	void Fix()
+	{
+		if (!Members) Members = new array<string>();
+		if (!Markers) Markers = new array<ref KPK_Marker>();
+		if (!Tasks) Tasks = new array<ref KPK_Task>();
+	}
+};
+
+class KPK_PartiesFile
+{
+	int Version = 1;
+	int NextPartyId = 1;
+	ref array<ref KPK_Party> Parties;
+
+	void KPK_PartiesFile()
+	{
+		Parties = new array<ref KPK_Party>();
 	}
 };
 
@@ -122,6 +144,7 @@ class KPK_Server
 		LoadFactions();
 		RemoveOldExampleFactions();
 		ApplyRoster();
+		LoadParties();
 
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickStats, m_Settings.StatsTickSec * 1000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickMates, m_Settings.MatesUpdateSec * 1000, true);
@@ -282,6 +305,51 @@ class KPK_Server
 		f.EncryptLeader = secret;
 		f.EncryptLocation = secret;
 		m_Factions.Factions.Insert(f);
+	}
+
+	protected void LoadParties()
+	{
+		if (!FileExist(KPK_Settings.PARTIES_FILE))
+			return;
+		KPK_PartiesFile file = new KPK_PartiesFile();
+		JsonFileLoader<KPK_PartiesFile>.JsonLoadFile(KPK_Settings.PARTIES_FILE, file);
+		if (!file.Parties)
+			return;
+		m_NextPartyId = file.NextPartyId;
+		if (m_NextPartyId < 1)
+			m_NextPartyId = 1;
+		foreach (KPK_Party party : file.Parties)
+		{
+			if (!party)
+				continue;
+			party.Fix();
+			// drop members whose account is gone or who already sit in another party
+			for (int i = party.Members.Count() - 1; i >= 0; i--)
+			{
+				string mid = party.Members[i];
+				if (m_PartyOf.Contains(mid) || !FileExist(AccountFile(mid)))
+					party.Members.Remove(i);
+			}
+			if (party.Members.Count() < 2)
+				continue;
+			if (party.Members.Find(party.LeaderId) == -1)
+				party.LeaderId = party.Members[0];
+			foreach (string member : party.Members)
+				m_PartyOf.Set(member, party.Id);
+			m_Parties.Insert(party);
+			if (party.Id >= m_NextPartyId)
+				m_NextPartyId = party.Id + 1;
+		}
+		Print("[KPK] parties restored: " + m_Parties.Count());
+	}
+
+	void SaveParties()
+	{
+		KPK_PartiesFile file = new KPK_PartiesFile();
+		file.NextPartyId = m_NextPartyId;
+		foreach (KPK_Party party : m_Parties)
+			file.Parties.Insert(party);
+		JsonFileLoader<KPK_PartiesFile>.JsonSaveFile(KPK_Settings.PARTIES_FILE, file);
 	}
 
 	void SaveFactions()
@@ -488,6 +556,9 @@ class KPK_Server
 		}
 		else
 		{
+			EntityAI held = WorkingDeviceInHands(player, steamId);
+			if (held)
+				mine = held;
 			if (!KPK_Const.FullAccess(KPK_Device.ModelOf(mine)))
 				Msg(player, "Контакты есть только у полных КПК");
 			else
@@ -519,8 +590,10 @@ class KPK_Server
 		}
 	}
 
+	// every change of a party ends here: store it and update the members
 	void RefreshParty(KPK_Party party)
 	{
+		SaveParties();
 		if (party)
 			RefreshIds(party.Members);
 	}
@@ -558,6 +631,7 @@ class KPK_Server
 		view.SteamId = steamId;
 		view.ServerName = m_Settings.NetworkName;
 		view.ShowSelfOnMap = m_Settings.ShowSelfOnMap;
+		view.ContactNeedsHands = m_Settings.ContactNeedsHands;
 		view.NoteMaxLength = m_Settings.NoteMaxLength;
 		view.Battery = -1;
 		EntityAI device = OpenDevice(player, steamId);
@@ -725,6 +799,18 @@ class KPK_Server
 
 		foreach (KPK_Task t : acc.Tasks)
 			view.Tasks.Insert(t);
+		if (party)
+		{
+			view.TaskParty = party.LeaderId == steamId;
+			foreach (KPK_Task pt : party.Tasks)
+				view.Tasks.Insert(pt);
+		}
+		if (myFaction)
+		{
+			view.TaskFaction = myFaction.Find(steamId).Role >= KPK_Role.DEPUTY;
+			foreach (KPK_Task ft : myFaction.Tasks)
+				view.Tasks.Insert(ft);
+		}
 		foreach (KPK_Note n : acc.Notes)
 			view.Notes.Insert(n);
 
@@ -1421,6 +1507,7 @@ class KPK_Server
 			blocked = blocked || action == KPK_C.FACTION_INVITE || action == KPK_C.FACTION_RESPOND || action == KPK_C.FACTION_LEAVE;
 			blocked = blocked || action == KPK_C.FACTION_KICK || action == KPK_C.FACTION_SETROLE;
 			blocked = blocked || action == KPK_C.CHAT_SEND || action == KPK_C.CONTACT_ADD || action == KPK_C.CONTACT_DEL;
+			blocked = blocked || action == KPK_C.TASK_ADD || action == KPK_C.TASK_SET;
 			blocked = blocked || ((action == KPK_C.MARKER_ADD || action == KPK_C.MARKER_EDIT || action == KPK_C.MARKER_DEL) && req.I2 == KPK_Scope.FACTION);
 			if (blocked)
 			{
@@ -1444,6 +1531,8 @@ class KPK_Server
 			case KPK_C.MARKER_EDIT: HandleMarkerEdit(player, acc, req); break;
 			case KPK_C.NOTE_SAVE: HandleNoteSave(player, acc, req); break;
 			case KPK_C.NOTE_DEL: HandleNoteDel(player, acc, req); break;
+			case KPK_C.TASK_ADD: HandleTaskAdd(player, acc, req); break;
+			case KPK_C.TASK_SET: HandleTaskSet(player, acc, req); break;
 			case KPK_C.PARTY_INVITE: HandlePartyInvite(player, acc, req); break;
 			case KPK_C.PARTY_RESPOND: HandlePartyRespond(player, acc, req); break;
 			case KPK_C.PARTY_LEAVE: LeaveParty(acc.SteamId, true); SendView(player); break;
@@ -2231,6 +2320,26 @@ class KPK_Server
 				Msg(player, "Список контактов заполнен");
 				return;
 			}
+			// contacts are exchanged face to face: both hold a working KPK in their hands
+			if (m_Settings.ContactNeedsHands)
+			{
+				PlayerBase other = FindOnline(targetId);
+				if (!WorkingDeviceInHands(player, acc.SteamId))
+				{
+					Msg(player, "Для обмена контактами держите КПК в руках");
+					return;
+				}
+				if (!other || !WorkingDeviceInHands(other, targetId))
+				{
+					Msg(player, "У сталкера «" + CallsignOf(targetId) + "» нет КПК в руках");
+					return;
+				}
+				if (!m_WorldAction && vector.Distance(player.GetPosition(), other.GetPosition()) > m_Settings.ContactMaxDistance)
+				{
+					Msg(player, "Сталкер «" + CallsignOf(targetId) + "» слишком далеко, подойдите ближе");
+					return;
+				}
+			}
 			acc.Contacts.Insert(targetId);
 			Msg(player, "Контакт «" + CallsignOf(targetId) + "» добавлен");
 		}
@@ -2369,6 +2478,21 @@ class KPK_Server
 	{
 		if (player && player.IsAlive())
 			player.SetHealth("", "Shock", 0);
+	}
+
+	// the same, but only the KPK in the hands counts
+	EntityAI WorkingDeviceInHands(PlayerBase player, string steamId)
+	{
+		if (!player)
+			return null;
+		EntityAI item = player.GetHumanInventory().GetEntityInHands();
+		if (!KPK_Device.IsKPK(item) || item.IsRuined())
+			return null;
+		if (m_Settings.RequireBattery && KPK_Device.GetBatteryLevel(item) <= 0)
+			return null;
+		if (!MayUse(steamId, KPK_Device.ModelOf(item)))
+			return null;
+		return item;
 	}
 
 	// a KPK the player can really use: not ruined, powered, not locked to another faction
@@ -2831,6 +2955,150 @@ class KPK_Server
 		SendView(player);
 	}
 
+	// =================================================================== group tasks
+
+	// party tasks: the party leader; faction tasks: the faction leader and deputies
+	protected void HandleTaskAdd(PlayerBase player, KPK_Account acc, KPK_Req req)
+	{
+		string title = KPK_Util.Clean(req.S1, 60);
+		if (title == "")
+		{
+			Msg(player, "Введите название задания");
+			return;
+		}
+		KPK_Task task = new KPK_Task();
+		task.Title = title;
+		task.Description = KPK_Util.Clean(req.S2, m_Settings.NoteMaxLength, false);
+		task.Reward = KPK_Util.Clean(req.S3, 60);
+		task.Author = acc.Callsign;
+		task.Date = KPK_Util.Now();
+		task.Scope = req.I1;
+
+		array<string> ids = new array<string>();
+		string where;
+		if (req.I1 == KPK_Scope.PARTY)
+		{
+			KPK_Party party = PartyOf(acc.SteamId);
+			if (!party || party.LeaderId != acc.SteamId)
+			{
+				Msg(player, "Задания группе даёт только лидер группы");
+				return;
+			}
+			if (party.Tasks.Count() >= m_Settings.MaxGroupTasks)
+			{
+				Msg(player, "Слишком много заданий группы, удалите старые");
+				return;
+			}
+			task.Id = "p" + party.NextTaskId.ToString();
+			party.NextTaskId++;
+			task.Issuer = "Лидер группы " + acc.Callsign;
+			party.Tasks.Insert(task);
+			ids.Copy(party.Members);
+			where = "группы";
+			RefreshParty(party);
+		}
+		else if (req.I1 == KPK_Scope.FACTION)
+		{
+			KPK_Faction faction = FactionOf(acc.SteamId);
+			if (!faction || faction.Find(acc.SteamId).Role < KPK_Role.DEPUTY)
+			{
+				Msg(player, "Задания группировке дают лидер и заместитель");
+				return;
+			}
+			if (faction.Tasks.Count() >= m_Settings.MaxGroupTasks)
+			{
+				Msg(player, "Слишком много заданий группировки, удалите старые");
+				return;
+			}
+			task.Id = "f" + faction.NextTaskId.ToString();
+			faction.NextTaskId++;
+			task.Issuer = faction.Name + " · " + KPK_Const.RoleName(faction.Find(acc.SteamId).Role) + " " + acc.Callsign;
+			faction.Tasks.Insert(task);
+			foreach (KPK_FactionMember fm : faction.Members)
+				ids.Insert(fm.SteamId);
+			where = "группировки «" + faction.Name + "»";
+			SaveFactions();
+			RefreshFaction(faction);
+		}
+		else
+		{
+			return;
+		}
+
+		Msg(player, "Задание «" + title + "» выдано");
+		foreach (string mid : ids)
+		{
+			PlayerBase mp = FindOnline(mid);
+			if (mp && mid != acc.SteamId && WorkingDevice(mp, mid))
+				Notify(mp, "Новое задание " + where, title);
+		}
+	}
+
+	protected void HandleTaskSet(PlayerBase player, KPK_Account acc, KPK_Req req)
+	{
+		string id = req.S1;
+		array<ref KPK_Task> list;
+		KPK_Party party;
+		KPK_Faction faction;
+		if (id.IndexOf("p") == 0)
+		{
+			party = PartyOf(acc.SteamId);
+			if (!party || party.LeaderId != acc.SteamId)
+			{
+				Msg(player, "Менять задания группы может только лидер");
+				return;
+			}
+			list = party.Tasks;
+		}
+		else if (id.IndexOf("f") == 0)
+		{
+			faction = FactionOf(acc.SteamId);
+			if (!faction || faction.Find(acc.SteamId).Role < KPK_Role.DEPUTY)
+			{
+				Msg(player, "Менять задания группировки могут лидер и заместитель");
+				return;
+			}
+			list = faction.Tasks;
+		}
+		else
+		{
+			return;
+		}
+
+		for (int i = 0; i < list.Count(); i++)
+		{
+			KPK_Task task = list[i];
+			if (task.Id != id)
+				continue;
+			if (req.I2 == 1)
+			{
+				Msg(player, "Задание «" + task.Title + "» удалено");
+				list.RemoveOrdered(i);
+			}
+			else
+			{
+				task.Status = Math.Clamp(req.I1, 0, 2);
+				if (task.Status == 1)
+					Msg(player, "Задание «" + task.Title + "» выполнено");
+				else if (task.Status == 2)
+					Msg(player, "Задание «" + task.Title + "» провалено");
+				else
+					Msg(player, "Задание «" + task.Title + "» снова активно");
+			}
+			break;
+		}
+
+		if (party)
+		{
+			RefreshParty(party);
+		}
+		else
+		{
+			SaveFactions();
+			RefreshFaction(faction);
+		}
+	}
+
 	// =================================================================== party
 
 	protected void HandlePartyInvite(PlayerBase player, KPK_Account acc, KPK_Req req)
@@ -2967,6 +3235,7 @@ class KPK_Server
 			array<string> rest = new array<string>();
 			rest.Copy(party.Members);
 			m_Parties.RemoveItem(party);
+			SaveParties();
 			RefreshIds(rest);
 			return;
 		}

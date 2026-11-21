@@ -6,6 +6,7 @@ class KPK_Client
 	static string s_Status = "";
 	static bool s_WantOpen;
 	static bool s_LabelsEnabled = true;
+	static bool s_ContactNeedsHands = true;   // server setting, comes with the view
 
 	static ref KPK_Assembler s_Assembler = new KPK_Assembler();
 
@@ -82,6 +83,7 @@ class KPK_Client
 					return;
 				}
 				s_View = view;
+				s_ContactNeedsHands = view.ContactNeedsHands;
 				s_OnView.Invoke();
 				if (s_WantOpen)
 				{

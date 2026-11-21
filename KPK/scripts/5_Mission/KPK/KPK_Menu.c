@@ -60,6 +60,13 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_N_NEW = 500;
 	static const int B_N_SAVE = 501;
 	static const int B_N_DEL = 502;
+	static const int B_TS_NEW = 510;
+	static const int B_TS_DONE = 511;
+	static const int B_TS_FAIL = 512;
+	static const int B_TS_DEL = 513;
+	static const int B_TS_SEND = 514;
+	static const int B_TS_CANCEL = 515;
+	static const int B_TS_SCOPE = 516;
 	static const int B_C_SEND = 600;
 	static const int B_C_PUBLIC = 601;
 	static const int B_C_OLDER = 602;
@@ -176,6 +183,13 @@ class KPK_Menu extends UIScriptedMenu
 	// tasks
 	protected ref KPK_List m_TaskList;
 	protected MultilineTextWidget m_TaskText;
+	protected Widget m_TaskViewBox;
+	protected Widget m_TaskEditBox;
+	protected EditBoxWidget m_TaskTitleEdit;
+	protected EditBoxWidget m_TaskRewardEdit;
+	protected MultilineEditBoxWidget m_TaskDescEdit;
+	protected bool m_TaskEditing;
+	protected int m_TaskScope = KPK_Scope.PARTY;
 
 	// notes
 	protected ref KPK_List m_NoteList;
@@ -1542,11 +1556,29 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		Widget page = Content();
 		Widget left = KPK_UI.Card(page, 0, 0, 0.38, 1, "ЗАДАНИЯ");
-		m_TaskList = new KPK_List(left, 0.04, 0.06, 0.92, 0.9, 10, "— заданий нет —");
+		m_TaskList = new KPK_List(left, 0.04, 0.06, 0.92, 0.8, 10, "— заданий нет —");
 		m_Lists.Insert(m_TaskList);
+		AddButton(left, B_TS_NEW, "НОВОЕ ЗАДАНИЕ", 0.04, 0.9, 0.92, 0.06);
 
 		Widget right = KPK_UI.Card(page, 0.4, 0, 0.6, 1, "ПОДРОБНОСТИ");
-		m_TaskText = KPK_UI.MText(right, 0.04, 0.07, 0.92, 0.9, 15, KPK_UI.C_TEXT);
+		// reading a task
+		m_TaskViewBox = KPK_UI.Panel(right, 0, 0, 1, 1, 0, true);
+		m_TaskText = KPK_UI.MText(m_TaskViewBox, 0.04, 0.07, 0.92, 0.8, 15, KPK_UI.C_TEXT);
+		AddButton(m_TaskViewBox, B_TS_DONE, "ВЫПОЛНЕНО", 0.04, 0.9, 0.3, 0.06);
+		AddButton(m_TaskViewBox, B_TS_FAIL, "ПРОВАЛЕНО", 0.36, 0.9, 0.3, 0.06);
+		AddButton(m_TaskViewBox, B_TS_DEL, "УДАЛИТЬ", 0.68, 0.9, 0.28, 0.06);
+		// writing a task for the party / faction (leaders only)
+		m_TaskEditBox = KPK_UI.Panel(right, 0, 0, 1, 1, 0, true);
+		KPK_UI.Text(m_TaskEditBox, "Название задания", 0.03, 0.08, 0.6, 0.04, 13, KPK_UI.C_DIM);
+		m_TaskTitleEdit = KPK_UI.Edit(m_TaskEditBox, 0.03, 0.12, 0.94, 0.055);
+		KPK_UI.Text(m_TaskEditBox, "Награда (необязательно)", 0.03, 0.19, 0.6, 0.04, 13, KPK_UI.C_DIM);
+		m_TaskRewardEdit = KPK_UI.Edit(m_TaskEditBox, 0.03, 0.23, 0.94, 0.055);
+		KPK_UI.Text(m_TaskEditBox, "Описание", 0.03, 0.3, 0.6, 0.04, 13, KPK_UI.C_DIM);
+		m_TaskDescEdit = KPK_UI.MEdit(m_TaskEditBox, 0.03, 0.34, 0.94, 0.52);
+		AddButton(m_TaskEditBox, B_TS_SCOPE, "", 0.03, 0.9, 0.34, 0.06);
+		AddButton(m_TaskEditBox, B_TS_CANCEL, "ОТМЕНА", 0.39, 0.9, 0.26, 0.06);
+		AddButton(m_TaskEditBox, B_TS_SEND, "ВЫДАТЬ", 0.67, 0.9, 0.3, 0.06);
+		m_TaskEditBox.Show(false);
 		return page;
 	}
 
@@ -1557,6 +1589,99 @@ class KPK_Menu extends UIScriptedMenu
 		return "активно";
 	}
 
+	protected string TaskTag(int scope)
+	{
+		if (scope == KPK_Scope.PARTY) return "[ГР] ";
+		if (scope == KPK_Scope.FACTION) return "[ГП] ";
+		return "";
+	}
+
+	// may this player change the task (status / delete)?
+	protected bool TaskEditable(KPK_View v, KPK_Task task)
+	{
+		if (!v || !task)
+			return false;
+		if (task.Scope == KPK_Scope.PARTY)
+			return v.TaskParty;
+		if (task.Scope == KPK_Scope.FACTION)
+			return v.TaskFaction;
+		return false;
+	}
+
+	protected KPK_Task SelectedTask()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v || !m_TaskList)
+			return null;
+		int i = m_TaskList.Selected();
+		if (i < 0 || i >= v.Tasks.Count())
+			return null;
+		return v.Tasks[i];
+	}
+
+	protected void UpdateTaskScope()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v)
+			return;
+		if (!v.TaskParty)
+			m_TaskScope = KPK_Scope.FACTION;
+		if (!v.TaskFaction)
+			m_TaskScope = KPK_Scope.PARTY;
+		if (m_TaskScope == KPK_Scope.FACTION)
+			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ГРУППИРОВКЕ");
+		else
+			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ГРУППЕ");
+		m_ById.Get(B_TS_SCOPE).SetEnabled(v.TaskParty && v.TaskFaction);
+	}
+
+	protected void StartTaskEdit()
+	{
+		m_TaskEditing = true;
+		m_TaskTitleEdit.SetText("");
+		m_TaskRewardEdit.SetText("");
+		m_TaskDescEdit.SetText("");
+		m_TaskList.m_Selected = -1;
+		m_TaskList.Redraw();
+		RefreshTasks();
+	}
+
+	protected void SendTask()
+	{
+		string text;
+		m_TaskDescEdit.GetText(text);
+		KPK_Req req = new KPK_Req();
+		req.I1 = m_TaskScope;
+		req.S1 = m_TaskTitleEdit.GetText();
+		req.S2 = text;
+		req.S3 = m_TaskRewardEdit.GetText();
+		if (req.S1.Trim() == "")
+		{
+			SetStatus("Введите название задания");
+			return;
+		}
+		KPK_Client.Send(KPK_C.TASK_ADD, req);
+		m_TaskEditing = false;
+		RefreshTasks();
+	}
+
+	// status / delete buttons of the selected party or faction task
+	protected void TaskAction(int id)
+	{
+		KPK_Task selTask = SelectedTask();
+		if (!selTask)
+			return;
+		int newStatus = 1;
+		if (id == B_TS_FAIL)
+			newStatus = 2;
+		else if (selTask.Status != 0)
+			newStatus = 0;
+		int remove = 0;
+		if (id == B_TS_DEL)
+			remove = 1;
+		KPK_Client.SendText(KPK_C.TASK_SET, selTask.Id, "", newStatus, remove);
+	}
+
 	protected void RefreshTasks()
 	{
 		if (!m_TaskList)
@@ -1565,11 +1690,16 @@ class KPK_Menu extends UIScriptedMenu
 		if (!v)
 			return;
 
+		bool canWrite = v.TaskParty || v.TaskFaction;
+		if (!canWrite)
+			m_TaskEditing = false;
+		m_ById.Get(B_TS_NEW).Show(canWrite);
+
 		array<string> names = new array<string>();
 		array<int> colors = new array<int>();
 		foreach (KPK_Task t : v.Tasks)
 		{
-			names.Insert(t.Title);
+			names.Insert(TaskTag(t.Scope) + t.Title);
 			if (t.Status == 1)
 				colors.Insert(KPK_UI.C_DIM);
 			else if (t.Status == 2)
@@ -1579,20 +1709,51 @@ class KPK_Menu extends UIScriptedMenu
 		}
 		m_TaskList.Set(names, colors);
 
-		int i = m_TaskList.Selected();
-		if (i < 0 || i >= v.Tasks.Count())
+		m_TaskEditBox.Show(m_TaskEditing);
+		m_TaskViewBox.Show(!m_TaskEditing);
+		if (m_TaskEditing)
 		{
-			if (v.Tasks.Count() == 0)
-				m_TaskText.SetText("Активных заданий нет.\n\nЗадания выдают торговцы, группировки и другие сталкеры. Когда вам поручат работу, она появится здесь.\n\n[ модуль заданий в разработке ]");
-			else
-				m_TaskText.SetText("Выберите задание из списка.");
+			UpdateTaskScope();
 			return;
 		}
 
-		KPK_Task task = v.Tasks[i];
+		KPK_Task task = SelectedTask();
+		bool editable = TaskEditable(v, task);
+		bool active = false;
+		if (task)
+			active = task.Status == 0;
+		m_ById.Get(B_TS_DONE).Show(editable);
+		m_ById.Get(B_TS_FAIL).Show(editable && active);
+		m_ById.Get(B_TS_DEL).Show(editable);
+		if (active)
+			m_ById.Get(B_TS_DONE).SetText("ВЫПОЛНЕНО");
+		else
+			m_ById.Get(B_TS_DONE).SetText("ВОЗОБНОВИТЬ");
+
+		if (!task)
+		{
+			if (v.Tasks.Count() == 0)
+			{
+				string empty = "Активных заданий нет.\n\nЗадания выдают лидер группы, лидер и заместитель группировки, а также торговцы и другие сталкеры. Когда вам поручат работу, она появится здесь.";
+				if (canWrite)
+					empty += "\n\nВы можете выдать задание сами: кнопка «НОВОЕ ЗАДАНИЕ».";
+				m_TaskText.SetText(empty);
+			}
+			else
+			{
+				m_TaskText.SetText("Выберите задание из списка.");
+			}
+			return;
+		}
+
 		string text = task.Title + "\n\n";
+		if (task.Scope == KPK_Scope.PARTY)
+			text += "Тип:  задание группы\n";
+		else if (task.Scope == KPK_Scope.FACTION)
+			text += "Тип:  задание группировки\n";
 		text += "Заказчик:  " + task.Issuer + "\n";
-		text += "Награда:  " + task.Reward + "\n";
+		if (task.Reward != "")
+			text += "Награда:  " + task.Reward + "\n";
 		text += "Статус:  " + TaskStatus(task.Status) + "\n";
 		text += "Получено:  " + task.Date + "\n\n";
 		text += KPK_Util.FromWire(task.Description);
@@ -2276,6 +2437,7 @@ class KPK_Menu extends UIScriptedMenu
 		}
 		else if (list == m_TaskList)
 		{
+			m_TaskEditing = false;
 			RefreshTasks();
 		}
 		else if (list == m_NoteList)
@@ -2482,6 +2644,34 @@ class KPK_Menu extends UIScriptedMenu
 				}
 				break;
 			}
+
+			// tasks
+			case B_TS_NEW:
+				StartTaskEdit();
+				break;
+			case B_TS_CANCEL:
+				m_TaskEditing = false;
+				RefreshTasks();
+				break;
+			case B_TS_SCOPE:
+				if (m_TaskScope == KPK_Scope.PARTY)
+					m_TaskScope = KPK_Scope.FACTION;
+				else
+					m_TaskScope = KPK_Scope.PARTY;
+				UpdateTaskScope();
+				break;
+			case B_TS_SEND:
+				SendTask();
+				break;
+			case B_TS_DONE:
+				TaskAction(id);
+				break;
+			case B_TS_FAIL:
+				TaskAction(id);
+				break;
+			case B_TS_DEL:
+				TaskAction(id);
+				break;
 
 			// notes
 			case B_N_NEW:

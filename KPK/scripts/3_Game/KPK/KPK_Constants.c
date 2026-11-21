@@ -33,7 +33,9 @@ enum KPK_C
 	CALL_START,      // S1 callsign (brick only)
 	CALL_ANSWER,     // I1 = 1 accept, 0 decline
 	CALL_END,
-	ADMIN            // admin KPK: I1 = KPK_AdminCmd, S1 = callsign
+	ADMIN,           // admin KPK: I1 = KPK_AdminCmd, S1 = callsign
+	TASK_ADD,        // I1 scope (PARTY / FACTION), S1 title, S2 description, S3 reward
+	TASK_SET         // S1 task id, I1 status (0 active, 1 done, 2 failed), I2 = 1 -> delete
 };
 
 // ADMIN sub-commands (KPK_Req.I1), only on the admin KPK «Куратор»

@@ -110,7 +110,23 @@ class ActionKPKWorldContact : ActionInteractBase
 		PlayerBase other = PlayerBase.Cast(target.GetObject());
 		if (!other || other == player || !other.IsAlive())
 			return false;
+		if (!m_Invite && ContactNeedsHands())
+			return HoldsKPK(player) && HoldsKPK(other);
 		return KPK_Device.FindOn(player) != null;
+	}
+
+	protected bool ContactNeedsHands()
+	{
+		if (GetGame().IsDedicatedServer())
+			return !KPK_Server.Get() || KPK_Server.Get().m_Settings.ContactNeedsHands;
+		return KPK_Client.s_ContactNeedsHands;
+	}
+
+	// a KPK (not ruined) in the hands; the other player's hands item is synced to every client
+	protected bool HoldsKPK(PlayerBase p)
+	{
+		EntityAI item = p.GetHumanInventory().GetEntityInHands();
+		return KPK_Device.IsKPK(item) && !item.IsRuined();
 	}
 
 	override void OnExecuteServer(ActionData action_data)

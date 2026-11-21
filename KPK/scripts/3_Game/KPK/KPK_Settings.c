@@ -35,6 +35,7 @@ class KPK_Settings
 	int MaxPersonalMarkers = 50;
 	int MaxPartyMarkers = 30;
 	int MaxFactionMarkers = 100;
+	int MaxGroupTasks = 20;          // tasks the party leader / faction leader and deputies can post
 
 	// party
 	int PartyMaxSize = 6;
@@ -87,6 +88,8 @@ class KPK_Settings
 	float ChatCooldownSec = 2;
 	bool ChatNotifyClosed = true;    // a closed KPK in the inventory shows new messages as a notification
 	int MaxContacts = 30;
+	bool ContactNeedsHands = true;   // adding a contact: both players hold a working KPK in their hands
+	float ContactMaxDistance = 5;    // ... and stand this close (adding by callsign on the contacts page)
 
 	// stats
 	float StatsTickSec = 10;
@@ -101,6 +104,7 @@ class KPK_Settings
 	const static string ACCOUNTS_DIR = "$profile:KPK/accounts";
 	const static string FILE = "$profile:KPK/settings.json";
 	const static string FACTIONS_FILE = "$profile:KPK/factions.json";
+	const static string PARTIES_FILE = "$profile:KPK/parties.json";
 	static bool s_LoadFailed;
 	const static string SALT_FILE = "$profile:KPK/password_salt.txt";
 	const static int RADIO_FREQUENCIES = 9;   // frequencies of the vanilla walkie-talkie

@@ -45,6 +45,8 @@ class KPK_Task
 	string Reward;
 	int Status;        // 0 active, 1 completed, 2 failed
 	string Date;
+	int Scope;         // KPK_Scope: PERSONAL (from scripts), PARTY or FACTION (written by the leaders)
+	string Author;     // callsign of whoever wrote a party / faction task
 };
 
 // Reputation with a faction: groundwork. Change through KPK_Server.AddReputation().
@@ -142,15 +144,19 @@ class KPK_Faction
 	bool ShowMatesInWorld = true; // members see each other (3D label + KPK map)
 
 	ref array<ref KPK_FactionMember> Members;
+	ref array<ref KPK_Task> Tasks;    // written by the leader and deputies
+	int NextTaskId = 1;
 
 	void KPK_Faction()
 	{
 		Members = new array<ref KPK_FactionMember>();
+		Tasks = new array<ref KPK_Task>();
 	}
 
 	void Fix()
 	{
 		if (!Members) Members = new array<ref KPK_FactionMember>();
+		if (!Tasks) Tasks = new array<ref KPK_Task>();
 	}
 
 	KPK_FactionMember Find(string steamId)
@@ -227,6 +233,7 @@ class KPK_Req
 {
 	string S1;
 	string S2;
+	string S3;
 	int I1;
 	int I2;
 	int I3;
@@ -411,7 +418,9 @@ class KPK_View
 	int MyRole;
 	ref array<ref KPK_FactionView> Factions;
 
-	ref array<ref KPK_Task> Tasks;
+	ref array<ref KPK_Task> Tasks;            // personal, then party, then faction (Scope tells which)
+	bool TaskParty;                           // may write party tasks (party leader)
+	bool TaskFaction;                         // may write faction tasks (faction leader / deputy)
 	ref array<ref KPK_Note> Notes;
 
 	ref array<ref KPK_ChatMessage> Chat;        // general channel + own private messages, oldest first
@@ -424,6 +433,7 @@ class KPK_View
 
 	// settings the UI follows
 	bool ShowSelfOnMap;
+	bool ContactNeedsHands = true;
 	int NoteMaxLength;
 
 	// admin KPK «Куратор» only
