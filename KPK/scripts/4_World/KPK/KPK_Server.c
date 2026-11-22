@@ -1105,7 +1105,10 @@ class KPK_Server
 			if (myFaction)
 			{
 				foreach (KPK_Task ft : myFaction.Tasks)
+				{
+					ft.FactionId = myFaction.Id;
 					view.Tasks.Insert(ft);
+				}
 			}
 		}
 		// public tasks of the other factions
@@ -3334,6 +3337,11 @@ class KPK_Server
 
 		array<string> ids = new array<string>();
 		string where;
+		if (req.I1 == KPK_TASK_ADMIN_FACTIONS)
+		{
+			HandleAdminFactionTask(player, acc, task, req.S4);
+			return;
+		}
 		if (req.I1 == KPK_TASK_GLOBAL)
 		{
 			if (!AdminHere(acc.SteamId))
@@ -3455,6 +3463,55 @@ class KPK_Server
 			if (mp && mid != acc.SteamId && WorkingDevice(mp, mid))
 				Notify(mp, noteTitle, title);
 		}
+	}
+
+	// «Куратор»: one task to several factions at once; every faction gets its own copy, without an issuer
+	// (shown with the faction's own name for tasks: ПРИКАЗ for OKSOP, ИССЛЕДОВАНИЕ for the NII ...)
+	protected void HandleAdminFactionTask(PlayerBase player, KPK_Account acc, KPK_Task task, string targets)
+	{
+		if (!AdminHere(acc.SteamId))
+		{
+			Msg(player, "Доступно только в КПК-А «Куратор»");
+			return;
+		}
+		array<string> factionIds = new array<string>();
+		targets.Split(",", factionIds);
+		int given = 0;
+		foreach (string fid : factionIds)
+		{
+			KPK_Faction faction = FindFaction(fid.Trim());
+			if (!faction)
+				continue;
+			KPK_Task copy = new KPK_Task();
+			copy.Id = "f" + faction.NextTaskId.ToString();
+			faction.NextTaskId++;
+			copy.Title = task.Title;
+			copy.Description = task.Description;
+			copy.Reward = task.Reward;
+			copy.Date = task.Date;
+			copy.Scope = KPK_Scope.FACTION;
+			copy.FactionId = faction.Id;
+			copy.Issuer = "";
+			copy.Author = "";
+			faction.Tasks.Insert(copy);
+			given++;
+			string label = KPK_Const.FactionTaskName(faction.Id);
+			foreach (KPK_FactionMember fm : faction.Members)
+			{
+				PlayerBase mp = FindOnline(fm.SteamId);
+				if (mp && WorkingDevice(mp, fm.SteamId))
+					Notify(mp, label, task.Title);
+			}
+			RefreshFaction(faction);
+		}
+		if (given == 0)
+		{
+			Msg(player, "Выберите группировки для задания");
+			return;
+		}
+		SaveFactions();
+		Msg(player, "Задание «" + task.Title + "» выдано группировкам: " + given.ToString());
+		SendView(player);
 	}
 
 	protected void HandleTaskSet(PlayerBase player, KPK_Account acc, KPK_Req req)

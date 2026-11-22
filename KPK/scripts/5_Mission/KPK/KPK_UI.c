@@ -137,13 +137,6 @@ class KPK_UI
 		return t;
 	}
 
-	// smaller centred text: button captions that did not fit
-	static TextWidget TextC11(Widget parent, string text, float x, float y, float w, float h, int color)
-	{
-		Widget box = Make("kpk_text11c.layout", parent, x, y, w, h);
-		return FillText(box, text, color, "kpk_text11c.layout");
-	}
-
 	// multi-line edit box without automatic word wrap in the engine: long lines are broken at the last
 	// space (or hard, in a long word) so the text stays inside the box. Spaces become line breaks, so the
 	// length of the text does not change (the engine has no script call to move the caret).
@@ -304,7 +297,6 @@ class KPK_Button
 	bool m_Enabled = true;
 	bool m_IsRow;
 	int m_TextColor;
-	bool m_Small;                    // the label was swapped for a smaller font: the text did not fit
 	bool m_Wrap;                     // list rows of long texts: a second, wrapping small label
 	MultilineTextWidget m_WrapLabel;
 	string m_Text;
@@ -363,7 +355,6 @@ class KPK_Button
 		}
 		if (m_Label)
 			m_Label.SetText(text);
-		Fit();
 	}
 
 	// how many characters of the given text size fit into the button (screen size known after the first frame)
@@ -377,33 +368,6 @@ class KPK_Button
 			return 30;
 		float charW = size * 0.55;
 		return bw * 0.92 / charW;
-	}
-
-	// the text is wider than the button: the label is swapped for a smaller font once
-	void Fit()
-	{
-		if (m_Small || !m_Label || !m_Root || m_Text == "")
-			return;
-		float bw, bh;
-		m_Root.GetScreenSize(bw, bh);
-		if (bw <= 0)
-			return;
-		int tw, th;
-		m_Label.GetTextSize(tw, th);
-		if (tw <= 0 || tw <= bw * 0.94)
-			return;
-		TextWidget small;
-		if (m_IsRow)
-			small = KPK_UI.Text(m_Root, "", 0.04, 0, 0.94, 1, 13, m_TextColor);
-		else
-			small = KPK_UI.TextC11(m_Root, "", 0, 0, 1, 1, m_TextColor);
-		if (!small)
-			return;
-		m_Label.SetText("");
-		m_Label = small;
-		m_Small = true;
-		m_Label.SetText(m_Text);
-		Refresh();
 	}
 
 	void SetTextColor(int color)
@@ -501,13 +465,6 @@ class KPK_List
 		Redraw();
 	}
 
-	void Fit()
-	{
-		foreach (KPK_Button row : m_Rows)
-			row.Fit();
-		m_Prev.Fit();
-		m_Next.Fit();
-	}
 
 	void KPK_List(Widget parent, float x, float y, float w, float h, int rows, string emptyText = "— пусто —")
 	{

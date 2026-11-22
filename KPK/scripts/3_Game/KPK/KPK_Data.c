@@ -241,6 +241,7 @@ class KPK_Req
 	string S1;
 	string S2;
 	string S3;
+	string S4;
 	int I1;
 	int I2;
 	int I3;

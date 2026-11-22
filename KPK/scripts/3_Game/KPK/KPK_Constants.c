@@ -126,6 +126,9 @@ enum KPK_Scope
 const int KPK_TASK_PUBLIC = 3;
 // task scope: posted by an admin from «Куратор» for everybody, shown as a plain task (no issuer)
 const int KPK_TASK_GLOBAL = 4;
+// TASK_ADD only: the admin posts a task to the factions listed in KPK_Req.S4 (ids, comma separated);
+// each of them gets it as its own faction task, without an issuer
+const int KPK_TASK_ADMIN_FACTIONS = 5;
 
 // mate kinds for 3D labels
 enum KPK_MateKind
@@ -226,6 +229,19 @@ class KPK_Const
 			case KPK_Scope.FACTION: return "Группировка";
 		}
 		return "Личная";
+	}
+
+	// what a faction's task is called: OKSOP gives orders, the scientists research tasks ...
+	static string FactionTaskName(string factionId)
+	{
+		switch (factionId)
+		{
+			case "oksop": return "ПРИКАЗ";
+			case "nii": return "ИССЛЕДОВАНИЕ";
+			case "monolith": return "ВОЛЯ МОНОЛИТА";
+			case "loners": return "ПОРУЧЕНИЕ";
+		}
+		return "ЗАДАНИЕ ГП";
 	}
 
 	static string RoleName(int role)

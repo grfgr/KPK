@@ -150,6 +150,8 @@ class KPK_Menu extends UIScriptedMenu
 	protected ref KPK_List m_MarkerList;
 	protected MultilineEditBoxWidget m_MarkerName;   // two lines: long names wrap
 	protected TextWidget m_Measure;                  // hidden: measures the width of a character
+	protected Widget m_PageHost;                     // the tab pages, below the screen effects
+	protected ref array<bool> m_Built;               // which tab pages exist already
 	protected TextWidget m_MarkerType;
 	protected TextWidget m_MarkerScope;
 	protected TextWidget m_MapInfo;
@@ -194,6 +196,9 @@ class KPK_Menu extends UIScriptedMenu
 	protected EditBoxWidget m_TaskRewardEdit;
 	protected MultilineEditBoxWidget m_TaskDescEdit;
 	protected bool m_TaskEditing;
+	protected Widget m_TaskPickBox;
+	protected ref KPK_List m_TaskFactionList;
+	protected ref array<string> m_TaskTargets = new array<string>();
 	protected int m_TaskScope = KPK_Scope.PARTY;
 
 	// notes
@@ -350,26 +355,18 @@ class KPK_Menu extends UIScriptedMenu
 		Widget loginPage = BuildLogin();
 		Widget bootPage = BuildBoot();
 		m_Admin = model == KPK_Model.ADMIN;
-		if (m_Admin)
-			m_Pages.Insert(BuildAdmin());
-		else
-			m_Pages.Insert(BuildProfile());
-		m_Pages.Insert(BuildMap());
-		m_Pages.Insert(BuildParty());
-		// the brick never shows these pages: not building them keeps the menu far below the engine's
-		// widget limit (the login boxes failed to build on the brick)
-		if (m_Full)
+		// the tab pages are built when first shown: the engine caps how many widgets may be created
+		// (and does not give them back at once when a window is destroyed). Building all eight pages up
+		// front ran into that cap: empty fields, missing buttons. Pages live in a host under the screen
+		// effects, so a page built later still lies below the glass.
+		m_PageHost = KPK_UI.Frame(m_Screen, 0, 0, 1, 1);
+		m_Built = new array<bool>();
+		for (int tab = 0; tab < TAB_COUNT; tab++)
 		{
-			m_Pages.Insert(BuildFactions());
-			m_Pages.Insert(BuildTasks());
-			m_Pages.Insert(BuildNotes());
-			m_Pages.Insert(BuildChat());
-			m_Pages.Insert(BuildContacts());
-		}
-		else
-		{
-			for (int skip = 0; skip < 5; skip++)
-				m_Pages.Insert(KPK_UI.Frame(m_Screen, 0, 0, 0.01, 0.01));
+			Widget slot = KPK_UI.Frame(m_PageHost, 0, 0, 0.01, 0.01);
+			slot.Show(false);
+			m_Pages.Insert(slot);
+			m_Built.Insert(false);
 		}
 		m_Pages.Insert(loginPage);
 		m_Pages.Insert(bootPage);
@@ -487,8 +484,7 @@ class KPK_Menu extends UIScriptedMenu
 			KPK_UI.Apply(m_Theme);
 		if (!m_Booting && m_Pages && m_Pages.Count() > P_BOOT)
 			StartBoot();
-		// once the window has its size: captions that do not fit switch to a smaller font
-		GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(FitTexts, 300, false);
+
 		GetGame().GetMission().AddActiveInputExcludes({"menu"});
 		GetGame().GetInput().ChangeGameFocus(1);
 		GetGame().GetUIManager().ShowUICursor(true);
@@ -520,16 +516,6 @@ class KPK_Menu extends UIScriptedMenu
 	}
 
 	// =================================================================== chrome: header, tabs, footer
-
-	void FitTexts()
-	{
-		if (!m_Buttons)
-			return;
-		foreach (KPK_Button b : m_Buttons)
-			b.Fit();
-		foreach (KPK_List l : m_Lists)
-			l.Fit();
-	}
 
 	protected KPK_Button AddButton(Widget parent, int id, string text, float x, float y, float w, float h)
 	{
@@ -621,9 +607,44 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected Widget Content()
 	{
+		Widget host = m_Screen;
+		if (m_PageHost)
+			host = m_PageHost;
 		if (!m_Full)
-			return KPK_UI.Frame(m_Screen, 0.012, 0.165, 0.976, 0.762);
-		return KPK_UI.Frame(m_Screen, 0.178, 0.095, 0.812, 0.83);
+			return KPK_UI.Frame(host, 0.012, 0.165, 0.976, 0.762);
+		return KPK_UI.Frame(host, 0.178, 0.095, 0.812, 0.83);
+	}
+
+	// a tab page is built on its first show
+	protected void EnsurePage(int page)
+	{
+		if (!m_Built || page < 0 || page >= TAB_COUNT || m_Built[page])
+			return;
+		if (!m_Full && page > P_PARTY)
+			return;
+		Widget built;
+		switch (page)
+		{
+			case P_PROFILE:
+				if (m_Admin)
+					built = BuildAdmin();
+				else
+					built = BuildProfile();
+				break;
+			case P_MAP: built = BuildMap(); break;
+			case P_PARTY: built = BuildParty(); break;
+			case P_FACTIONS: built = BuildFactions(); break;
+			case P_TASKS: built = BuildTasks(); break;
+			case P_NOTES: built = BuildNotes(); break;
+			case P_CHAT: built = BuildChat(); break;
+			case P_CONTACTS: built = BuildContacts(); break;
+		}
+		if (!built)
+			return;
+		if (m_Pages[page])
+			m_Pages[page].Unlink();
+		m_Pages[page] = built;
+		m_Built[page] = true;
 	}
 
 	protected void ShowTabs(bool show)
@@ -634,6 +655,7 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void ShowPage(int page)
 	{
+		EnsurePage(page);
 		if (page != m_Page)
 			SetFocus(null);   // a field on a hidden page would keep taking the keys
 		m_Page = page;
@@ -651,7 +673,7 @@ class KPK_Menu extends UIScriptedMenu
 			DestroyMap();
 		ShowTabs(page < TAB_COUNT);
 		RefreshPage();
-		GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(FitTexts, 100, false);
+
 		if (m_HeaderLeft)
 			RefreshHeader();
 	}
@@ -1734,6 +1756,12 @@ class KPK_Menu extends UIScriptedMenu
 		m_TaskRewardEdit = KPK_UI.Edit(m_TaskEditBox, 0.03, 0.23, 0.94, 0.055);
 		KPK_UI.Text(m_TaskEditBox, "Описание", 0.03, 0.3, 0.6, 0.04, 13, KPK_UI.C_DIM);
 		m_TaskDescEdit = KPK_UI.MEdit(m_TaskEditBox, 0.03, 0.34, 0.94, 0.52);
+		// «Куратор»: which factions get the task (click toggles)
+		m_TaskPickBox = KPK_UI.Panel(m_TaskEditBox, 0.03, 0.59, 0.94, 0.29, 0, true);
+		KPK_UI.Text(m_TaskPickBox, "Группировки (нажмите, чтобы отметить):", 0, 0, 1, 0.14, 12, KPK_UI.C_DIM);
+		m_TaskFactionList = new KPK_List(m_TaskPickBox, 0, 0.15, 1, 0.85, 4, "— группировок нет —");
+		m_Lists.Insert(m_TaskFactionList);
+		m_TaskPickBox.Show(false);
 		AddButton(m_TaskEditBox, B_TS_SCOPE, "", 0.03, 0.9, 0.34, 0.06);
 		AddButton(m_TaskEditBox, B_TS_CANCEL, "ОТМЕНА", 0.39, 0.9, 0.26, 0.06);
 		AddButton(m_TaskEditBox, B_TS_SEND, "ВЫДАТЬ", 0.67, 0.9, 0.3, 0.06);
@@ -1748,10 +1776,11 @@ class KPK_Menu extends UIScriptedMenu
 		return "активно";
 	}
 
-	protected string TaskTag(int scope)
+	protected string TaskTag(KPK_Task task)
 	{
+		int scope = task.Scope;
 		if (scope == KPK_Scope.PARTY) return "[ГР] ";
-		if (scope == KPK_Scope.FACTION) return "[ГП] ";
+		if (scope == KPK_Scope.FACTION) return "[" + KPK_Const.FactionTaskName(task.FactionId) + "] ";
 		if (scope == KPK_TASK_PUBLIC) return "[ВСЕМ] ";
 		return "";   // personal and admin tasks: a plain task
 	}
@@ -1786,8 +1815,25 @@ class KPK_Menu extends UIScriptedMenu
 		return v.Tasks[i];
 	}
 
+	protected string FactionNameOf(string id)
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (v)
+		{
+			foreach (KPK_FactionView f : v.Factions)
+			{
+				if (f.Id == id)
+					return f.Name;
+			}
+		}
+		return "группировка";
+	}
+
 	protected bool TaskScopeAllowed(KPK_View v, int scope)
 	{
+		// «Куратор»: a plain task for everybody, or a task for the chosen factions
+		if (v.TaskGlobal)
+			return scope == KPK_TASK_GLOBAL || scope == KPK_TASK_ADMIN_FACTIONS;
 		if (scope == KPK_Scope.PARTY)
 			return v.TaskParty;
 		if (scope == KPK_TASK_PUBLIC)
@@ -1803,7 +1849,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
-		for (int step = 0; step < 4; step++)
+		for (int step = 0; step < 5; step++)
 		{
 			if (m_TaskScope == KPK_Scope.PARTY)
 				m_TaskScope = KPK_Scope.FACTION;
@@ -1811,6 +1857,8 @@ class KPK_Menu extends UIScriptedMenu
 				m_TaskScope = KPK_TASK_PUBLIC;
 			else if (m_TaskScope == KPK_TASK_PUBLIC)
 				m_TaskScope = KPK_TASK_GLOBAL;
+			else if (m_TaskScope == KPK_TASK_GLOBAL)
+				m_TaskScope = KPK_TASK_ADMIN_FACTIONS;
 			else
 				m_TaskScope = KPK_Scope.PARTY;
 			if (TaskScopeAllowed(v, m_TaskScope))
@@ -1834,7 +1882,9 @@ class KPK_Menu extends UIScriptedMenu
 				m_TaskScope = KPK_Scope.FACTION;
 		}
 		if (m_TaskScope == KPK_TASK_GLOBAL)
-			m_ById.Get(B_TS_SCOPE).SetText("ВСЕМ (АДМИН)");
+			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ВСЕМ");
+		else if (m_TaskScope == KPK_TASK_ADMIN_FACTIONS)
+			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ГРУППИРОВКАМ");
 		else if (m_TaskScope == KPK_TASK_PUBLIC)
 			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ВСЕМ");
 		else if (m_TaskScope == KPK_Scope.FACTION)
@@ -1842,6 +1892,60 @@ class KPK_Menu extends UIScriptedMenu
 		else
 			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ГРУППЕ");
 		m_ById.Get(B_TS_SCOPE).SetEnabled(true);
+		RefreshTaskPicker();
+	}
+
+	// «Куратор», task for factions: the description gets shorter, the faction picker shows below it
+	protected void RefreshTaskPicker()
+	{
+		if (!m_TaskPickBox)
+			return;
+		bool picking = m_TaskScope == KPK_TASK_ADMIN_FACTIONS;
+		m_TaskPickBox.Show(picking);
+		Widget descRoot = m_TaskDescEdit.GetParent();
+		if (picking)
+			descRoot.SetSize(0.94, 0.24);
+		else
+			descRoot.SetSize(0.94, 0.52);
+		if (!picking)
+			return;
+		KPK_View v = KPK_Client.s_View;
+		array<string> names = new array<string>();
+		array<int> colors = new array<int>();
+		if (v)
+		{
+			foreach (KPK_FactionView f : v.Factions)
+			{
+				if (m_TaskTargets.Find(f.Id) != -1)
+				{
+					names.Insert("[x]  " + f.Name + "  · " + KPK_Const.FactionTaskName(f.Id));
+					colors.Insert(KPK_UI.C_ACCENT);
+				}
+				else
+				{
+					names.Insert("[  ]  " + f.Name);
+					colors.Insert(KPK_UI.C_DIM);
+				}
+			}
+		}
+		m_TaskFactionList.Set(names, colors);
+	}
+
+	protected void ToggleTaskTarget()
+	{
+		KPK_View v = KPK_Client.s_View;
+		int i = m_TaskFactionList.Selected();
+		m_TaskFactionList.m_Selected = -1;
+		if (v && i >= 0 && i < v.Factions.Count())
+		{
+			string id = v.Factions[i].Id;
+			int at = m_TaskTargets.Find(id);
+			if (at == -1)
+				m_TaskTargets.Insert(id);
+			else
+				m_TaskTargets.Remove(at);
+		}
+		RefreshTaskPicker();
 	}
 
 	protected void StartTaskEdit()
@@ -1868,6 +1972,22 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			SetStatus("Введите название задания");
 			return;
+		}
+		if (m_TaskScope == KPK_TASK_ADMIN_FACTIONS)
+		{
+			if (m_TaskTargets.Count() == 0)
+			{
+				SetStatus("Отметьте группировки в списке");
+				return;
+			}
+			string targets = "";
+			foreach (string target : m_TaskTargets)
+			{
+				if (targets != "")
+					targets += ",";
+				targets += target;
+			}
+			req.S4 = targets;
 		}
 		KPK_Client.Send(KPK_C.TASK_ADD, req);
 		m_TaskEditing = false;
@@ -1912,7 +2032,7 @@ class KPK_Menu extends UIScriptedMenu
 		array<int> colors = new array<int>();
 		foreach (KPK_Task t : v.Tasks)
 		{
-			names.Insert(TaskTag(t.Scope) + t.Title);
+			names.Insert(TaskTag(t) + t.Title);
 			if (t.Status == 1)
 				colors.Insert(KPK_UI.C_DIM);
 			else if (t.Status == 2)
@@ -1963,7 +2083,7 @@ class KPK_Menu extends UIScriptedMenu
 		if (task.Scope == KPK_Scope.PARTY)
 			text += "Тип:  задание группы\n";
 		else if (task.Scope == KPK_Scope.FACTION)
-			text += "Тип:  задание группировки\n";
+			text += "Тип:  " + KPK_Const.FactionTaskName(task.FactionId) + " · " + FactionNameOf(task.FactionId) + "\n";
 		else if (task.Scope == KPK_TASK_PUBLIC)
 			text += "Тип:  общее задание для всех сталкеров\n";
 		if (task.Issuer != "")
@@ -2685,6 +2805,10 @@ class KPK_Menu extends UIScriptedMenu
 			m_MemberList.m_Selected = -1;
 			m_ConfirmRemove = "";
 			RefreshFactionDetails();
+		}
+		else if (list == m_TaskFactionList)
+		{
+			ToggleTaskTarget();
 		}
 		else if (list == m_TaskList)
 		{
