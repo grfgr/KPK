@@ -137,6 +137,109 @@ class KPK_UI
 		return t;
 	}
 
+	// smaller centred text: button captions that did not fit
+	static TextWidget TextC11(Widget parent, string text, float x, float y, float w, float h, int color)
+	{
+		Widget box = Make("kpk_text11c.layout", parent, x, y, w, h);
+		return FillText(box, text, color, "kpk_text11c.layout");
+	}
+
+	// multi-line edit box without automatic word wrap in the engine: long lines are broken at the last
+	// space (or hard, in a long word) so the text stays inside the box. The caret stays on its character.
+	static bool Reflow(MultilineEditBoxWidget box, int maxChars)
+	{
+		if (!box || maxChars < 4)
+			return false;
+		string text;
+		box.GetText(text);
+		array<string> lines = new array<string>();
+		int start = 0;
+		while (true)
+		{
+			int nl = text.IndexOfFrom(start, "\n");
+			if (nl < 0)
+			{
+				lines.Insert(text.Substring(start, text.Length() - start));
+				break;
+			}
+			lines.Insert(text.Substring(start, nl - start));
+			start = nl + 1;
+		}
+
+		int caretLine = box.GetCarriageLine();
+		int caretPos = box.GetCarriagePos();
+		int caret = 0;
+		for (int cl = 0; cl < caretLine && cl < lines.Count(); cl++)
+			caret += lines[cl].LengthUtf8() + 1;
+		caret += caretPos;
+
+		array<string> result = new array<string>();
+		bool changed = false;
+		int shift = 0;
+		int lineStart = 0;
+		foreach (string line : lines)
+		{
+			string rest = line;
+			int done = 0;
+			while (rest.LengthUtf8() > maxChars)
+			{
+				int len = rest.LengthUtf8();
+				int cut = -1;
+				for (int k = maxChars; k > 0; k--)
+				{
+					if (rest.SubstringUtf8(k, 1) == " ")
+					{
+						cut = k;
+						break;
+					}
+				}
+				if (cut > 0)
+				{
+					// the space becomes the line break: same length, the caret keeps its place
+					result.Insert(rest.SubstringUtf8(0, cut));
+					rest = rest.SubstringUtf8(cut + 1, len - cut - 1);
+					done += cut + 1;
+				}
+				else
+				{
+					// one long word: a break is inserted, the caret after it moves by one
+					result.Insert(rest.SubstringUtf8(0, maxChars));
+					rest = rest.SubstringUtf8(maxChars, len - maxChars);
+					done += maxChars;
+					if (lineStart + done <= caret)
+						shift++;
+				}
+				changed = true;
+			}
+			result.Insert(rest);
+			lineStart += line.LengthUtf8() + 1;
+		}
+		if (!changed)
+			return false;
+
+		string joined = "";
+		for (int r = 0; r < result.Count(); r++)
+		{
+			if (r > 0)
+				joined += "\n";
+			joined += result[r];
+		}
+		box.SetText(joined);
+
+		int target = caret + shift;
+		int newLine = 0;
+		while (newLine < result.Count() - 1 && target > result[newLine].LengthUtf8())
+		{
+			target -= result[newLine].LengthUtf8() + 1;
+			newLine++;
+		}
+		if (target < 0)
+			target = 0;
+		box.SetCarriageLine(newLine);
+		box.SetCarriagePos(target);
+		return true;
+	}
+
 	// small centred text (hardware key captions, window controls)
 	static TextWidget TextC(Widget parent, string text, float x, float y, float w, float h, int color)
 	{
@@ -227,6 +330,10 @@ class KPK_Button
 	bool m_Enabled = true;
 	bool m_IsRow;
 	int m_TextColor;
+	bool m_Small;                    // the label was swapped for a smaller font: the text did not fit
+	bool m_Wrap;                     // list rows of long texts: a second, wrapping small label
+	MultilineTextWidget m_WrapLabel;
+	string m_Text;
 
 	void KPK_Button(Widget parent, int id, string text, float x, float y, float w, float h, bool isRow = false)
 	{
@@ -256,8 +363,73 @@ class KPK_Button
 
 	void SetText(string text)
 	{
+		m_Text = text;
+		if (m_Wrap && m_IsRow && m_Root)
+		{
+			// a long row text wraps onto a second line in a smaller font
+			bool wrap = text.LengthUtf8() > FitChars(15);
+			if (wrap && !m_WrapLabel)
+				m_WrapLabel = KPK_UI.MText(m_Root, 0.04, 0.02, 0.94, 0.96, 12, m_TextColor);
+			if (m_WrapLabel)
+			{
+				m_WrapLabel.Show(wrap);
+				if (wrap)
+					m_WrapLabel.SetText(text);
+				else
+					m_WrapLabel.SetText("");
+			}
+			if (m_Label)
+			{
+				if (wrap)
+					m_Label.SetText("");
+				else
+					m_Label.SetText(text);
+			}
+			return;
+		}
 		if (m_Label)
 			m_Label.SetText(text);
+		Fit();
+	}
+
+	// how many characters of the given text size fit into the button (screen size known after the first frame)
+	int FitChars(int size)
+	{
+		if (!m_Root)
+			return 30;
+		float bw, bh;
+		m_Root.GetScreenSize(bw, bh);
+		if (bw <= 0)
+			return 30;
+		float charW = size * 0.55;
+		return bw * 0.92 / charW;
+	}
+
+	// the text is wider than the button: the label is swapped for a smaller font once
+	void Fit()
+	{
+		if (m_Small || !m_Label || !m_Root || m_Text == "")
+			return;
+		float bw, bh;
+		m_Root.GetScreenSize(bw, bh);
+		if (bw <= 0)
+			return;
+		int tw, th;
+		m_Label.GetTextSize(tw, th);
+		if (tw <= 0 || tw <= bw * 0.94)
+			return;
+		TextWidget small;
+		if (m_IsRow)
+			small = KPK_UI.Text(m_Root, "", 0.04, 0, 0.94, 1, 13, m_TextColor);
+		else
+			small = KPK_UI.TextC11(m_Root, "", 0, 0, 1, 1, m_TextColor);
+		if (!small)
+			return;
+		m_Label.SetText("");
+		m_Label = small;
+		m_Small = true;
+		m_Label.SetText(m_Text);
+		Refresh();
 	}
 
 	void SetTextColor(int color)
@@ -318,11 +490,15 @@ class KPK_Button
 		if (m_Enabled)
 		{
 			m_Label.SetColor(m_TextColor);
+			if (m_WrapLabel)
+				m_WrapLabel.SetColor(m_TextColor);
 			m_Edge.SetColor(KPK_UI.C_EDGE);
 		}
 		else
 		{
 			m_Label.SetColor(KPK_UI.C_DIM);
+			if (m_WrapLabel)
+				m_WrapLabel.SetColor(KPK_UI.C_DIM);
 			m_Edge.SetColor(KPK_UI.C_LINE);
 		}
 		if (m_Active)
@@ -342,6 +518,22 @@ class KPK_List
 	int m_Page;
 	int m_Selected = -1;
 	string m_Empty;
+
+	// long rows wrap onto a second line in a smaller font
+	void SetWrap(bool wrap)
+	{
+		foreach (KPK_Button row : m_Rows)
+			row.m_Wrap = wrap;
+		Redraw();
+	}
+
+	void Fit()
+	{
+		foreach (KPK_Button row : m_Rows)
+			row.Fit();
+		m_Prev.Fit();
+		m_Next.Fit();
+	}
 
 	void KPK_List(Widget parent, float x, float y, float w, float h, int rows, string emptyText = "— пусто —")
 	{

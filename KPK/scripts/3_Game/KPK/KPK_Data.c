@@ -188,17 +188,21 @@ class KPK_FactionsFile
 	ref array<ref KPK_Faction> Factions;
 	ref array<ref KPK_Marker> FactionMarkers;   // markers with Scope FACTION
 	int NextMarkerId = 1;
+	ref array<ref KPK_Task> GlobalTasks;        // admin tasks for everybody (KPK_TASK_GLOBAL)
+	int NextGlobalTaskId = 1;
 
 	void KPK_FactionsFile()
 	{
 		Factions = new array<ref KPK_Faction>();
 		FactionMarkers = new array<ref KPK_Marker>();
+		GlobalTasks = new array<ref KPK_Task>();
 	}
 
 	void Fix()
 	{
 		if (!Factions) Factions = new array<ref KPK_Faction>();
 		if (!FactionMarkers) FactionMarkers = new array<ref KPK_Marker>();
+		if (!GlobalTasks) GlobalTasks = new array<ref KPK_Task>();
 		foreach (KPK_Faction f : Factions)
 		{
 			f.Fix();
@@ -253,7 +257,7 @@ class KPK_PartyMemberView
 
 class KPK_InviteView
 {
-	int Kind;       // 1 party, 2 faction
+	int Kind;       // 1 party, 2 faction, 3 contact offer
 	string From;    // callsign of who invited
 	string FactionId;
 	string FactionName;
@@ -435,6 +439,7 @@ class KPK_View
 	bool TaskParty;                           // may write party tasks (party leader)
 	bool TaskFaction;                         // may write faction tasks (leader / deputy, every member of loners)
 	bool TaskPublic;                          // may write tasks for everybody (faction leader / deputy)
+	bool TaskGlobal;                          // admin on «Куратор»: plain tasks for everybody
 	ref array<ref KPK_Note> Notes;
 
 	ref array<ref KPK_ChatMessage> Chat;        // general channel + own private messages, oldest first

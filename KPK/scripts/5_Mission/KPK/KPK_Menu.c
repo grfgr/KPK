@@ -146,7 +146,8 @@ class KPK_Menu extends UIScriptedMenu
 	protected MapWidget m_Map;
 	protected ref KPK_MapHandler m_MapHandler;
 	protected ref KPK_List m_MarkerList;
-	protected EditBoxWidget m_MarkerName;
+	protected MultilineEditBoxWidget m_MarkerName;   // two lines: long names wrap
+	protected TextWidget m_Measure;                  // hidden: measures the width of a character
 	protected TextWidget m_MarkerType;
 	protected TextWidget m_MarkerScope;
 	protected TextWidget m_MapInfo;
@@ -483,6 +484,8 @@ class KPK_Menu extends UIScriptedMenu
 			KPK_UI.Apply(m_Theme);
 		if (!m_Booting && m_Pages && m_Pages.Count() > P_BOOT)
 			StartBoot();
+		// once the window has its size: captions that do not fit switch to a smaller font
+		GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(FitTexts, 300, false);
 		GetGame().GetMission().AddActiveInputExcludes({"menu"});
 		GetGame().GetInput().ChangeGameFocus(1);
 		GetGame().GetUIManager().ShowUICursor(true);
@@ -514,6 +517,16 @@ class KPK_Menu extends UIScriptedMenu
 	}
 
 	// =================================================================== chrome: header, tabs, footer
+
+	void FitTexts()
+	{
+		if (!m_Buttons)
+			return;
+		foreach (KPK_Button b : m_Buttons)
+			b.Fit();
+		foreach (KPK_List l : m_Lists)
+			l.Fit();
+	}
 
 	protected KPK_Button AddButton(Widget parent, int id, string text, float x, float y, float w, float h)
 	{
@@ -635,6 +648,7 @@ class KPK_Menu extends UIScriptedMenu
 			DestroyMap();
 		ShowTabs(page < TAB_COUNT);
 		RefreshPage();
+		GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(FitTexts, 100, false);
 		if (m_HeaderLeft)
 			RefreshHeader();
 	}
@@ -910,6 +924,7 @@ class KPK_Menu extends UIScriptedMenu
 
 		Widget side = KPK_UI.Card(page, 0.725, 0, 0.275, 1, "МЕТКИ КПК");
 		m_MarkerList = new KPK_List(side, 0.04, 0.06, 0.92, 0.44, 8, "— меток нет —");
+		m_MarkerList.SetWrap(true);
 		m_Lists.Insert(m_MarkerList);
 
 		AddButton(side, B_MAP_GOTO, "НА МЕТКУ", 0.04, 0.505, 0.45, 0.04);
@@ -919,18 +934,18 @@ class KPK_Menu extends UIScriptedMenu
 		m_EditorTitle = KPK_UI.Text(side, "НОВАЯ МЕТКА", 0.04, 0.565, 0.6, 0.04, 14, KPK_UI.C_ACCENT);
 		AddButton(side, B_MAP_NEW, "НОВАЯ", 0.64, 0.565, 0.32, 0.036);
 		KPK_UI.Text(side, "Название", 0.04, 0.605, 0.92, 0.035, 13, KPK_UI.C_DIM);
-		m_MarkerName = KPK_UI.Edit(side, 0.04, 0.64, 0.92, 0.045);
+		m_MarkerName = KPK_UI.MEdit(side, 0.04, 0.64, 0.92, 0.06);
 
-		AddButton(side, B_TYPE_PREV, "<", 0.04, 0.7, 0.14, 0.045);
-		m_MarkerType = KPK_UI.Text(side, "", 0.19, 0.7, 0.62, 0.045, 14, KPK_UI.C_WHITE);
-		AddButton(side, B_TYPE_NEXT, ">", 0.82, 0.7, 0.14, 0.045);
+		AddButton(side, B_TYPE_PREV, "<", 0.04, 0.707, 0.14, 0.042);
+		m_MarkerType = KPK_UI.Text(side, "", 0.19, 0.707, 0.62, 0.042, 14, KPK_UI.C_WHITE);
+		AddButton(side, B_TYPE_NEXT, ">", 0.82, 0.707, 0.14, 0.042);
 
-		AddButton(side, B_SCOPE_PREV, "<", 0.04, 0.755, 0.14, 0.045);
-		m_MarkerScope = KPK_UI.Text(side, "", 0.19, 0.755, 0.62, 0.045, 14, KPK_UI.C_WHITE);
-		AddButton(side, B_SCOPE_NEXT, ">", 0.82, 0.755, 0.14, 0.045);
+		AddButton(side, B_SCOPE_PREV, "<", 0.04, 0.756, 0.14, 0.042);
+		m_MarkerScope = KPK_UI.Text(side, "", 0.19, 0.756, 0.62, 0.042, 14, KPK_UI.C_WHITE);
+		AddButton(side, B_SCOPE_NEXT, ">", 0.82, 0.756, 0.14, 0.042);
 
-		AddButton(side, B_MAP_HERE, "ПОСТАВИТЬ ЗДЕСЬ", 0.04, 0.81, 0.92, 0.045);
-		m_MapHint = KPK_UI.MText(side, 0.04, 0.865, 0.92, 0.075, 12, KPK_UI.C_DIM);
+		AddButton(side, B_MAP_HERE, "ПОСТАВИТЬ ЗДЕСЬ", 0.04, 0.805, 0.92, 0.042);
+		m_MapHint = KPK_UI.MText(side, 0.04, 0.855, 0.92, 0.085, 12, KPK_UI.C_DIM);
 		AddButton(side, B_MAP_SELF, "МОЯ ПОЗИЦИЯ", 0.04, 0.945, 0.92, 0.045);
 
 		UpdateMarkerEditor();
@@ -979,6 +994,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_EditScope = mk.Scope;
 		m_NewType = mk.Type;
 		m_MarkerName.SetText(mk.Name);
+		ReflowEdit(m_MarkerName);
 		UpdateMarkerEditor();
 	}
 
@@ -995,7 +1011,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Req req = new KPK_Req();
 		req.I1 = m_EditId;
 		req.I2 = m_EditScope;
-		req.S1 = m_MarkerName.GetText();
+		req.S1 = MarkerNameText();
 		req.S2 = m_NewType.ToString();
 		req.F1 = x;
 		req.F2 = z;
@@ -1104,7 +1120,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected void AddMarker(float x, float z)
 	{
 		KPK_Req req = new KPK_Req();
-		req.S1 = m_MarkerName.GetText();
+		req.S1 = MarkerNameText();
 		req.I1 = m_NewType;
 		req.I2 = m_NewScope;
 		req.F1 = x;
@@ -1112,6 +1128,55 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Client.Send(KPK_C.MARKER_ADD, req);
 		m_MarkerName.SetText("");
 		SetStatus("Метка передана: квадрат " + KPK_UI.Grid(x, z));
+	}
+
+	// the name box wraps long names onto a second line: the line breaks are not part of the name
+	protected string MarkerNameText()
+	{
+		string name;
+		m_MarkerName.GetText(name);
+		name.Replace("\n", " ");
+		return name.Trim();
+	}
+
+	// characters of the multi-line edit boxes (13 px) that fit into the box: measured once on a sample
+	protected int EditChars(Widget box)
+	{
+		float bw, bh;
+		box.GetScreenSize(bw, bh);
+		if (bw <= 0)
+			return 0;
+		float charW = 7.5;
+		if (!m_Measure && m_Screen)
+		{
+			m_Measure = KPK_UI.Text(m_Screen, "", 0, 0, 0.9, 0.05, 15, KPK_UI.C_TEXT);
+			if (m_Measure)
+				m_Measure.Show(false);
+		}
+		if (m_Measure)
+		{
+			string sample = "Сталкер нашёл ящик с оружием на крыше церкви";
+			m_Measure.SetText(sample);
+			int tw, th;
+			m_Measure.GetTextSize(tw, th);
+			if (tw > 0)
+				charW = tw / sample.LengthUtf8();
+		}
+		return bw * 0.94 / charW;
+	}
+
+	protected bool m_Reflowing;
+
+	protected void ReflowEdit(MultilineEditBoxWidget box)
+	{
+		if (m_Reflowing || !box)
+			return;
+		int chars = EditChars(box);
+		if (chars <= 0)
+			return;
+		m_Reflowing = true;
+		KPK_UI.Reflow(box, chars);
+		m_Reflowing = false;
 	}
 
 	protected KPK_Marker SelectedMarker()
@@ -1210,6 +1275,11 @@ class KPK_Menu extends UIScriptedMenu
 				inv.Insert("Группа: " + iv.From);
 				invColors.Insert(KPK_UI.C_TEXT);
 			}
+			else if (iv.Kind == 3)
+			{
+				inv.Insert("Контакт: " + iv.From);
+				invColors.Insert(KPK_UI.C_WHITE);
+			}
 			else
 			{
 				inv.Insert("Группировка «" + iv.FactionName + "» (" + iv.From + ")");
@@ -1264,6 +1334,8 @@ class KPK_Menu extends UIScriptedMenu
 			answer = 1;
 		if (iv.Kind == 1)
 			KPK_Client.SendText(KPK_C.PARTY_RESPOND, iv.From, "", answer);
+		else if (iv.Kind == 3)
+			KPK_Client.SendText(KPK_C.CONTACT_RESPOND, iv.From, "", answer);
 		else
 			KPK_Client.SendText(KPK_C.FACTION_RESPOND, iv.FactionId, "", answer);
 	}
@@ -1287,8 +1359,8 @@ class KPK_Menu extends UIScriptedMenu
 		m_Lists.Insert(m_MemberList);
 
 		// management: leader / deputy of the own faction, or the admin (any faction)
-		m_FactionManage = KPK_UI.Card(page, 0.285, 0.6, 0.715, 0.17, "УПРАВЛЕНИЕ СОСТАВОМ");
-		m_ManageHint = KPK_UI.Text(m_FactionManage, "Боец, выбранный в «Составе»:", 0.02, 0.27, 0.3, 0.28, 12, KPK_UI.C_DIM);
+		m_FactionManage = KPK_UI.Card(page, 0.285, 0.6, 0.715, 0.17, "УПРАВЛЕНИЕ СОСТАВОМ", 0.22);
+		m_ManageHint = KPK_UI.Text(m_FactionManage, "Выбранный боец:", 0.02, 0.27, 0.28, 0.28, 12, KPK_UI.C_DIM);
 		AddButton(m_FactionManage, B_F_KICK, "ИСКЛЮЧИТЬ", 0.31, 0.26, 0.14, 0.3);
 		// ranks: only the admin («Куратор») appoints leaders and deputies
 		AddButton(m_FactionManage, B_F_MEMBER, "В БОЙЦЫ", 0.46, 0.26, 0.12, 0.3);
@@ -1300,7 +1372,7 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(m_FactionManage, B_F_LEAVE, "ПОКИНУТЬ", 0.74, 0.62, 0.24, 0.3);
 
 		// admin: settings of the selected faction
-		m_AdminBox = KPK_UI.Card(page, 0, 0.79, 1, 0.21, "АДМИНИСТРАТОР · НАСТРОЙКИ ВЫБРАННОЙ ГРУППИРОВКИ", 0.19);
+		m_AdminBox = KPK_UI.Card(page, 0, 0.79, 1, 0.21, "АДМИНИСТРАТОР · ВЫБРАННАЯ ГРУППИРОВКА", 0.19);
 		float bw = 0.118;
 		float gap = 0.006;
 		AddButton(m_AdminBox, B_A_ENC_DESC, "", 0.01, 0.2, bw, 0.22);
@@ -1504,11 +1576,11 @@ class KPK_Menu extends UIScriptedMenu
 		m_AdminBox.Show(v.IsAdmin);
 		if (v.IsAdmin)
 		{
-			AdminToggle(B_A_ENC_DESC, "ОПИСАНИЕ", f.FlagDescription, "ШИФР", "ОТКР");
+			AdminToggle(B_A_ENC_DESC, "ОПИС.", f.FlagDescription, "ШИФР", "ОТКР");
 			AdminToggle(B_A_ENC_LEADER, "ЛИДЕР", f.FlagLeader, "ШИФР", "ОТКР");
 			AdminToggle(B_A_ENC_MEMBERS, "СОСТАВ", f.FlagMembers, "ШИФР", "ОТКР");
 			AdminToggle(B_A_ENC_LOC, "МЕСТО", f.FlagLocation, "ШИФР", "ОТКР");
-			AdminToggle(B_A_HIDDEN, "В СПИСКЕ", !f.Hidden, "ДА", "НЕТ");
+			AdminToggle(B_A_HIDDEN, "ВИДНА", !f.Hidden, "ДА", "НЕТ");
 			AdminToggle(B_A_MATES, "МЕТКИ", f.ShowMatesInWorld, "ВКЛ", "ВЫКЛ");
 			m_ById.Get(B_A_COLOR).SetTextColor(f.Color);
 			if (m_ConfirmRemove == f.Id)
@@ -1623,7 +1695,7 @@ class KPK_Menu extends UIScriptedMenu
 		if (scope == KPK_Scope.PARTY) return "[ГР] ";
 		if (scope == KPK_Scope.FACTION) return "[ГП] ";
 		if (scope == KPK_TASK_PUBLIC) return "[ВСЕМ] ";
-		return "";
+		return "";   // personal and admin tasks: a plain task
 	}
 
 	// may this player change the task (status / delete)?
@@ -1637,6 +1709,8 @@ class KPK_Menu extends UIScriptedMenu
 			return v.TaskFaction;
 		if (task.Scope == KPK_TASK_PUBLIC)
 			return v.TaskPublic && task.FactionId == v.MyFactionId;
+		if (task.Scope == KPK_TASK_GLOBAL)
+			return v.TaskGlobal;
 		return false;
 	}
 
@@ -1657,6 +1731,8 @@ class KPK_Menu extends UIScriptedMenu
 			return v.TaskParty;
 		if (scope == KPK_TASK_PUBLIC)
 			return v.TaskPublic;
+		if (scope == KPK_TASK_GLOBAL)
+			return v.TaskGlobal;
 		return v.TaskFaction;
 	}
 
@@ -1666,12 +1742,14 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
-		for (int step = 0; step < 3; step++)
+		for (int step = 0; step < 4; step++)
 		{
 			if (m_TaskScope == KPK_Scope.PARTY)
 				m_TaskScope = KPK_Scope.FACTION;
 			else if (m_TaskScope == KPK_Scope.FACTION)
 				m_TaskScope = KPK_TASK_PUBLIC;
+			else if (m_TaskScope == KPK_TASK_PUBLIC)
+				m_TaskScope = KPK_TASK_GLOBAL;
 			else
 				m_TaskScope = KPK_Scope.PARTY;
 			if (TaskScopeAllowed(v, m_TaskScope))
@@ -1687,12 +1765,16 @@ class KPK_Menu extends UIScriptedMenu
 			return;
 		if (!TaskScopeAllowed(v, m_TaskScope))
 		{
-			if (v.TaskParty)
+			if (v.TaskGlobal)
+				m_TaskScope = KPK_TASK_GLOBAL;
+			else if (v.TaskParty)
 				m_TaskScope = KPK_Scope.PARTY;
 			else
 				m_TaskScope = KPK_Scope.FACTION;
 		}
-		if (m_TaskScope == KPK_TASK_PUBLIC)
+		if (m_TaskScope == KPK_TASK_GLOBAL)
+			m_ById.Get(B_TS_SCOPE).SetText("ВСЕМ (АДМИН)");
+		else if (m_TaskScope == KPK_TASK_PUBLIC)
 			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ВСЕМ");
 		else if (m_TaskScope == KPK_Scope.FACTION)
 			m_ById.Get(B_TS_SCOPE).SetText("КОМУ: ГРУППИРОВКЕ");
@@ -1756,7 +1838,7 @@ class KPK_Menu extends UIScriptedMenu
 		if (!v)
 			return;
 
-		bool canWrite = v.TaskParty || v.TaskFaction;
+		bool canWrite = v.TaskParty || v.TaskFaction || v.TaskGlobal;
 		if (!canWrite)
 			m_TaskEditing = false;
 		m_ById.Get(B_TS_NEW).Show(canWrite);
@@ -1819,7 +1901,8 @@ class KPK_Menu extends UIScriptedMenu
 			text += "Тип:  задание группировки\n";
 		else if (task.Scope == KPK_TASK_PUBLIC)
 			text += "Тип:  общее задание для всех сталкеров\n";
-		text += "Заказчик:  " + task.Issuer + "\n";
+		if (task.Issuer != "")
+			text += "Заказчик:  " + task.Issuer + "\n";
 		if (task.Reward != "")
 			text += "Награда:  " + task.Reward + "\n";
 		text += "Статус:  " + TaskStatus(task.Status) + "\n";
@@ -2101,9 +2184,9 @@ class KPK_Menu extends UIScriptedMenu
 		Widget left = KPK_UI.Card(page, 0, 0, 0.42, 1, "КОНТАКТЫ");
 		m_ContactList = new KPK_List(left, 0.04, 0.06, 0.92, 0.7, 9, "— контактов нет —");
 		m_Lists.Insert(m_ContactList);
-		KPK_UI.Text(left, "Позывной", 0.04, 0.775, 0.5, 0.045, 13, KPK_UI.C_DIM);
+		KPK_UI.Text(left, "Дать свой контакт (позывной):", 0.04, 0.775, 0.92, 0.045, 13, KPK_UI.C_DIM);
 		m_ContactName = KPK_UI.Edit(left, 0.04, 0.825, 0.92, 0.06);
-		AddButton(left, B_K_ADD, "ДОБАВИТЬ", 0.04, 0.91, 0.45, 0.06);
+		AddButton(left, B_K_ADD, "ДАТЬ КОНТАКТ", 0.04, 0.91, 0.45, 0.06);
 		AddButton(left, B_K_DEL, "УДАЛИТЬ", 0.51, 0.91, 0.45, 0.06);
 
 		Widget right = KPK_UI.Card(page, 0.44, 0, 0.56, 1, "СВЕДЕНИЯ");
@@ -2447,6 +2530,9 @@ class KPK_Menu extends UIScriptedMenu
 			SendChat();
 			return true;
 		}
+		// multi-line boxes: long lines wrap to the next line
+		if (w && (w == m_TaskDescEdit || w == m_NoteText || w == m_MarkerName))
+			ReflowEdit(MultilineEditBoxWidget.Cast(w));
 		return super.OnChange(w, x, y, finished);
 	}
 

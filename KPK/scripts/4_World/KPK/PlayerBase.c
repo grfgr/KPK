@@ -1,5 +1,28 @@
 modded class PlayerBase
 {
+	// set by the server: logged in to the KPK network with a working full KPK of one's own in the hands.
+	// The look-at actions (contact / party) show only when both players have it.
+	bool m_KPKReady;
+
+	override void Init()
+	{
+		super.Init();
+		RegisterNetSyncVariableBool("m_KPKReady");
+	}
+
+	void KPK_SetReady(bool ready)
+	{
+		if (m_KPKReady == ready)
+			return;
+		m_KPKReady = ready;
+		SetSynchDirty();
+	}
+
+	bool KPK_IsReady()
+	{
+		return m_KPKReady;
+	}
+
 	override void SetActionsRemoteTarget(out TInputActionMap InputActionMap)
 	{
 		super.SetActionsRemoteTarget(InputActionMap);

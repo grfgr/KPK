@@ -36,7 +36,8 @@ enum KPK_C
 	ADMIN,           // admin KPK: I1 = KPK_AdminCmd, S1 = callsign
 	TASK_ADD,        // I1 scope (PARTY / FACTION), S1 title, S2 description, S3 reward
 	TASK_SET,        // S1 task id, I1 status (0 active, 1 done, 2 failed), I2 = 1 -> delete
-	CHAT_OLDER       // I1 = id of the oldest chat line the client has: send older ones
+	CHAT_OLDER,      // I1 = id of the oldest chat line the client has: send older ones
+	CONTACT_RESPOND  // S1 callsign of who offered his contact, I1 = 1 accept, 0 decline
 };
 
 // ADMIN sub-commands (KPK_Req.I1), only on the admin KPK «Куратор»
@@ -123,6 +124,8 @@ enum KPK_Scope
 
 // task scope only (not a marker scope): a faction's task shown to every stalker
 const int KPK_TASK_PUBLIC = 3;
+// task scope: posted by an admin from «Куратор» for everybody, shown as a plain task (no issuer)
+const int KPK_TASK_GLOBAL = 4;
 
 // mate kinds for 3D labels
 enum KPK_MateKind

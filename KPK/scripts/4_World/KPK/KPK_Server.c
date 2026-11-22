@@ -38,7 +38,7 @@ class KPK_PartiesFile
 
 class KPK_Invite
 {
-	int Kind;          // 1 party, 2 faction
+	int Kind;          // 1 party, 2 faction, 3 contact offer
 	string FromId;
 	string ToId;
 	string FactionId;
@@ -171,6 +171,7 @@ class KPK_Server
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickMates, m_Settings.MatesUpdateSec * 1000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickCalls, 3000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickLogout, 5000, true);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(TickReady, 1000, true);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(SaveDirty, m_Settings.SaveIntervalSec * 1000, true);
 
 		Print("[KPK] server started, accounts: " + m_Index.Accounts.Count() + ", factions: " + m_Factions.Factions.Count());
@@ -728,37 +729,85 @@ class KPK_Server
 			Notify(player, "КПК", "Нет связи: у одного из вас нет аккаунта в сети КПК");
 			return;
 		}
-		// both need a working KPK on them (not ruined, powered, not somebody else's faction device);
-		// it does not have to be open
-		if (!WorkingDevice(target, targetId))
-		{
-			Notify(player, "КПК", "У сталкера нет рабочего КПК");
-			return;
-		}
-		EntityAI mine = WorkingDevice(player, steamId);
-		if (!mine)
-		{
-			Notify(player, "КПК", "Нужен рабочий КПК с батарейкой");
-			return;
-		}
 		KPK_Req req = new KPK_Req();
 		req.S1 = CallsignOf(targetId);
 		m_WorldAction = true;
 		if (invite)
-		{
 			HandlePartyInvite(player, acc, req);
-		}
 		else
-		{
-			EntityAI held = WorkingDeviceInHands(player, steamId);
-			if (held)
-				mine = held;
-			if (!KPK_Const.FullAccess(KPK_Device.ModelOf(mine)))
-				Msg(player, "Контакты есть только у полных КПК");
-			else
-				HandleContact(player, acc, req, true);
-		}
+			OfferContact(player, acc, targetId);
 		m_WorldAction = false;
+	}
+
+	// a stalker gives his own contact: it lands in the other's contacts only after he accepts.
+	// Nobody can put somebody else into his contacts without that person's will.
+	protected void OfferContact(PlayerBase player, KPK_Account acc, string targetId)
+	{
+		if (targetId == "" || targetId == acc.SteamId)
+		{
+			Msg(player, "Сталкер не найден");
+			return;
+		}
+		if (!FaceToFace(player, acc.SteamId, targetId, "передачи контакта"))
+			return;
+		KPK_Account other = GetAccount(targetId);
+		if (other && other.Contacts.Find(acc.SteamId) != -1)
+		{
+			Msg(player, "Ваш контакт уже есть у «" + CallsignOf(targetId) + "»");
+			return;
+		}
+		if (!FindInvite(targetId, 3, acc.SteamId, ""))
+		{
+			KPK_Invite inv = new KPK_Invite();
+			inv.Kind = 3;
+			inv.FromId = acc.SteamId;
+			inv.ToId = targetId;
+			inv.Time = GetGame().GetTime();
+			m_Invites.Insert(inv);
+		}
+		Msg(player, "Контакт передан «" + CallsignOf(targetId) + "», ждём подтверждения");
+		PlayerBase target = FindOnline(targetId);
+		if (target)
+		{
+			Notify(target, "КПК", acc.Callsign + " передаёт вам свой контакт. Принять: вкладка «Группа» → «Входящие приглашения».");
+			if (m_Open.Contains(targetId))
+				SendView(target);
+		}
+	}
+
+	protected void HandleContactRespond(PlayerBase player, KPK_Account acc, KPK_Req req)
+	{
+		string fromId = SteamIdOfCallsign(req.S1);
+		KPK_Invite inv = FindInvite(acc.SteamId, 3, fromId, "");
+		if (!inv)
+		{
+			SendView(player);
+			return;
+		}
+		m_Invites.RemoveItem(inv);
+		PlayerBase offerer = FindOnline(fromId);
+		if (req.I1 == 0)
+		{
+			if (offerer)
+				Notify(offerer, "КПК", acc.Callsign + " не принял ваш контакт");
+			SendView(player);
+			return;
+		}
+		if (acc.Contacts.Find(fromId) == -1)
+		{
+			if (acc.Contacts.Count() >= m_Settings.MaxContacts)
+			{
+				Msg(player, "Список контактов заполнен");
+				SendView(player);
+				return;
+			}
+			acc.Contacts.Insert(fromId);
+			MarkDirty(acc.SteamId);
+		}
+		Msg(player, "Контакт «" + CallsignOf(fromId) + "» добавлен");
+		if (offerer)
+			Notify(offerer, "КПК", acc.Callsign + " принял ваш контакт");
+		SendView(player);
 	}
 
 	void Notify(PlayerBase player, string title, string text)
@@ -954,7 +1003,7 @@ class KPK_Server
 		{
 			if (inv.ToId != steamId)
 				continue;
-			if (inv.Kind == 2 && !full)
+			if ((inv.Kind == 2 || inv.Kind == 3) && !full)
 				continue;
 			KPK_InviteView iv = new KPK_InviteView();
 			iv.Kind = inv.Kind;
@@ -993,6 +1042,9 @@ class KPK_Server
 
 		foreach (KPK_Task t : acc.Tasks)
 			view.Tasks.Insert(t);
+		view.TaskGlobal = isAdmin;
+		foreach (KPK_Task gl : m_Factions.GlobalTasks)
+			view.Tasks.Insert(gl);
 		if (party)
 		{
 			view.TaskParty = true;   // any party member writes and manages party tasks
@@ -1276,7 +1328,7 @@ class KPK_Server
 		{
 			if (inv.ToId != toId || inv.Kind != kind)
 				continue;
-			if (kind == 1 && inv.FromId == fromId)
+			if ((kind == 1 || kind == 3) && inv.FromId == fromId)
 				return inv;
 			if (kind == 2 && inv.FactionId == factionId)
 				return inv;
@@ -1514,8 +1566,6 @@ class KPK_Server
 	void TickLogout()
 	{
 		float limit = m_Settings.LogoutWithoutDeviceSec;
-		if (limit <= 0)
-			return;
 		map<string, PlayerBase> online = OnlinePlayers();
 		array<string> ids = m_LoggedIn.GetKeyArray();
 		foreach (string steamId : ids)
@@ -1523,7 +1573,21 @@ class KPK_Server
 			PlayerBase player;
 			if (!online.Find(steamId, player))
 				continue;
-			if (KPK_Device.FindOn(player) != null)
+			EntityAI carried = KPK_Device.FindOn(player, true);
+			// the battery died: the KPK switches off and the session ends
+			if (carried && m_Settings.RequireBattery && KPK_Device.GetBatteryLevel(carried) <= 0)
+			{
+				m_NoDeviceSec.Remove(steamId);
+				m_LoggedIn.Remove(steamId);
+				if (m_Open.Contains(steamId))
+					SendRaw(player, KPK_S.DENIED, "БАТАРЕЯ РАЗРЯЖЕНА");
+				m_Open.Remove(steamId);
+				EndCall(steamId, "Связь потеряна");
+				if (player.IsAlive())
+					Notify(player, "КПК", "Батарея разряжена: КПК отключён, сеанс завершён. Вставьте батарейку и войдите заново.");
+				continue;
+			}
+			if (carried || limit <= 0)
 			{
 				m_NoDeviceSec.Remove(steamId);
 				continue;
@@ -1543,6 +1607,25 @@ class KPK_Server
 			if (player.IsAlive())
 				Notify(player, "КПК", "Сеанс завершён: КПК нет при себе. Войдите заново.");
 		}
+	}
+
+	// "ready for contact": logged in, a working full KPK of one's own faction in the hands. Synced to
+	// every client, so the look-at actions (contact / party) show only when both players are ready.
+	bool ReadyForContact(PlayerBase player, string steamId, bool allowBrick = false)
+	{
+		if (!player || !player.IsAlive() || !m_LoggedIn.Contains(steamId))
+			return false;
+		EntityAI held = WorkingDeviceInHands(player, steamId);
+		if (!held)
+			return false;
+		return allowBrick || KPK_Const.FullAccess(KPK_Device.ModelOf(held));
+	}
+
+	void TickReady()
+	{
+		map<string, PlayerBase> online = OnlinePlayers();
+		foreach (string steamId, PlayerBase player : online)
+			player.KPK_SetReady(ReadyForContact(player, steamId));
 	}
 
 	void TickStats()
@@ -1716,6 +1799,7 @@ class KPK_Server
 			blocked = blocked || action == KPK_C.CHAT_SEND || action == KPK_C.CONTACT_ADD || action == KPK_C.CONTACT_DEL;
 			blocked = blocked || action == KPK_C.TASK_ADD || action == KPK_C.TASK_SET;
 			blocked = blocked || action == KPK_C.CHAT_OLDER;
+			blocked = blocked || action == KPK_C.CONTACT_RESPOND;
 			blocked = blocked || ((action == KPK_C.MARKER_ADD || action == KPK_C.MARKER_EDIT || action == KPK_C.MARKER_DEL) && req.I2 == KPK_Scope.FACTION);
 			if (blocked)
 			{
@@ -1755,6 +1839,7 @@ class KPK_Server
 			case KPK_C.CHAT_OLDER: HandleChatOlder(player, acc.SteamId, req); break;
 			case KPK_C.CONTACT_ADD: HandleContact(player, acc, req, true); break;
 			case KPK_C.CONTACT_DEL: HandleContact(player, acc, req, false); break;
+			case KPK_C.CONTACT_RESPOND: HandleContactRespond(player, acc, req); break;
 			case KPK_C.CALL_START: HandleCallStart(player, acc, req, openModel); break;
 			case KPK_C.CALL_ANSWER: HandleCallAnswer(player, acc, req); break;
 			case KPK_C.CALL_END: EndCall(acc.SteamId, "Связь завершена"); break;
@@ -2511,6 +2596,12 @@ class KPK_Server
 			return;
 		}
 		int index = acc.Contacts.Find(targetId);
+		// "adding" by callsign gives the own contact to that stalker (he has to accept it)
+		if (add)
+		{
+			OfferContact(player, acc, targetId);
+			return;
+		}
 		if (add)
 		{
 			if (targetId == acc.SteamId)
@@ -2672,19 +2763,26 @@ class KPK_Server
 
 	// contacts and party invites happen face to face: both hold a working KPK in their hands and,
 	// when done by callsign from the KPK pages, stand close to each other
-	bool FaceToFace(PlayerBase player, string steamId, string targetId, string what)
+	// allowBrick: party invites typed on the party tab work from the brick too (it has a party tab);
+	// the look-at actions and contacts need full KPKs
+	bool FaceToFace(PlayerBase player, string steamId, string targetId, string what, bool allowBrick = false)
 	{
 		if (!m_Settings.ContactNeedsHands)
 			return true;
+		if (m_WorldAction)
+			allowBrick = false;
 		PlayerBase other = FindOnline(targetId);
-		if (!WorkingDeviceInHands(player, steamId))
+		if (!ReadyForContact(player, steamId, allowBrick))
 		{
-			Msg(player, "Для " + what + " держите КПК в руках");
+			if (allowBrick)
+				Msg(player, "Для " + what + " держите в руках свой рабочий КПК и войдите в сеть");
+			else
+				Msg(player, "Для " + what + " держите в руках свой рабочий КПК (не «Вестник») и войдите в сеть");
 			return false;
 		}
-		if (!other || !WorkingDeviceInHands(other, targetId))
+		if (!other || !ReadyForContact(other, targetId, allowBrick))
 		{
-			Msg(player, "У сталкера «" + CallsignOf(targetId) + "» нет КПК в руках");
+			Msg(player, "У сталкера «" + CallsignOf(targetId) + "» нет в руках КПК, подключённого к сети");
 			return false;
 		}
 		if (!m_WorldAction && vector.Distance(player.GetPosition(), other.GetPosition()) > m_Settings.ContactMaxDistance)
@@ -3204,7 +3302,31 @@ class KPK_Server
 
 		array<string> ids = new array<string>();
 		string where;
-		if (req.I1 == KPK_Scope.PARTY)
+		if (req.I1 == KPK_TASK_GLOBAL)
+		{
+			if (!AdminHere(acc.SteamId))
+			{
+				Msg(player, "Доступно только в КПК-А «Куратор»");
+				return;
+			}
+			if (m_Factions.GlobalTasks.Count() >= m_Settings.MaxGroupTasks)
+			{
+				Msg(player, "Слишком много общих заданий, удалите старые");
+				return;
+			}
+			task.Id = "g" + m_Factions.NextGlobalTaskId.ToString();
+			m_Factions.NextGlobalTaskId++;
+			task.Issuer = "";
+			task.Author = "";
+			m_Factions.GlobalTasks.Insert(task);
+			SaveFactions();
+			map<string, PlayerBase> allOnline = OnlinePlayers();
+			foreach (string gid, PlayerBase gp : allOnline)
+				ids.Insert(gid);
+			where = "";
+			RefreshIds(ids);
+		}
+		else if (req.I1 == KPK_Scope.PARTY)
 		{
 			KPK_Party party = PartyOf(acc.SteamId);
 			if (!party)
@@ -3291,11 +3413,14 @@ class KPK_Server
 		}
 
 		Msg(player, "Задание «" + title + "» выдано");
+		string noteTitle = "Новое задание";
+		if (where != "")
+			noteTitle += " " + where;
 		foreach (string mid : ids)
 		{
 			PlayerBase mp = FindOnline(mid);
 			if (mp && mid != acc.SteamId && WorkingDevice(mp, mid))
-				Notify(mp, "Новое задание " + where, title);
+				Notify(mp, noteTitle, title);
 		}
 	}
 
@@ -3305,7 +3430,17 @@ class KPK_Server
 		array<ref KPK_Task> list;
 		KPK_Party party;
 		KPK_Faction faction;
-		if (id.IndexOf("p") == 0)
+		bool isGlobal = id.IndexOf("g") == 0;
+		if (isGlobal)
+		{
+			if (!AdminHere(acc.SteamId))
+			{
+				Msg(player, "Доступно только в КПК-А «Куратор»");
+				return;
+			}
+			list = m_Factions.GlobalTasks;
+		}
+		else if (id.IndexOf("p") == 0)
 		{
 			party = PartyOf(acc.SteamId);
 			if (!party)
@@ -3368,7 +3503,7 @@ class KPK_Server
 		else
 		{
 			SaveFactions();
-			if (wasPublic)
+			if (wasPublic || isGlobal)
 			{
 				array<string> everybody = new array<string>();
 				map<string, PlayerBase> everyone = OnlinePlayers();
@@ -3419,7 +3554,7 @@ class KPK_Server
 				return;
 			}
 		}
-		if (!FaceToFace(player, acc.SteamId, targetId, "приглашения в группу"))
+		if (!FaceToFace(player, acc.SteamId, targetId, "приглашения в группу", true))
 			return;
 
 		if (!FindInvite(targetId, 1, acc.SteamId, ""))

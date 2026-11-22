@@ -87,7 +87,8 @@ modded class ActionConstructor
 	}
 };
 
-// Looking at another player: add them to the KPK contacts / invite them to the party (their KPK must be on)
+// Looking at another player: give him your contact / invite him to the party. Both must be logged in with
+// a working full KPK of their own in the hands; the other one confirms in his KPK.
 class ActionKPKWorldContact : ActionInteractBase
 {
 	protected bool m_Invite;
@@ -96,7 +97,7 @@ class ActionKPKWorldContact : ActionInteractBase
 	{
 		m_CommandUID = DayZPlayerConstants.CMD_ACTIONMOD_INTERACTONCE;
 		m_StanceMask = DayZPlayerConstants.STANCEMASK_ERECT | DayZPlayerConstants.STANCEMASK_CROUCH;
-		m_Text = "КПК: добавить в контакты";
+		m_Text = "КПК: передать свой контакт";
 	}
 
 	override void CreateConditionComponents()
@@ -110,23 +111,15 @@ class ActionKPKWorldContact : ActionInteractBase
 		PlayerBase other = PlayerBase.Cast(target.GetObject());
 		if (!other || other == player || !other.IsAlive())
 			return false;
-		if (ContactNeedsHands())
-			return HoldsKPK(player) && HoldsKPK(other);
-		return KPK_Device.FindOn(player) != null;
-	}
-
-	protected bool ContactNeedsHands()
-	{
+		// both: logged in, a working full KPK of their own in the hands (the server syncs the flag)
 		if (GetGame().IsDedicatedServer())
-			return !KPK_Server.Get() || KPK_Server.Get().m_Settings.ContactNeedsHands;
-		return KPK_Client.s_ContactNeedsHands;
-	}
-
-	// a KPK (not ruined) in the hands; the other player's hands item is synced to every client
-	protected bool HoldsKPK(PlayerBase p)
-	{
-		EntityAI item = p.GetHumanInventory().GetEntityInHands();
-		return KPK_Device.IsKPK(item) && !item.IsRuined();
+		{
+			KPK_Server server = KPK_Server.Get();
+			if (!server || !player.GetIdentity() || !other.GetIdentity())
+				return false;
+			return server.ReadyForContact(player, player.GetIdentity().GetPlainId()) && server.ReadyForContact(other, other.GetIdentity().GetPlainId());
+		}
+		return player.KPK_IsReady() && other.KPK_IsReady();
 	}
 
 	override void OnExecuteServer(ActionData action_data)
