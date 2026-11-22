@@ -145,7 +145,8 @@ class KPK_UI
 	}
 
 	// multi-line edit box without automatic word wrap in the engine: long lines are broken at the last
-	// space (or hard, in a long word) so the text stays inside the box. The caret stays on its character.
+	// space (or hard, in a long word) so the text stays inside the box. Spaces become line breaks, so the
+	// length of the text does not change (the engine has no script call to move the caret).
 	static bool Reflow(MultilineEditBoxWidget box, int maxChars)
 	{
 		if (!box || maxChars < 4)
@@ -166,21 +167,11 @@ class KPK_UI
 			start = nl + 1;
 		}
 
-		int caretLine = box.GetCarriageLine();
-		int caretPos = box.GetCarriagePos();
-		int caret = 0;
-		for (int cl = 0; cl < caretLine && cl < lines.Count(); cl++)
-			caret += lines[cl].LengthUtf8() + 1;
-		caret += caretPos;
-
 		array<string> result = new array<string>();
 		bool changed = false;
-		int shift = 0;
-		int lineStart = 0;
 		foreach (string line : lines)
 		{
 			string rest = line;
-			int done = 0;
 			while (rest.LengthUtf8() > maxChars)
 			{
 				int len = rest.LengthUtf8();
@@ -195,24 +186,19 @@ class KPK_UI
 				}
 				if (cut > 0)
 				{
-					// the space becomes the line break: same length, the caret keeps its place
+					// the space becomes the line break: same length
 					result.Insert(rest.SubstringUtf8(0, cut));
 					rest = rest.SubstringUtf8(cut + 1, len - cut - 1);
-					done += cut + 1;
 				}
 				else
 				{
-					// one long word: a break is inserted, the caret after it moves by one
+					// one long word: a break is inserted
 					result.Insert(rest.SubstringUtf8(0, maxChars));
 					rest = rest.SubstringUtf8(maxChars, len - maxChars);
-					done += maxChars;
-					if (lineStart + done <= caret)
-						shift++;
 				}
 				changed = true;
 			}
 			result.Insert(rest);
-			lineStart += line.LengthUtf8() + 1;
 		}
 		if (!changed)
 			return false;
@@ -225,18 +211,6 @@ class KPK_UI
 			joined += result[r];
 		}
 		box.SetText(joined);
-
-		int target = caret + shift;
-		int newLine = 0;
-		while (newLine < result.Count() - 1 && target > result[newLine].LengthUtf8())
-		{
-			target -= result[newLine].LengthUtf8() + 1;
-			newLine++;
-		}
-		if (target < 0)
-			target = 0;
-		box.SetCarriageLine(newLine);
-		box.SetCarriagePos(target);
 		return true;
 	}
 
