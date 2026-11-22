@@ -350,6 +350,13 @@ class KPK_Menu extends UIScriptedMenu
 		m_Skin = new KPK_Skin();
 
 		BuildChrome();
+		// the host of the tab pages comes before the login and boot pages: lying above them, the
+		// full-screen host took the clicks and the password box could not be focused
+		// it covers only the content area (not the tabs, title bar or status bar)
+		if (m_Full)
+			m_PageHost = KPK_UI.Frame(m_Screen, 0.178, 0.095, 0.812, 0.83);
+		else
+			m_PageHost = KPK_UI.Frame(m_Screen, 0.012, 0.165, 0.976, 0.762);
 		// login and boot are built before everything else: if the engine's widget limit is reached it
 		// must never be on the password box (the box appeared, the input inside it did not)
 		Widget loginPage = BuildLogin();
@@ -359,7 +366,6 @@ class KPK_Menu extends UIScriptedMenu
 		// (and does not give them back at once when a window is destroyed). Building all eight pages up
 		// front ran into that cap: empty fields, missing buttons. Pages live in a host under the screen
 		// effects, so a page built later still lies below the glass.
-		m_PageHost = KPK_UI.Frame(m_Screen, 0, 0, 1, 1);
 		m_Built = new array<bool>();
 		for (int tab = 0; tab < TAB_COUNT; tab++)
 		{
@@ -607,12 +613,11 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected Widget Content()
 	{
-		Widget host = m_Screen;
 		if (m_PageHost)
-			host = m_PageHost;
+			return KPK_UI.Frame(m_PageHost, 0, 0, 1, 1);
 		if (!m_Full)
-			return KPK_UI.Frame(host, 0.012, 0.165, 0.976, 0.762);
-		return KPK_UI.Frame(host, 0.178, 0.095, 0.812, 0.83);
+			return KPK_UI.Frame(m_Screen, 0.012, 0.165, 0.976, 0.762);
+		return KPK_UI.Frame(m_Screen, 0.178, 0.095, 0.812, 0.83);
 	}
 
 	// a tab page is built on its first show
