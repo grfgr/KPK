@@ -83,6 +83,8 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_T_ADMIN_DEL = 903;
 	static const int B_R_ANSWER = 801;
 	static const int B_R_END = 802;
+	static const int B_R_DIAL = 803;      // brick: call the selected contact
+	static const int B_R_DROP = 804;      // brick: remove the selected contact
 
 	protected ref array<ref KPK_Button> m_Buttons;
 	protected ref array<ref KPK_Button> m_Tabs;
@@ -162,6 +164,7 @@ class KPK_Menu extends UIScriptedMenu
 	// party
 	protected ref KPK_List m_PartyList;
 	protected ref KPK_List m_InviteList;
+	protected ref KPK_List m_BrickContacts;   // brick: contacts for quick calls
 	protected EditBoxWidget m_PartyInviteName;
 	protected TextWidget m_PartyInfo;
 	protected ref KPK_Button m_LabelsButton;
@@ -957,7 +960,7 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (m_Full)
 			return 3;
-		return 2;
+		return 1;   // the brick: personal markers only (no party)
 	}
 
 	protected void UpdateMarkerEditor()
@@ -1189,8 +1192,35 @@ class KPK_Menu extends UIScriptedMenu
 
 	// =================================================================== party
 
+	// the brick: no party, only the contacts (quick calls) and the radio
+	protected Widget BuildBrickComms()
+	{
+		Widget page = Content();
+		Widget left = KPK_UI.Card(page, 0, 0, 0.49, 1, "КОНТАКТЫ");
+		m_BrickContacts = new KPK_List(left, 0.04, 0.08, 0.92, 0.72, 9, "— контактов нет —");
+		m_Lists.Insert(m_BrickContacts);
+		AddButton(left, B_R_DIAL, "ВЫЗВАТЬ", 0.04, 0.84, 0.45, 0.07);
+		AddButton(left, B_R_DROP, "УДАЛИТЬ", 0.51, 0.84, 0.45, 0.07);
+		MultilineTextWidget ch = KPK_UI.MText(left, 0.04, 0.925, 0.92, 0.07, 11, KPK_UI.C_DIM);
+		ch.SetText("Контакты добавляются на полном КПК — аккаунт общий.");
+
+		Widget radio = KPK_UI.Card(page, 0.51, 0, 0.49, 1, "РАЦИЯ");
+		m_RadioText = KPK_UI.MText(radio, 0.04, 0.08, 0.92, 0.3, 14, KPK_UI.C_TEXT);
+		KPK_UI.Text(radio, "Вызов по позывному", 0.04, 0.42, 0.92, 0.05, 13, KPK_UI.C_DIM);
+		m_RadioName = KPK_UI.Edit(radio, 0.04, 0.48, 0.6, 0.07);
+		AddButton(radio, B_R_CALL, "ВЫЗОВ", 0.66, 0.48, 0.3, 0.07);
+		AddButton(radio, B_R_ANSWER, "ОТВЕТИТЬ", 0.04, 0.62, 0.45, 0.08);
+		AddButton(radio, B_R_END, "ОТБОЙ", 0.51, 0.62, 0.45, 0.08);
+		MultilineTextWidget rh = KPK_UI.MText(radio, 0.04, 0.76, 0.92, 0.22, 12, KPK_UI.C_DIM);
+		rh.SetText("Выберите контакт слева и нажмите «ВЫЗВАТЬ». Во время разговора так же добавляется ещё один участник.");
+		rh.Show(!m_Theme.Glitch);
+		return page;
+	}
+
 	protected Widget BuildParty()
 	{
+		if (!m_Full)
+			return BuildBrickComms();
 		Widget page = Content();
 
 		Widget left = KPK_UI.Card(page, 0, 0, 0.49, 1, "ГРУППА");
@@ -1211,18 +1241,6 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(right, B_INV_ACCEPT, "ПРИНЯТЬ", 0.04, 0.82, 0.45, 0.1);
 		AddButton(right, B_INV_DECLINE, "ОТКЛОНИТЬ", 0.51, 0.82, 0.45, 0.1);
 
-		// the brick has a radio here instead of the sensor card (labels still toggle with Ctrl + K)
-		if (!m_Full)
-		{
-			Widget radio = KPK_UI.Card(page, 0.51, 0.65, 0.49, 0.35, "РАЦИЯ");
-			m_RadioText = KPK_UI.MText(radio, 0.04, 0.1, 0.92, 0.27, 13, KPK_UI.C_TEXT);
-			m_RadioName = KPK_UI.Edit(radio, 0.04, 0.4, 0.6, 0.17);
-			AddButton(radio, B_R_CALL, "ВЫЗОВ", 0.66, 0.4, 0.3, 0.17);
-			AddButton(radio, B_R_ANSWER, "ОТВЕТИТЬ", 0.04, 0.68, 0.45, 0.2);
-			AddButton(radio, B_R_END, "ОТБОЙ", 0.51, 0.68, 0.45, 0.2);
-			return page;
-		}
-
 		Widget opts = KPK_UI.Card(page, 0.51, 0.65, 0.49, 0.35, "ДАТЧИКИ");
 		m_LabelsButton = AddButton(opts, B_LABELS, "", 0.04, 0.2, 0.92, 0.18);
 		m_PartyHint = KPK_UI.MText(opts, 0.04, 0.45, 0.92, 0.5, 13, KPK_UI.C_DIM);
@@ -1236,6 +1254,11 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
 			return;
+		if (!m_Full)
+		{
+			RefreshBrickComms(v);
+			return;
+		}
 
 		array<string> names = new array<string>();
 		array<int> colors = new array<int>();
@@ -1297,6 +1320,41 @@ class KPK_Menu extends UIScriptedMenu
 		else
 			m_LabelsButton.SetText("МЕТКИ В МИРЕ: ВЫКЛ");
 		m_LabelsButton.SetActive(KPK_Client.s_LabelsEnabled);
+	}
+
+	protected void RefreshBrickComms(KPK_View v)
+	{
+		array<string> names = new array<string>();
+		array<int> colors = new array<int>();
+		foreach (KPK_ContactView c : v.Contacts)
+		{
+			string line = c.Callsign;
+			if (c.Online)
+			{
+				line += "   · в сети";
+				colors.Insert(KPK_UI.C_TEXT);
+			}
+			else
+			{
+				line += "   · нет сигнала";
+				colors.Insert(KPK_UI.C_DIM);
+			}
+			names.Insert(line);
+		}
+		m_BrickContacts.Set(names, colors);
+		if (m_RadioText)
+			RefreshRadio(v);
+	}
+
+	protected string BrickContactName()
+	{
+		KPK_View v = KPK_Client.s_View;
+		if (!v || !m_BrickContacts)
+			return "";
+		int i = m_BrickContacts.Selected();
+		if (i < 0 || i >= v.Contacts.Count())
+			return "";
+		return v.Contacts[i].Callsign;
 	}
 
 	protected void RefreshRadio(KPK_View v)
@@ -1703,6 +1761,9 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (!v || !task)
 			return false;
+		// «Куратор»: any party / faction / public / admin task
+		if (v.TaskGlobal && task.Scope != KPK_Scope.PERSONAL)
+			return true;
 		if (task.Scope == KPK_Scope.PARTY)
 			return v.TaskParty;
 		if (task.Scope == KPK_Scope.FACTION)
@@ -1827,7 +1888,11 @@ class KPK_Menu extends UIScriptedMenu
 		int remove = 0;
 		if (id == B_TS_DEL)
 			remove = 1;
-		KPK_Client.SendText(KPK_C.TASK_SET, selTask.Id, "", newStatus, remove);
+		// the owner of the task, for the admin who manages tasks of any party / faction
+		string owner = selTask.FactionId;
+		if (selTask.Scope == KPK_Scope.PARTY)
+			owner = selTask.PartyId.ToString();
+		KPK_Client.SendText(KPK_C.TASK_SET, selTask.Id, owner, newStatus, remove);
 	}
 
 	protected void RefreshTasks()
@@ -2879,6 +2944,25 @@ class KPK_Menu extends UIScriptedMenu
 				KPK_Client.SendText(KPK_C.CALL_START, m_RadioName.GetText());
 				m_RadioName.SetText("");
 				break;
+			case B_R_DIAL:
+			{
+				string dialName = BrickContactName();
+				if (dialName == "")
+					SetStatus("Выберите контакт в списке");
+				else
+					KPK_Client.SendText(KPK_C.CALL_START, dialName);
+				break;
+			}
+			case B_R_DROP:
+			{
+				string dropName = BrickContactName();
+				if (dropName != "")
+				{
+					KPK_Client.SendText(KPK_C.CONTACT_DEL, dropName);
+					m_BrickContacts.Select(-1);
+				}
+				break;
+			}
 			case B_R_ANSWER:
 			{
 				// like SFP: the brick goes into empty hands when answering

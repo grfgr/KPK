@@ -961,7 +961,10 @@ class KPK_Server
 		foreach (KPK_Marker pm : acc.Markers)
 			view.Markers.Insert(pm);
 
-		KPK_Party party = PartyOf(steamId);
+		// the brick has no party: only contacts and the radio
+		KPK_Party party = null;
+		if (full)
+			party = PartyOf(steamId);
 		if (party)
 		{
 			foreach (KPK_Marker gm : party.Markers)
@@ -1003,7 +1006,7 @@ class KPK_Server
 		{
 			if (inv.ToId != steamId)
 				continue;
-			if ((inv.Kind == 2 || inv.Kind == 3) && !full)
+			if (!full)
 				continue;
 			KPK_InviteView iv = new KPK_InviteView();
 			iv.Kind = inv.Kind;
@@ -1020,6 +1023,26 @@ class KPK_Server
 		{
 			view.CallState = callState;
 			view.CallWith = CallPeers(steamId);
+		}
+
+		// contacts: the brick has them too (quick calls)
+		foreach (string contactId : acc.Contacts)
+		{
+			KPK_ContactView cv = new KPK_ContactView();
+			cv.Callsign = CallsignOf(contactId);
+			cv.Online = online.Contains(contactId);
+			KPK_Account other = GetAccount(contactId);
+			if (other)
+			{
+				cv.Mutual = other.Contacts.Find(steamId) != -1;
+				cv.LastSeen = other.LastSeen;
+			}
+			string tagName;
+			int tagColor;
+			PublicFaction(contactId, tagName, tagColor);
+			cv.Faction = tagName;
+			cv.Color = tagColor;
+			view.Contacts.Insert(cv);
 		}
 
 		// the brick stops here: no factions, tasks or notes
@@ -1046,22 +1069,49 @@ class KPK_Server
 		foreach (KPK_Task gl : m_Factions.GlobalTasks)
 			view.Tasks.Insert(gl);
 		if (party)
-		{
 			view.TaskParty = true;   // any party member writes and manages party tasks
-			foreach (KPK_Task pt : party.Tasks)
-				view.Tasks.Insert(pt);
-		}
 		if (myFaction)
 		{
 			view.TaskPublic = myFaction.Find(steamId).Role >= KPK_Role.DEPUTY;
 			view.TaskFaction = MayWriteFactionTask(myFaction, steamId);
-			foreach (KPK_Task ft : myFaction.Tasks)
-				view.Tasks.Insert(ft);
+		}
+		if (isAdmin)
+		{
+			// «Куратор»: the tasks of every party and every faction, to remove whatever is needed
+			foreach (KPK_Party ap : m_Parties)
+			{
+				foreach (KPK_Task apt : ap.Tasks)
+				{
+					apt.PartyId = ap.Id;
+					view.Tasks.Insert(apt);
+				}
+			}
+			foreach (KPK_Faction af : m_Factions.Factions)
+			{
+				foreach (KPK_Task aft : af.Tasks)
+				{
+					aft.FactionId = af.Id;
+					view.Tasks.Insert(aft);
+				}
+			}
+		}
+		else
+		{
+			if (party)
+			{
+				foreach (KPK_Task pt : party.Tasks)
+					view.Tasks.Insert(pt);
+			}
+			if (myFaction)
+			{
+				foreach (KPK_Task ft : myFaction.Tasks)
+					view.Tasks.Insert(ft);
+			}
 		}
 		// public tasks of the other factions
 		foreach (KPK_Faction tf : m_Factions.Factions)
 		{
-			if (tf == myFaction)
+			if (tf == myFaction || isAdmin)
 				continue;
 			foreach (KPK_Task gt : tf.Tasks)
 			{
@@ -1084,25 +1134,6 @@ class KPK_Server
 		}
 		for (int vi = visible.Count() - 1; vi >= 0; vi--)
 			view.Chat.Insert(visible[vi]);
-
-		foreach (string contactId : acc.Contacts)
-		{
-			KPK_ContactView cv = new KPK_ContactView();
-			cv.Callsign = CallsignOf(contactId);
-			cv.Online = online.Contains(contactId);
-			KPK_Account other = GetAccount(contactId);
-			if (other)
-			{
-				cv.Mutual = other.Contacts.Find(steamId) != -1;
-				cv.LastSeen = other.LastSeen;
-			}
-			string tagName;
-			int tagColor;
-			PublicFaction(contactId, tagName, tagColor);
-			cv.Faction = tagName;
-			cv.Color = tagColor;
-			view.Contacts.Insert(cv);
-		}
 
 		return view;
 	}
@@ -1796,11 +1827,12 @@ class KPK_Server
 			bool blocked = action == KPK_C.NOTE_SAVE || action == KPK_C.NOTE_DEL || action == KPK_C.ADMIN_FACTION;
 			blocked = blocked || action == KPK_C.FACTION_INVITE || action == KPK_C.FACTION_RESPOND || action == KPK_C.FACTION_LEAVE;
 			blocked = blocked || action == KPK_C.FACTION_KICK || action == KPK_C.FACTION_SETROLE;
-			blocked = blocked || action == KPK_C.CHAT_SEND || action == KPK_C.CONTACT_ADD || action == KPK_C.CONTACT_DEL;
+			blocked = blocked || action == KPK_C.CHAT_SEND || action == KPK_C.CONTACT_ADD;
+			blocked = blocked || action == KPK_C.PARTY_INVITE || action == KPK_C.PARTY_RESPOND || action == KPK_C.PARTY_LEAVE || action == KPK_C.PARTY_KICK;
 			blocked = blocked || action == KPK_C.TASK_ADD || action == KPK_C.TASK_SET;
 			blocked = blocked || action == KPK_C.CHAT_OLDER;
 			blocked = blocked || action == KPK_C.CONTACT_RESPOND;
-			blocked = blocked || ((action == KPK_C.MARKER_ADD || action == KPK_C.MARKER_EDIT || action == KPK_C.MARKER_DEL) && req.I2 == KPK_Scope.FACTION);
+			blocked = blocked || ((action == KPK_C.MARKER_ADD || action == KPK_C.MARKER_EDIT || action == KPK_C.MARKER_DEL) && req.I2 != KPK_Scope.PERSONAL);
 			if (blocked)
 			{
 				Msg(player, "Функция недоступна на этой модели КПК");
@@ -3340,6 +3372,7 @@ class KPK_Server
 				return;
 			}
 			task.Id = "p" + party.NextTaskId.ToString();
+			task.PartyId = party.Id;
 			party.NextTaskId++;
 			if (party.LeaderId == acc.SteamId)
 				task.Issuer = "Лидер группы " + acc.Callsign;
@@ -3431,6 +3464,7 @@ class KPK_Server
 		KPK_Party party;
 		KPK_Faction faction;
 		bool isGlobal = id.IndexOf("g") == 0;
+		bool admin = AdminHere(acc.SteamId);
 		if (isGlobal)
 		{
 			if (!AdminHere(acc.SteamId))
@@ -3443,6 +3477,16 @@ class KPK_Server
 		else if (id.IndexOf("p") == 0)
 		{
 			party = PartyOf(acc.SteamId);
+			// the admin: the party named in S2 (any party)
+			if (admin && req.S2 != "")
+			{
+				int wantParty = req.S2.ToInt();
+				foreach (KPK_Party anyParty : m_Parties)
+				{
+					if (anyParty.Id == wantParty)
+						party = anyParty;
+				}
+			}
 			if (!party)
 			{
 				Msg(player, "Вы не в группе");
@@ -3453,6 +3497,8 @@ class KPK_Server
 		else if (id.IndexOf("f") == 0)
 		{
 			faction = FactionOf(acc.SteamId);
+			if (admin && req.S2 != "")
+				faction = FindFaction(req.S2);
 			if (!faction)
 				return;
 			list = faction.Tasks;
@@ -3469,7 +3515,7 @@ class KPK_Server
 			if (task.Id != id)
 				continue;
 			wasPublic = task.Scope == KPK_TASK_PUBLIC;
-			if (faction)
+			if (faction && !admin)
 			{
 				bool deputy = faction.Find(acc.SteamId).Role >= KPK_Role.DEPUTY;
 				if ((wasPublic && !deputy) || (!wasPublic && !MayWriteFactionTask(faction, acc.SteamId)))
@@ -3516,6 +3562,9 @@ class KPK_Server
 				RefreshFaction(faction);
 			}
 		}
+		// the admin is not always in that party / faction: his list must update too
+		if (admin)
+			SendView(player);
 	}
 
 	// =================================================================== party

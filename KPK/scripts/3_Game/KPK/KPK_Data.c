@@ -48,6 +48,7 @@ class KPK_Task
 	int Scope;         // KPK_Scope: PERSONAL (from scripts), PARTY, FACTION or KPK_TASK_PUBLIC (written by the leaders)
 	string Author;     // callsign of whoever wrote a party / faction task
 	string FactionId;  // faction tasks: whose (public ones are shown to everybody)
+	int PartyId;       // party tasks: which party (the admin removes tasks of any party)
 };
 
 // Reputation with a faction: groundwork. Change through KPK_Server.AddReputation().
