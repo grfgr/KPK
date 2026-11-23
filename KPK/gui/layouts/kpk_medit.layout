@@ -7,6 +7,7 @@ PanelWidgetClass KPK_MEdit {
  hexactsize 0
  vexactsize 0
  style rover_sim_colorable
+ clipchildren 1
  {
   MultilineEditBoxWidgetClass input {
    color 0.75 0.95 0.62 1

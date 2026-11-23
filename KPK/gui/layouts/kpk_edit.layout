@@ -7,6 +7,7 @@ PanelWidgetClass KPK_Edit {
  hexactsize 0
  vexactsize 0
  style rover_sim_colorable
+ clipchildren 1
  {
   EditBoxWidgetClass input {
    color 0.75 0.95 0.62 1

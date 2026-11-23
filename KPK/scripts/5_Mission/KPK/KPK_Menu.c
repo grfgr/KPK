@@ -1196,6 +1196,18 @@ class KPK_Menu extends UIScriptedMenu
 	}
 
 	protected bool m_Reflowing;
+	protected float m_WrapTime;
+	protected bool m_WrapLogged;
+
+	protected void WrapVisibleEdits()
+	{
+		if (m_Page == P_TASKS && m_TaskEditing && m_TaskDescEdit)
+			ReflowEdit(m_TaskDescEdit);
+		else if (m_Page == P_NOTES && m_NoteText)
+			ReflowEdit(m_NoteText);
+		else if (m_Page == P_MAP && m_MarkerName)
+			ReflowEdit(m_MarkerName);
+	}
 
 	protected void ReflowEdit(MultilineEditBoxWidget box)
 	{
@@ -1205,8 +1217,13 @@ class KPK_Menu extends UIScriptedMenu
 		if (chars <= 0)
 			return;
 		m_Reflowing = true;
-		KPK_UI.Reflow(box, chars);
+		bool wrapped = KPK_UI.Reflow(box, chars);
 		m_Reflowing = false;
+		if (wrapped && !m_WrapLogged)
+		{
+			m_WrapLogged = true;
+			Print("[KPK] text wrapped at " + chars + " characters per line");
+		}
 	}
 
 	protected KPK_Marker SelectedMarker()
@@ -2633,6 +2650,15 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			m_BootTime += timeslice;
 			UpdateBoot();
+		}
+
+		// multi-line boxes: the engine sends no change event while typing in them, so they are checked
+		// a few times a second and long lines are wrapped onto the next line
+		m_WrapTime += timeslice;
+		if (m_WrapTime > 0.2)
+		{
+			m_WrapTime = 0;
+			WrapVisibleEdits();
 		}
 
 		m_BlinkTime += timeslice;
