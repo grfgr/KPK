@@ -148,7 +148,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected MapWidget m_Map;
 	protected ref KPK_MapHandler m_MapHandler;
 	protected ref KPK_List m_MarkerList;
-	protected MultilineEditBoxWidget m_MarkerName;   // two lines: long names wrap
+	protected EditBoxWidget m_MarkerName;            // shown wrapped by its KPK_TextBox
 	protected Widget m_PageHost;                     // the tab pages, below the screen effects
 	protected ref array<bool> m_Built;               // which tab pages exist already
 	protected TextWidget m_MarkerType;
@@ -193,7 +193,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected Widget m_TaskEditBox;
 	protected EditBoxWidget m_TaskTitleEdit;
 	protected EditBoxWidget m_TaskRewardEdit;
-	protected MultilineEditBoxWidget m_TaskDescEdit;
+	protected EditBoxWidget m_TaskDescEdit;
 	protected bool m_TaskEditing;
 	protected Widget m_TaskPickBox;
 	protected ref KPK_List m_TaskFactionList;
@@ -203,7 +203,7 @@ class KPK_Menu extends UIScriptedMenu
 	// notes
 	protected ref KPK_List m_NoteList;
 	protected EditBoxWidget m_NoteTitle;
-	protected MultilineEditBoxWidget m_NoteText;
+	protected EditBoxWidget m_NoteText;
 	protected TextWidget m_NoteInfo;
 	protected int m_NoteId;            // 0 = new note
 	protected bool m_SelectNewestNote;
@@ -212,8 +212,7 @@ class KPK_Menu extends UIScriptedMenu
 	// chat
 	protected MultilineTextWidget m_ChatLog;
 	protected TextWidget m_ChatChannel;
-	protected MultilineEditBoxWidget m_ChatEdit;   // two lines, wraps; Enter sends
-	protected int m_ChatBreaks;                    // line breaks the wrapping put in: one more = Enter
+	protected EditBoxWidget m_ChatEdit;            // shown wrapped on two lines; Enter sends
 	protected string m_ChatTo = "";     // callsign for private messages, "" = general channel
 	protected int m_ChatOffset;          // lines scrolled back from the newest
 
@@ -964,7 +963,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_EditorTitle = KPK_UI.Text(side, "НОВАЯ МЕТКА", 0.04, 0.565, 0.6, 0.04, 14, KPK_UI.C_ACCENT);
 		AddButton(side, B_MAP_NEW, "НОВАЯ", 0.64, 0.565, 0.32, 0.036);
 		KPK_UI.Text(side, "Название", 0.04, 0.605, 0.92, 0.035, 13, KPK_UI.C_DIM);
-		m_MarkerName = AddMEdit(KPK_UI.MEdit(side, 0.04, 0.64, 0.92, 0.06));
+		m_MarkerName = AddMulti(KPK_UI.Edit(side, 0.04, 0.64, 0.92, 0.06));
 
 		AddButton(side, B_TYPE_PREV, "<", 0.04, 0.707, 0.14, 0.042);
 		m_MarkerType = KPK_UI.Text(side, "", 0.19, 0.707, 0.62, 0.042, 14, KPK_UI.C_WHITE);
@@ -1024,7 +1023,6 @@ class KPK_Menu extends UIScriptedMenu
 		m_EditScope = mk.Scope;
 		m_NewType = mk.Type;
 		m_MarkerName.SetText(mk.Name);
-		ReflowEdit(m_MarkerName);
 		UpdateMarkerEditor();
 	}
 
@@ -1163,32 +1161,34 @@ class KPK_Menu extends UIScriptedMenu
 	// the name box wraps long names onto a second line: the line breaks are not part of the name
 	protected string MarkerNameText()
 	{
-		string name;
-		m_MarkerName.GetText(name);
-		name.Replace("\n", " ");
+		string name = m_MarkerName.GetText();
 		return name.Trim();
 	}
 
-	protected ref array<EditBoxWidget> m_Edits = new array<EditBoxWidget>();
-	protected ref array<MultilineEditBoxWidget> m_MEdits = new array<MultilineEditBoxWidget>();
+	// Text boxes: the engine's own edit boxes neither wrap nor keep the text inside their border, and
+	// the multi-line one hides its line breaks from scripts. So the input stays invisible and only takes
+	// the keys; what was typed is drawn by a normal text over it: wrapped in the big boxes, the end of
+	// the text in the one-line boxes (it scrolls along while typing). The cursor is drawn at the end.
+	protected ref array<ref KPK_TextBox> m_TextBoxes = new array<ref KPK_TextBox>();
+	protected float m_TextBoxTime;
 
 	protected EditBoxWidget AddEdit(EditBoxWidget box)
 	{
 		if (box)
-			m_Edits.Insert(box);
+			m_TextBoxes.Insert(new KPK_TextBox(box, false));
 		return box;
 	}
 
-	protected MultilineEditBoxWidget AddMEdit(MultilineEditBoxWidget box)
+	protected EditBoxWidget AddMulti(EditBoxWidget box)
 	{
 		if (box)
-			m_MEdits.Insert(box);
+			m_TextBoxes.Insert(new KPK_TextBox(box, true));
 		return box;
 	}
 
-	// characters that fit into a text box. Measured in game: the 13 px text takes ~7.7 px per character
-	// at 1080 lines, the one-line boxes draw their text about 1.3 times larger.
-	protected int EditChars(Widget box, bool singleLine)
+	// characters of the 13 px text that fit into a box: ~7.7 px per character at 1080 lines (measured
+	// on a screenshot), a little more for safety
+	protected int BoxChars(Widget box)
 	{
 		if (!box)
 			return 0;
@@ -1200,88 +1200,19 @@ class KPK_Menu extends UIScriptedMenu
 		GetScreenSize(sw, sh);
 		if (sh <= 0)
 			sh = 1080;
-		float charW = 7.7 * sh / 1080.0;
-		if (singleLine)
-			charW = charW * 1.3;
-		int chars = bw * 0.95 / charW;
+		float charW = 8.3 * sh / 1080.0;
+		int chars = bw * 0.94 / charW;
 		if (chars < 4)
 			chars = 4;
 		return chars;
 	}
 
-	protected bool m_Reflowing;
-	protected float m_WrapTime;
-	protected bool m_WrapLogged;
-
-	protected static int CountBreaks(string text)
+	protected void SyncTextBoxes()
 	{
-		int count = 0;
-		int at = text.IndexOf("\n");
-		while (at >= 0)
-		{
-			count++;
-			at = text.IndexOfFrom(at + 1, "\n");
-		}
-		return count;
-	}
-
-	// the chat line: wraps like the other boxes, but a line break typed by the player (Enter) sends it
-	protected void PollChatEdit()
-	{
-		if (!m_ChatEdit || m_Page != P_CHAT)
-			return;
-		string text;
-		m_ChatEdit.GetText(text);
-		int breaks = CountBreaks(text);
-		if (breaks > m_ChatBreaks)
-		{
-			SendChat();
-			return;
-		}
-		ReflowEdit(m_ChatEdit);
-		m_ChatEdit.GetText(text);
-		m_ChatBreaks = CountBreaks(text);
-	}
-
-	// every text box of the window: multi-line ones wrap, one-line ones stop at their border
-	protected void WrapVisibleEdits()
-	{
-		PollChatEdit();
-		foreach (MultilineEditBoxWidget mbox : m_MEdits)
-			ReflowEdit(mbox);
-		foreach (EditBoxWidget box : m_Edits)
-		{
-			int limit = EditChars(box, true);
-			if (limit <= 0)
-				continue;
-			string text = box.GetText();
-			if (text.LengthUtf8() > limit)
-			{
-				box.SetText(text.SubstringUtf8(0, limit));
-				if (!m_WrapLogged)
-				{
-					m_WrapLogged = true;
-					Print("[KPK] one-line box limited to " + limit + " characters");
-				}
-			}
-		}
-	}
-
-	protected void ReflowEdit(MultilineEditBoxWidget box)
-	{
-		if (m_Reflowing || !box)
-			return;
-		int chars = EditChars(box, false);
-		if (chars <= 0)
-			return;
-		m_Reflowing = true;
-		bool wrapped = KPK_UI.Reflow(box, chars);
-		m_Reflowing = false;
-		if (wrapped && !m_WrapLogged)
-		{
-			m_WrapLogged = true;
-			Print("[KPK] text wrapped at " + chars + " characters per line");
-		}
+		Widget focus = GetFocus();
+		bool blink = (GetGame().GetTime() / 500) % 2 == 0;
+		foreach (KPK_TextBox tb : m_TextBoxes)
+			tb.Sync(BoxChars(tb.m_Root), focus == tb.m_Input && blink);
 	}
 
 	protected KPK_Marker SelectedMarker()
@@ -1835,7 +1766,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Text(m_TaskEditBox, "Награда (необязательно)", 0.03, 0.19, 0.6, 0.04, 13, KPK_UI.C_DIM);
 		m_TaskRewardEdit = AddEdit(KPK_UI.Edit(m_TaskEditBox, 0.03, 0.23, 0.94, 0.055));
 		KPK_UI.Text(m_TaskEditBox, "Описание", 0.03, 0.3, 0.6, 0.04, 13, KPK_UI.C_DIM);
-		m_TaskDescEdit = AddMEdit(KPK_UI.MEdit(m_TaskEditBox, 0.03, 0.34, 0.94, 0.52));
+		m_TaskDescEdit = AddMulti(KPK_UI.Edit(m_TaskEditBox, 0.03, 0.34, 0.94, 0.52));
 		// «Куратор»: which factions get the task (click toggles)
 		m_TaskPickBox = KPK_UI.Panel(m_TaskEditBox, 0.03, 0.59, 0.94, 0.29, 0, true);
 		KPK_UI.Text(m_TaskPickBox, "Группировки (нажмите, чтобы отметить):", 0, 0, 1, 0.14, 12, KPK_UI.C_DIM);
@@ -2041,8 +1972,7 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void SendTask()
 	{
-		string text;
-		m_TaskDescEdit.GetText(text);
+		string text = m_TaskDescEdit.GetText();
 		KPK_Req req = new KPK_Req();
 		req.I1 = m_TaskScope;
 		req.S1 = m_TaskTitleEdit.GetText();
@@ -2097,7 +2027,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void RefreshTasks()
 	{
-		if (!m_TaskList)
+		// a part of the page that the engine refused to create must not break the whole window
+		if (!m_TaskList || !m_TaskText || !m_TaskEditBox || !m_TaskViewBox)
 			return;
 		KPK_View v = KPK_Client.s_View;
 		if (!v)
@@ -2190,7 +2121,7 @@ class KPK_Menu extends UIScriptedMenu
 		Widget right = KPK_UI.Card(page, 0.34, 0, 0.66, 1, "ЗАМЕТКА");
 		KPK_UI.Text(right, "Заголовок", 0.03, 0.06, 0.3, 0.04, 13, KPK_UI.C_DIM);
 		m_NoteTitle = AddEdit(KPK_UI.Edit(right, 0.03, 0.1, 0.94, 0.055));
-		m_NoteText = AddMEdit(KPK_UI.MEdit(right, 0.03, 0.18, 0.94, 0.7));
+		m_NoteText = AddMulti(KPK_UI.Edit(right, 0.03, 0.18, 0.94, 0.7));
 		m_NoteInfo = KPK_UI.Text(right, "", 0.03, 0.9, 0.6, 0.06, 13, KPK_UI.C_DIM);
 		AddButton(right, B_N_SAVE, "СОХРАНИТЬ", 0.67, 0.9, 0.3, 0.06);
 		return page;
@@ -2241,14 +2172,16 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_Note note = v.Notes[i];
 		m_NoteId = note.Id;
 		m_NoteTitle.SetText(note.Title);
-		m_NoteText.SetText(KPK_Util.FromWire(note.Text));
+		// the one-line input has no line breaks: they become spaces while editing
+		string noteBody = KPK_Util.FromWire(note.Text);
+		noteBody.Replace("\n", " ");
+		m_NoteText.SetText(noteBody);
 		m_NoteInfo.SetText("Изменено: " + note.Date);
 	}
 
 	protected void SaveNote()
 	{
-		string text;
-		m_NoteText.GetText(text);
+		string text = m_NoteText.GetText();
 		KPK_Req req = new KPK_Req();
 		req.I1 = m_NoteId;
 		req.S1 = m_NoteTitle.GetText();
@@ -2270,7 +2203,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Panel(card, 0.03, 0.805, 0.94, 0.002, KPK_UI.C_LINE);
 		m_ChatChannel = KPK_UI.Text(card, "", 0.03, 0.815, 0.62, 0.055, 13, KPK_UI.C_DIM);
 		AddButton(card, B_C_PUBLIC, "ОБЩИЙ КАНАЛ", 0.67, 0.815, 0.3, 0.055);
-		m_ChatEdit = KPK_UI.MEdit(card, 0.03, 0.885, 0.72, 0.065);
+		m_ChatEdit = AddMulti(KPK_UI.Edit(card, 0.03, 0.885, 0.72, 0.065));
 		AddButton(card, B_C_SEND, "ПЕРЕДАТЬ", 0.77, 0.885, 0.2, 0.065);
 		return page;
 	}
@@ -2343,11 +2276,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void SendChat()
 	{
-		string text;
-		m_ChatEdit.GetText(text);
-		text.Replace("\n", " ");
+		string text = m_ChatEdit.GetText();
 		m_ChatEdit.SetText("");
-		m_ChatBreaks = 0;
 		if (text.Trim() == "")
 			return;
 		KPK_Client.SendText(KPK_C.CHAT_SEND, text, m_ChatTo);
@@ -2713,13 +2643,12 @@ class KPK_Menu extends UIScriptedMenu
 			UpdateBoot();
 		}
 
-		// multi-line boxes: the engine sends no change event while typing in them, so they are checked
-		// a few times a second and long lines are wrapped onto the next line
-		m_WrapTime += timeslice;
-		if (m_WrapTime > 0.2)
+		// the text boxes show what was typed (see KPK_TextBox)
+		m_TextBoxTime += timeslice;
+		if (m_TextBoxTime > 0.05)
 		{
-			m_WrapTime = 0;
-			WrapVisibleEdits();
+			m_TextBoxTime = 0;
+			SyncTextBoxes();
 		}
 
 		m_BlinkTime += timeslice;
@@ -2801,9 +2730,12 @@ class KPK_Menu extends UIScriptedMenu
 			SubmitLogin();
 			return true;
 		}
-		// multi-line boxes: long lines wrap to the next line
-		if (w && (w == m_TaskDescEdit || w == m_NoteText || w == m_MarkerName))
-			ReflowEdit(MultilineEditBoxWidget.Cast(w));
+		// Enter in the chat line sends it
+		if (finished && w == m_ChatEdit && m_Page == P_CHAT)
+		{
+			SendChat();
+			return true;
+		}
 		return super.OnChange(w, x, y, finished);
 	}
 

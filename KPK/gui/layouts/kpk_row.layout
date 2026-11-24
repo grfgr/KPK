@@ -1,0 +1,48 @@
+ButtonWidgetClass KPK_Row {
+ position 0 0
+ size 0.1 0.05
+ hexactpos 0
+ vexactpos 0
+ hexactsize 0
+ vexactsize 0
+ style Empty
+ {
+  PanelWidgetClass bg {
+   ignorepointer 1
+   color 0.09 0.17 0.1 1
+   position 0 0
+   size 1 1
+   hexactpos 0
+   vexactpos 0
+   hexactsize 0
+   vexactsize 0
+   style rover_sim_colorable
+  }
+  PanelWidgetClass edge {
+   ignorepointer 1
+   color 0.35 0.55 0.3 1
+   position 0 0
+   size 0.008 1
+   hexactpos 0
+   vexactpos 0
+   hexactsize 0
+   vexactsize 0
+   style rover_sim_colorable
+  }
+  TextWidgetClass label {
+   ignorepointer 1
+   color 0.62 0.88 0.52 1
+   position 0.04 0
+   size 0.94 1
+   hexactpos 0
+   vexactpos 0
+   hexactsize 0
+   vexactsize 0
+   text ""
+   font "gui/fonts/sdf_MetronBook24"
+   "exact text" 1
+   "exact text size" 13
+   "text valign" center
+  }
+ }
+}

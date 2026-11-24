@@ -137,76 +137,6 @@ class KPK_UI
 		return t;
 	}
 
-	// multi-line edit box without automatic word wrap in the engine: long lines are broken at the last
-	// space (or hard, in a long word) so the text stays inside the box. Spaces become line breaks, so the
-	// length of the text does not change (the engine has no script call to move the caret).
-	static bool Reflow(MultilineEditBoxWidget box, int maxChars)
-	{
-		if (!box || maxChars < 4)
-			return false;
-		string text;
-		box.GetText(text);
-		array<string> lines = new array<string>();
-		int start = 0;
-		while (true)
-		{
-			int nl = text.IndexOfFrom(start, "\n");
-			if (nl < 0)
-			{
-				lines.Insert(text.Substring(start, text.Length() - start));
-				break;
-			}
-			lines.Insert(text.Substring(start, nl - start));
-			start = nl + 1;
-		}
-
-		array<string> result = new array<string>();
-		bool changed = false;
-		foreach (string line : lines)
-		{
-			string rest = line;
-			while (rest.LengthUtf8() > maxChars)
-			{
-				int len = rest.LengthUtf8();
-				int cut = -1;
-				for (int k = maxChars; k > 0; k--)
-				{
-					if (rest.SubstringUtf8(k, 1) == " ")
-					{
-						cut = k;
-						break;
-					}
-				}
-				if (cut > 0)
-				{
-					// the space becomes the line break: same length
-					result.Insert(rest.SubstringUtf8(0, cut));
-					rest = rest.SubstringUtf8(cut + 1, len - cut - 1);
-				}
-				else
-				{
-					// one long word: a break is inserted
-					result.Insert(rest.SubstringUtf8(0, maxChars));
-					rest = rest.SubstringUtf8(maxChars, len - maxChars);
-				}
-				changed = true;
-			}
-			result.Insert(rest);
-		}
-		if (!changed)
-			return false;
-
-		string joined = "";
-		for (int r = 0; r < result.Count(); r++)
-		{
-			if (r > 0)
-				joined += "\n";
-			joined += result[r];
-		}
-		box.SetText(joined);
-		return true;
-	}
-
 	// small centred text (hardware key captions, window controls)
 	static TextWidget TextC(Widget parent, string text, float x, float y, float w, float h, int color)
 	{
@@ -306,9 +236,12 @@ class KPK_Button
 		m_Id = id;
 		m_IsRow = isRow;
 		m_TextColor = KPK_UI.C_TEXT;
-		// rows and buttons share kpk_button.layout: kpk_row.layout failed to create inside lists in game.
-		// A row gets its own left-aligned label on top; the centred one stays empty.
-		m_Root = ButtonWidget.Cast(KPK_UI.Make("kpk_button.layout", parent, x, y, w, h));
+		// list rows have their own layout with a left-aligned label: one text per row instead of two
+		// (the engine caps how many widgets all mods together may create)
+		string file = "kpk_button.layout";
+		if (isRow)
+			file = "kpk_row.layout";
+		m_Root = ButtonWidget.Cast(KPK_UI.Make(file, parent, x, y, w, h));
 		if (!m_Root)
 		{
 			Print("[KPK] could not create a button");
@@ -317,12 +250,6 @@ class KPK_Button
 		m_Bg = m_Root.FindAnyWidget("bg");
 		m_Edge = m_Root.FindAnyWidget("edge");
 		m_Label = TextWidget.Cast(m_Root.FindAnyWidget("label"));
-		if (isRow)
-		{
-			m_Label.SetText("");
-			m_Label = KPK_UI.Text(m_Root, "", 0.04, 0, 0.94, 1, 15, KPK_UI.C_TEXT);
-			m_Edge.SetSize(0.008, 1);
-		}
 		SetText(text);
 		Refresh();
 	}
@@ -441,6 +368,57 @@ class KPK_Button
 		}
 		if (m_Active)
 			m_Edge.SetColor(KPK_UI.C_ACCENT);
+	}
+};
+
+// A text box: the engine's edit box stays invisible and takes the keys, a normal text over it shows
+// what was typed. Multi-line boxes wrap (MultilineTextWidget does it), one-line boxes show the end of the
+// text so it never leaves the border. The cursor is drawn at the end while the box has the focus.
+class KPK_TextBox
+{
+	EditBoxWidget m_Input;
+	Widget m_Root;
+	bool m_Multi;
+	TextWidget m_Line;
+	MultilineTextWidget m_Lines;
+	string m_Shown = "#";
+
+	void KPK_TextBox(EditBoxWidget input, bool multi)
+	{
+		m_Input = input;
+		m_Root = input.GetParent();
+		m_Multi = multi;
+		// the input itself is not drawn any more (its text would run out of the box)
+		m_Input.SetColor(ARGB(0, 0, 0, 0));
+		if (multi)
+			m_Lines = KPK_UI.MText(m_Root, 0.015, 0.03, 0.97, 0.94, 15, KPK_UI.C_WHITE);
+		else
+			m_Line = KPK_UI.Text(m_Root, "", 0.02, 0, 0.96, 1, 15, KPK_UI.C_WHITE);
+	}
+
+	void Sync(int chars, bool cursor)
+	{
+		if (!m_Input)
+			return;
+		string text = m_Input.GetText();
+		string shown = text;
+		if (!m_Multi && chars > 2)
+		{
+			// one line: only the end of a long text, so what is being typed stays visible
+			int room = chars - 1;
+			int len = text.LengthUtf8();
+			if (len > room)
+				shown = ".." + text.SubstringUtf8(len - room + 2, room - 2);
+		}
+		if (cursor)
+			shown += "_";
+		if (shown == m_Shown)
+			return;
+		m_Shown = shown;
+		if (m_Lines)
+			m_Lines.SetText(shown);
+		if (m_Line)
+			m_Line.SetText(shown);
 	}
 };
 
