@@ -651,6 +651,52 @@ class KPK_Menu extends UIScriptedMenu
 		m_Built[page] = true;
 	}
 
+	// a tab page that is left: its widgets go away (the engine caps the widgets of all mods together;
+	// keeping every visited page made the later ones fail). It is built again on the next visit.
+	protected void DestroyPage(int page)
+	{
+		if (!m_Built || page < 0 || page >= TAB_COUNT || !m_Built[page])
+			return;
+		if (page == P_MAP)
+			DestroyMap();
+		if (m_Pages[page])
+			m_Pages[page].Unlink();
+		Widget slot = KPK_UI.Frame(m_PageHost, 0, 0, 0.01, 0.01);
+		if (slot)
+			slot.Show(false);
+		m_Pages[page] = slot;
+		m_Built[page] = false;
+		PruneDeadWidgets();
+	}
+
+	// buttons, lists and text boxes whose widgets were destroyed with their page
+	protected void PruneDeadWidgets()
+	{
+		for (int b = m_Buttons.Count() - 1; b >= 0; b--)
+		{
+			if (!m_Buttons[b] || !m_Buttons[b].m_Root)
+				m_Buttons.Remove(b);
+		}
+		array<int> ids = m_ById.GetKeyArray();
+		foreach (int id : ids)
+		{
+			KPK_Button idButton = m_ById.Get(id);
+			if (!idButton || !idButton.m_Root)
+				m_ById.Remove(id);
+		}
+		for (int l = m_Lists.Count() - 1; l >= 0; l--)
+		{
+			KPK_List list = m_Lists[l];
+			if (!list || !list.m_Prev || !list.m_Prev.m_Root)
+				m_Lists.Remove(l);
+		}
+		for (int t = m_TextBoxes.Count() - 1; t >= 0; t--)
+		{
+			if (!m_TextBoxes[t] || !m_TextBoxes[t].m_Input)
+				m_TextBoxes.Remove(t);
+		}
+	}
+
 	protected void ShowTabs(bool show)
 	{
 		for (int i = 0; i < m_Tabs.Count(); i++)
@@ -659,6 +705,9 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void ShowPage(int page)
 	{
+		// only the shown tab page exists: the one left is destroyed before the next one is built
+		if (page != m_Page)
+			DestroyPage(m_Page);
 		EnsurePage(page);
 		if (page != m_Page)
 			SetFocus(null);   // a field on a hidden page would keep taking the keys
@@ -937,6 +986,7 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected Widget BuildMap()
 	{
+		m_EditId = -1;
 		Widget page = Content();
 
 		Widget mapBox = KPK_UI.Panel(page, 0, 0, 0.71, 1, 0xFF000000, true);
@@ -1446,6 +1496,7 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected Widget BuildFactions()
 	{
+		m_ConfirmRemove = "";
 		Widget page = Content();
 
 		Widget left = KPK_UI.Card(page, 0, 0, 0.27, 1, "ГРУППИРОВКИ ЗОНЫ");
@@ -1757,6 +1808,7 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected Widget BuildTasks()
 	{
+		m_TaskEditing = false;
 		Widget page = Content();
 		Widget left = KPK_UI.Card(page, 0, 0, 0.38, 1, "ЗАДАНИЯ");
 		m_TaskList = new KPK_List(left, 0.04, 0.06, 0.92, 0.8, 10, "— заданий нет —");
@@ -2122,6 +2174,7 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected Widget BuildNotes()
 	{
+		m_NoteShown = -2;
 		Widget page = Content();
 		Widget left = KPK_UI.Card(page, 0, 0, 0.32, 1, "ЗАПИСИ");
 		m_NoteList = new KPK_List(left, 0.04, 0.06, 0.92, 0.8, 10, "— записей нет —");

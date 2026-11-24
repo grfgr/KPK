@@ -569,6 +569,9 @@ class KPK_List
 
 	void Redraw()
 	{
+		// the page of this list was destroyed (only the shown tab page exists)
+		if (!m_PageText)
+			return;
 		for (int r = 0; r < m_Rows.Count(); r++)
 		{
 			KPK_Button row = m_Rows[r];
