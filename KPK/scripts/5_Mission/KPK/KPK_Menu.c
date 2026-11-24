@@ -149,7 +149,6 @@ class KPK_Menu extends UIScriptedMenu
 	protected ref KPK_MapHandler m_MapHandler;
 	protected ref KPK_List m_MarkerList;
 	protected MultilineEditBoxWidget m_MarkerName;   // two lines: long names wrap
-	protected TextWidget m_Measure;                  // hidden: measures the width of a character
 	protected Widget m_PageHost;                     // the tab pages, below the screen effects
 	protected ref array<bool> m_Built;               // which tab pages exist already
 	protected TextWidget m_MarkerType;
@@ -213,7 +212,8 @@ class KPK_Menu extends UIScriptedMenu
 	// chat
 	protected MultilineTextWidget m_ChatLog;
 	protected TextWidget m_ChatChannel;
-	protected EditBoxWidget m_ChatEdit;
+	protected MultilineEditBoxWidget m_ChatEdit;   // two lines, wraps; Enter sends
+	protected int m_ChatBreaks;                    // line breaks the wrapping put in: one more = Enter
 	protected string m_ChatTo = "";     // callsign for private messages, "" = general channel
 	protected int m_ChatOffset;          // lines scrolled back from the newest
 
@@ -764,7 +764,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_LoginTitle = KPK_UI.Text(page, "", 0.05, 0.03, 0.9, 0.08, 20, KPK_UI.C_ACCENT);
 
 		m_LoginCallsignLabel = KPK_UI.Text(page, "Позывной", 0.05, 0.14, 0.3, 0.07, 15, KPK_UI.C_DIM);
-		m_LoginCallsign = KPK_UI.Edit(page, 0.35, 0.14, 0.6, 0.07);
+		m_LoginCallsign = AddEdit(KPK_UI.Edit(page, 0.35, 0.14, 0.6, 0.07));
 		m_LoginCallsignFixed = KPK_UI.Text(page, "", 0.35, 0.14, 0.6, 0.07, 17, KPK_UI.C_WHITE);
 
 		KPK_UI.Text(page, "Пароль", 0.05, 0.25, 0.3, 0.07, 15, KPK_UI.C_DIM);
@@ -964,7 +964,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_EditorTitle = KPK_UI.Text(side, "НОВАЯ МЕТКА", 0.04, 0.565, 0.6, 0.04, 14, KPK_UI.C_ACCENT);
 		AddButton(side, B_MAP_NEW, "НОВАЯ", 0.64, 0.565, 0.32, 0.036);
 		KPK_UI.Text(side, "Название", 0.04, 0.605, 0.92, 0.035, 13, KPK_UI.C_DIM);
-		m_MarkerName = KPK_UI.MEdit(side, 0.04, 0.64, 0.92, 0.06);
+		m_MarkerName = AddMEdit(KPK_UI.MEdit(side, 0.04, 0.64, 0.92, 0.06));
 
 		AddButton(side, B_TYPE_PREV, "<", 0.04, 0.707, 0.14, 0.042);
 		m_MarkerType = KPK_UI.Text(side, "", 0.19, 0.707, 0.62, 0.042, 14, KPK_UI.C_WHITE);
@@ -1169,51 +1169,109 @@ class KPK_Menu extends UIScriptedMenu
 		return name.Trim();
 	}
 
-	// characters of the multi-line edit boxes (13 px) that fit into the box: measured once on a sample
-	protected int EditChars(Widget box)
+	protected ref array<EditBoxWidget> m_Edits = new array<EditBoxWidget>();
+	protected ref array<MultilineEditBoxWidget> m_MEdits = new array<MultilineEditBoxWidget>();
+
+	protected EditBoxWidget AddEdit(EditBoxWidget box)
 	{
+		if (box)
+			m_Edits.Insert(box);
+		return box;
+	}
+
+	protected MultilineEditBoxWidget AddMEdit(MultilineEditBoxWidget box)
+	{
+		if (box)
+			m_MEdits.Insert(box);
+		return box;
+	}
+
+	// characters that fit into a text box. Measured in game: the 13 px text takes ~7.7 px per character
+	// at 1080 lines, the one-line boxes draw their text about 1.3 times larger.
+	protected int EditChars(Widget box, bool singleLine)
+	{
+		if (!box)
+			return 0;
 		float bw, bh;
 		box.GetScreenSize(bw, bh);
-		if (bw <= 0)
+		if (bw <= 4)
 			return 0;
-		float charW = 7.5;
-		if (!m_Measure && m_Screen)
-		{
-			m_Measure = KPK_UI.Text(m_Screen, "", 0, 0, 0.9, 0.05, 15, KPK_UI.C_TEXT);
-			if (m_Measure)
-				m_Measure.Show(false);
-		}
-		if (m_Measure)
-		{
-			string sample = "Сталкер нашёл ящик с оружием на крыше церкви";
-			m_Measure.SetText(sample);
-			int tw, th;
-			m_Measure.GetTextSize(tw, th);
-			if (tw > 0)
-				charW = tw / sample.LengthUtf8();
-		}
-		return bw * 0.94 / charW;
+		int sw, sh;
+		GetScreenSize(sw, sh);
+		if (sh <= 0)
+			sh = 1080;
+		float charW = 7.7 * sh / 1080.0;
+		if (singleLine)
+			charW = charW * 1.3;
+		int chars = bw * 0.95 / charW;
+		if (chars < 4)
+			chars = 4;
+		return chars;
 	}
 
 	protected bool m_Reflowing;
 	protected float m_WrapTime;
 	protected bool m_WrapLogged;
 
+	protected static int CountBreaks(string text)
+	{
+		int count = 0;
+		int at = text.IndexOf("\n");
+		while (at >= 0)
+		{
+			count++;
+			at = text.IndexOfFrom(at + 1, "\n");
+		}
+		return count;
+	}
+
+	// the chat line: wraps like the other boxes, but a line break typed by the player (Enter) sends it
+	protected void PollChatEdit()
+	{
+		if (!m_ChatEdit || m_Page != P_CHAT)
+			return;
+		string text;
+		m_ChatEdit.GetText(text);
+		int breaks = CountBreaks(text);
+		if (breaks > m_ChatBreaks)
+		{
+			SendChat();
+			return;
+		}
+		ReflowEdit(m_ChatEdit);
+		m_ChatEdit.GetText(text);
+		m_ChatBreaks = CountBreaks(text);
+	}
+
+	// every text box of the window: multi-line ones wrap, one-line ones stop at their border
 	protected void WrapVisibleEdits()
 	{
-		if (m_Page == P_TASKS && m_TaskEditing && m_TaskDescEdit)
-			ReflowEdit(m_TaskDescEdit);
-		else if (m_Page == P_NOTES && m_NoteText)
-			ReflowEdit(m_NoteText);
-		else if (m_Page == P_MAP && m_MarkerName)
-			ReflowEdit(m_MarkerName);
+		PollChatEdit();
+		foreach (MultilineEditBoxWidget mbox : m_MEdits)
+			ReflowEdit(mbox);
+		foreach (EditBoxWidget box : m_Edits)
+		{
+			int limit = EditChars(box, true);
+			if (limit <= 0)
+				continue;
+			string text = box.GetText();
+			if (text.LengthUtf8() > limit)
+			{
+				box.SetText(text.SubstringUtf8(0, limit));
+				if (!m_WrapLogged)
+				{
+					m_WrapLogged = true;
+					Print("[KPK] one-line box limited to " + limit + " characters");
+				}
+			}
+		}
 	}
 
 	protected void ReflowEdit(MultilineEditBoxWidget box)
 	{
 		if (m_Reflowing || !box)
 			return;
-		int chars = EditChars(box);
+		int chars = EditChars(box, false);
 		if (chars <= 0)
 			return;
 		m_Reflowing = true;
@@ -1251,7 +1309,7 @@ class KPK_Menu extends UIScriptedMenu
 		Widget radio = KPK_UI.Card(page, 0.51, 0, 0.49, 1, "РАЦИЯ");
 		m_RadioText = KPK_UI.MText(radio, 0.04, 0.08, 0.92, 0.3, 14, KPK_UI.C_TEXT);
 		KPK_UI.Text(radio, "Вызов по позывному", 0.04, 0.42, 0.92, 0.05, 13, KPK_UI.C_DIM);
-		m_RadioName = KPK_UI.Edit(radio, 0.04, 0.48, 0.6, 0.07);
+		m_RadioName = AddEdit(KPK_UI.Edit(radio, 0.04, 0.48, 0.6, 0.07));
 		AddButton(radio, B_R_CALL, "ВЫЗОВ", 0.66, 0.48, 0.3, 0.07);
 		AddButton(radio, B_R_ANSWER, "ОТВЕТИТЬ", 0.04, 0.62, 0.45, 0.08);
 		AddButton(radio, B_R_END, "ОТБОЙ", 0.51, 0.62, 0.45, 0.08);
@@ -1276,7 +1334,7 @@ class KPK_Menu extends UIScriptedMenu
 
 		KPK_UI.Panel(left, 0.04, 0.8, 0.92, 0.002, KPK_UI.C_LINE);
 		KPK_UI.Text(left, "Пригласить по позывному", 0.04, 0.81, 0.92, 0.05, 13, KPK_UI.C_DIM);
-		m_PartyInviteName = KPK_UI.Edit(left, 0.04, 0.865, 0.6, 0.06);
+		m_PartyInviteName = AddEdit(KPK_UI.Edit(left, 0.04, 0.865, 0.6, 0.06));
 		AddButton(left, B_P_INVITE, "ПРИГЛАСИТЬ", 0.66, 0.865, 0.3, 0.06);
 
 		Widget right = KPK_UI.Card(page, 0.51, 0, 0.49, 0.62, "ВХОДЯЩИЕ ПРИГЛАШЕНИЯ");
@@ -1469,7 +1527,7 @@ class KPK_Menu extends UIScriptedMenu
 		AddButton(m_FactionManage, B_F_DEPUTY, "В ЗАМЫ", 0.59, 0.26, 0.12, 0.3);
 		AddButton(m_FactionManage, B_F_LEADER, "В ЛИДЕРЫ", 0.72, 0.26, 0.12, 0.3);
 		AddButton(m_FactionManage, B_F_MAP, "НА КАРТЕ", 0.85, 0.26, 0.13, 0.3);
-		m_FactionInviteName = KPK_UI.Edit(m_FactionManage, 0.02, 0.62, 0.42, 0.3);
+		m_FactionInviteName = AddEdit(KPK_UI.Edit(m_FactionManage, 0.02, 0.62, 0.42, 0.3));
 		AddButton(m_FactionManage, B_F_INVITE, "ПРИНЯТЬ В РЯДЫ", 0.46, 0.62, 0.25, 0.3);
 		AddButton(m_FactionManage, B_F_LEAVE, "ПОКИНУТЬ", 0.74, 0.62, 0.24, 0.3);
 
@@ -1488,7 +1546,7 @@ class KPK_Menu extends UIScriptedMenu
 
 		// one text field: place, description or the name of a new faction
 		KPK_UI.Text(m_AdminBox, "Текст:", 0.01, 0.48, 0.05, 0.22, 12, KPK_UI.C_DIM);
-		m_AdminText = KPK_UI.Edit(m_AdminBox, 0.06, 0.48, 0.432, 0.22);
+		m_AdminText = AddEdit(KPK_UI.Edit(m_AdminBox, 0.06, 0.48, 0.432, 0.22));
 		AddButton(m_AdminBox, B_A_LOC_TEXT, "ТЕКСТ -> МЕСТО", 0.5, 0.48, 0.16, 0.22);
 		AddButton(m_AdminBox, B_A_DESC, "ТЕКСТ -> ОПИСАНИЕ", 0.665, 0.48, 0.16, 0.22);
 		AddButton(m_AdminBox, B_A_CREATE, "НОВАЯ ГРУППИРОВКА", 0.83, 0.48, 0.16, 0.22);
@@ -1773,11 +1831,11 @@ class KPK_Menu extends UIScriptedMenu
 		// writing a task for the party / faction (leaders only)
 		m_TaskEditBox = KPK_UI.Panel(right, 0, 0, 1, 1, 0, true);
 		KPK_UI.Text(m_TaskEditBox, "Название задания", 0.03, 0.08, 0.6, 0.04, 13, KPK_UI.C_DIM);
-		m_TaskTitleEdit = KPK_UI.Edit(m_TaskEditBox, 0.03, 0.12, 0.94, 0.055);
+		m_TaskTitleEdit = AddEdit(KPK_UI.Edit(m_TaskEditBox, 0.03, 0.12, 0.94, 0.055));
 		KPK_UI.Text(m_TaskEditBox, "Награда (необязательно)", 0.03, 0.19, 0.6, 0.04, 13, KPK_UI.C_DIM);
-		m_TaskRewardEdit = KPK_UI.Edit(m_TaskEditBox, 0.03, 0.23, 0.94, 0.055);
+		m_TaskRewardEdit = AddEdit(KPK_UI.Edit(m_TaskEditBox, 0.03, 0.23, 0.94, 0.055));
 		KPK_UI.Text(m_TaskEditBox, "Описание", 0.03, 0.3, 0.6, 0.04, 13, KPK_UI.C_DIM);
-		m_TaskDescEdit = KPK_UI.MEdit(m_TaskEditBox, 0.03, 0.34, 0.94, 0.52);
+		m_TaskDescEdit = AddMEdit(KPK_UI.MEdit(m_TaskEditBox, 0.03, 0.34, 0.94, 0.52));
 		// «Куратор»: which factions get the task (click toggles)
 		m_TaskPickBox = KPK_UI.Panel(m_TaskEditBox, 0.03, 0.59, 0.94, 0.29, 0, true);
 		KPK_UI.Text(m_TaskPickBox, "Группировки (нажмите, чтобы отметить):", 0, 0, 1, 0.14, 12, KPK_UI.C_DIM);
@@ -2131,8 +2189,8 @@ class KPK_Menu extends UIScriptedMenu
 
 		Widget right = KPK_UI.Card(page, 0.34, 0, 0.66, 1, "ЗАМЕТКА");
 		KPK_UI.Text(right, "Заголовок", 0.03, 0.06, 0.3, 0.04, 13, KPK_UI.C_DIM);
-		m_NoteTitle = KPK_UI.Edit(right, 0.03, 0.1, 0.94, 0.055);
-		m_NoteText = KPK_UI.MEdit(right, 0.03, 0.18, 0.94, 0.7);
+		m_NoteTitle = AddEdit(KPK_UI.Edit(right, 0.03, 0.1, 0.94, 0.055));
+		m_NoteText = AddMEdit(KPK_UI.MEdit(right, 0.03, 0.18, 0.94, 0.7));
 		m_NoteInfo = KPK_UI.Text(right, "", 0.03, 0.9, 0.6, 0.06, 13, KPK_UI.C_DIM);
 		AddButton(right, B_N_SAVE, "СОХРАНИТЬ", 0.67, 0.9, 0.3, 0.06);
 		return page;
@@ -2212,7 +2270,7 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Panel(card, 0.03, 0.805, 0.94, 0.002, KPK_UI.C_LINE);
 		m_ChatChannel = KPK_UI.Text(card, "", 0.03, 0.815, 0.62, 0.055, 13, KPK_UI.C_DIM);
 		AddButton(card, B_C_PUBLIC, "ОБЩИЙ КАНАЛ", 0.67, 0.815, 0.3, 0.055);
-		m_ChatEdit = KPK_UI.Edit(card, 0.03, 0.885, 0.72, 0.065);
+		m_ChatEdit = KPK_UI.MEdit(card, 0.03, 0.885, 0.72, 0.065);
 		AddButton(card, B_C_SEND, "ПЕРЕДАТЬ", 0.77, 0.885, 0.2, 0.065);
 		return page;
 	}
@@ -2285,11 +2343,14 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void SendChat()
 	{
-		string text = m_ChatEdit.GetText();
+		string text;
+		m_ChatEdit.GetText(text);
+		text.Replace("\n", " ");
+		m_ChatEdit.SetText("");
+		m_ChatBreaks = 0;
 		if (text.Trim() == "")
 			return;
 		KPK_Client.SendText(KPK_C.CHAT_SEND, text, m_ChatTo);
-		m_ChatEdit.SetText("");
 		m_ChatOffset = 0;
 	}
 
@@ -2304,7 +2365,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_PlayerList = new KPK_List(left, 0.04, 0.06, 0.92, 0.62, 9, "— игроков нет —");
 		m_Lists.Insert(m_PlayerList);
 		KPK_UI.Text(left, "Позывной или Steam ID", 0.04, 0.695, 0.9, 0.045, 13, KPK_UI.C_DIM);
-		m_AdminName = KPK_UI.Edit(left, 0.04, 0.745, 0.92, 0.06);
+		m_AdminName = AddEdit(KPK_UI.Edit(left, 0.04, 0.745, 0.92, 0.06));
 		AddButton(left, B_T_INSPECT, "СМОТРЕТЬ КПК", 0.04, 0.83, 0.45, 0.06);
 		AddButton(left, B_T_SELF, "СВОЙ КПК", 0.51, 0.83, 0.45, 0.06);
 		AddButton(left, B_T_ADMIN_ADD, "+ АДМИН", 0.04, 0.91, 0.45, 0.06);
@@ -2392,7 +2453,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_ContactList = new KPK_List(left, 0.04, 0.06, 0.92, 0.7, 9, "— контактов нет —");
 		m_Lists.Insert(m_ContactList);
 		KPK_UI.Text(left, "Дать свой контакт (позывной):", 0.04, 0.775, 0.92, 0.045, 13, KPK_UI.C_DIM);
-		m_ContactName = KPK_UI.Edit(left, 0.04, 0.825, 0.92, 0.06);
+		m_ContactName = AddEdit(KPK_UI.Edit(left, 0.04, 0.825, 0.92, 0.06));
 		AddButton(left, B_K_ADD, "ДАТЬ КОНТАКТ", 0.04, 0.91, 0.45, 0.06);
 		AddButton(left, B_K_DEL, "УДАЛИТЬ", 0.51, 0.91, 0.45, 0.06);
 
@@ -2738,12 +2799,6 @@ class KPK_Menu extends UIScriptedMenu
 		if (finished && (w == m_LoginPassword || w == m_LoginRepeat) && m_Page == P_LOGIN)
 		{
 			SubmitLogin();
-			return true;
-		}
-		// Enter in the chat line sends it
-		if (finished && w == m_ChatEdit && m_Page == P_CHAT)
-		{
-			SendChat();
 			return true;
 		}
 		// multi-line boxes: long lines wrap to the next line
