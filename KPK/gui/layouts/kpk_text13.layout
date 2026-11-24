@@ -1,26 +1,15 @@
-FrameWidgetClass KPK_Text13 {
+TextWidgetClass KPK_Text13 {
  ignorepointer 1
+ color 0.62 0.88 0.52 1
  position 0 0
- size 0.3 0.05
+ size 1 1
  hexactpos 0
  vexactpos 0
  hexactsize 0
  vexactsize 0
- {
-  TextWidgetClass text {
-   ignorepointer 1
-   color 0.62 0.88 0.52 1
-   position 0 0
-   size 1 1
-   hexactpos 0
-   vexactpos 0
-   hexactsize 0
-   vexactsize 0
-   text ""
-   font "gui/fonts/sdf_MetronBook24"
-   "exact text" 1
-   "exact text size" 13
-   "text valign" center
-  }
- }
+ text ""
+ font "gui/fonts/sdf_MetronBook24"
+ "exact text" 1
+ "exact text size" 13
+ "text valign" center
 }

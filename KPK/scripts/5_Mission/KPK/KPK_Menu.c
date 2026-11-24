@@ -687,6 +687,8 @@ class KPK_Menu extends UIScriptedMenu
 		if (m_Map)
 			return;
 		m_Map = MapWidget.Cast(KPK_UI.Make("kpk_map.layout", m_MapHolder, 0, 0, 1, 1));
+		if (!m_Map)
+			return;
 		m_Map.SetHandler(m_MapHandler);
 		m_Map.SetScale(m_MapScale);
 		PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
@@ -767,11 +769,11 @@ class KPK_Menu extends UIScriptedMenu
 		m_LoginCallsignFixed = KPK_UI.Text(page, "", 0.35, 0.14, 0.6, 0.07, 17, KPK_UI.C_WHITE);
 
 		KPK_UI.Text(page, "Пароль", 0.05, 0.25, 0.3, 0.07, 15, KPK_UI.C_DIM);
-		m_LoginPassword = KPK_UI.Password(page, 0.35, 0.25, 0.6, 0.07);
+		m_LoginPassword = AddPassword(KPK_UI.Password(page, 0.35, 0.25, 0.6, 0.07));
 
 		m_LoginRepeatLabel = KPK_UI.Text(page, "Повтор пароля", 0.05, 0.36, 0.3, 0.07, 15, KPK_UI.C_DIM);
 		m_LoginRepeatBox = KPK_UI.Frame(page, 0.35, 0.36, 0.6, 0.07);
-		m_LoginRepeat = KPK_UI.Password(m_LoginRepeatBox, 0, 0, 1, 1);
+		m_LoginRepeat = AddPassword(KPK_UI.Password(m_LoginRepeatBox, 0, 0, 1, 1));
 
 		KPK_UI.Text(page, "Steam ID", 0.05, 0.47, 0.3, 0.07, 15, KPK_UI.C_DIM);
 		m_LoginSteam = KPK_UI.Text(page, "", 0.35, 0.47, 0.6, 0.07, 17, KPK_UI.C_WHITE);
@@ -1179,6 +1181,13 @@ class KPK_Menu extends UIScriptedMenu
 		return box;
 	}
 
+	protected EditBoxWidget AddPassword(EditBoxWidget box)
+	{
+		if (box)
+			m_TextBoxes.Insert(new KPK_TextBox(box, false, true));
+		return box;
+	}
+
 	protected EditBoxWidget AddMulti(EditBoxWidget box)
 	{
 		if (box)
@@ -1311,6 +1320,8 @@ class KPK_Menu extends UIScriptedMenu
 				colors.Insert(KPK_UI.C_DIM);
 		}
 		m_PartyList.Set(names, colors);
+		if (!m_PartyInfo)
+			return;
 
 		if (v.InParty)
 			m_PartyInfo.SetText(string.Format("Состав: %1 / %2", v.Party.Count(), v.PartyMax));

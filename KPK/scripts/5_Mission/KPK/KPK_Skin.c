@@ -167,15 +167,15 @@ class KPK_Skin
 	// call after all pages exist: these widgets must lie on top of the content
 	void BuildScreenFx(Widget screen)
 	{
-		// scanlines
-		int lines = 45;
+		// scanlines (few: the engine caps the widgets of all mods together, these are only decoration)
+		int lines = 15;
 		for (int i = 0; i < lines; i++)
 			Line(screen, 0, i / (lines * 1.0), 1, 0.006, 0x14000000);
 
 		// vignette: stacked translucent frames, darker towards the edges
-		for (int v = 1; v <= 3; v++)
+		for (int v = 1; v <= 1; v++)
 		{
-			float d = 0.024 * v;
+			float d = 0.05 * v;
 			Line(screen, 0, 0, 1, d, 0x0E000000);
 			Line(screen, 0, 1 - d, 1, d, 0x0E000000);
 			Line(screen, 0, 0, d * 0.6, 1, 0x0E000000);
@@ -214,9 +214,9 @@ class KPK_Skin
 	void BuildGlass(Widget screen)
 	{
 		Line(screen, 0, 0, 1, 1, 0x0CC8D2CC);
-		for (int e = 0; e < 4; e++)
+		for (int e = 0; e < 1; e++)
 		{
-			float d = 0.012 * (e + 1);
+			float d = 0.03 * (e + 1);
 			int a = 0x05 << 24;
 			Line(screen, 0, 0, 1, d, a | 0xC8D2CC);
 			Line(screen, 0, 1 - d, 1, d, a | 0xC8D2CC);

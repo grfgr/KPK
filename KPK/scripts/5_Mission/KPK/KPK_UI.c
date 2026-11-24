@@ -126,7 +126,10 @@ class KPK_UI
 	{
 		if (!box)
 			return null;
-		TextWidget t = TextWidget.Cast(box.FindAnyWidget("text"));
+		// the text layouts are a bare text widget now (no frame around it: one widget less per text)
+		TextWidget t = TextWidget.Cast(box);
+		if (!t)
+			t = TextWidget.Cast(box.FindAnyWidget("text"));
 		if (!t)
 		{
 			Print("[KPK] !!! text widget not created: " + file);
@@ -379,15 +382,20 @@ class KPK_TextBox
 	EditBoxWidget m_Input;
 	Widget m_Root;
 	bool m_Multi;
+	bool m_Mask;       // password: stars instead of the letters
+	string m_WrapSource;
+	int m_WrapChars;
+	string m_Wrapped;
 	TextWidget m_Line;
 	MultilineTextWidget m_Lines;
 	string m_Shown = "#";
 
-	void KPK_TextBox(EditBoxWidget input, bool multi)
+	void KPK_TextBox(EditBoxWidget input, bool multi, bool mask = false)
 	{
 		m_Input = input;
 		m_Root = input.GetParent();
 		m_Multi = multi;
+		m_Mask = mask;
 		// the input itself is not drawn any more (its text would run out of the box)
 		m_Input.SetColor(ARGB(0, 0, 0, 0));
 		if (multi)
@@ -401,7 +409,25 @@ class KPK_TextBox
 		if (!m_Input)
 			return;
 		string text = m_Input.GetText();
+		if (m_Mask)
+		{
+			string stars = "";
+			for (int st = text.LengthUtf8(); st > 0; st--)
+				stars += "*";
+			text = stars;
+		}
 		string shown = text;
+		if (m_Multi && chars > 2)
+		{
+			// wrapping is redone only when the text or the box changed
+			if (text != m_WrapSource || chars != m_WrapChars)
+			{
+				m_WrapSource = text;
+				m_WrapChars = chars;
+				m_Wrapped = Wrap(text, chars);
+			}
+			shown = m_Wrapped;
+		}
 		if (!m_Multi && chars > 2)
 		{
 			// one line: only the end of a long text, so what is being typed stays visible
@@ -419,6 +445,38 @@ class KPK_TextBox
 			m_Lines.SetText(shown);
 		if (m_Line)
 			m_Line.SetText(shown);
+	}
+
+	// lines of at most "chars" characters: broken at the last space, a word longer than a line is cut
+	// (the text widget itself wraps only at spaces)
+	static string Wrap(string text, int chars)
+	{
+		string result = "";
+		string rest = text;
+		while (rest.LengthUtf8() > chars)
+		{
+			int len = rest.LengthUtf8();
+			int cut = -1;
+			for (int k = chars; k > chars / 2; k--)
+			{
+				if (rest.SubstringUtf8(k, 1) == " ")
+				{
+					cut = k;
+					break;
+				}
+			}
+			if (cut > 0)
+			{
+				result += rest.SubstringUtf8(0, cut) + "\n";
+				rest = rest.SubstringUtf8(cut + 1, len - cut - 1);
+			}
+			else
+			{
+				result += rest.SubstringUtf8(0, chars) + "\n";
+				rest = rest.SubstringUtf8(chars, len - chars);
+			}
+		}
+		return result + rest;
 	}
 };
 
