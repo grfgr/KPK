@@ -748,6 +748,15 @@ class KPK_Menu extends UIScriptedMenu
 			return;
 		m_Map.SetHandler(m_MapHandler);
 		m_Map.SetScale(m_MapScale);
+		// metro layers on top of the map (children of the map widget), brick only
+		m_MetroDim = null;
+		m_MetroCanvas = null;
+		if (IsBrick())
+		{
+			m_MetroDim = KPK_UI.Panel(m_Map, 0, 0, 1, 1, KPK_Metro.C_DIM);
+			m_MetroCanvas = CanvasWidget.Cast(KPK_UI.Make("kpk_canvas.layout", m_Map, 0, 0, 1, 1));
+			ApplyMetroMode();
+		}
 		PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
 		if (m_HasMapPos)
 			m_Map.SetMapPos(m_MapPos);
@@ -764,6 +773,8 @@ class KPK_Menu extends UIScriptedMenu
 		m_HasMapPos = true;
 		m_Map.Unlink();
 		m_Map = null;
+		m_MetroDim = null;      // were children of the map, gone with it
+		m_MetroCanvas = null;
 	}
 
 	// =================================================================== boot
@@ -1009,17 +1020,9 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Panel(mapBox, 0, 0, 1, 1, KPK_UI.C_TINT);
 		KPK_UI.Panel(mapBox, 0, 0, 1, 0.004, KPK_UI.C_EDGE);
 		KPK_UI.Panel(mapBox, 0, 0.996, 1, 0.004, KPK_UI.C_EDGE);
-		// metro map layers (brick only): dimming + a canvas for the lines, both ignore the mouse
-		m_MetroDim = null;
-		m_MetroCanvas = null;
-		if (IsBrick())
-		{
-			m_MetroDim = KPK_UI.Panel(mapBox, 0, 0, 1, 1, KPK_Metro.C_DIM);
-			m_MetroCanvas = CanvasWidget.Cast(KPK_UI.Make("kpk_canvas.layout", mapBox, 0, 0, 1, 1));
-		}
+		// the metro layers (dimming + canvas) are created as children of the map widget in CreateMap():
+		// the MapWidget draws over its siblings, anything beside it stays hidden under the map
 		m_MapInfo = KPK_UI.Text(mapBox, "", 0.02, 0.94, 0.96, 0.05, 13, KPK_UI.C_ACCENT);
-		if (IsBrick())
-			AddButton(mapBox, B_MAP_METRO, "МЕТРО", 0.79, 0.012, 0.195, 0.05);
 
 		Widget side = KPK_UI.Card(page, 0.725, 0, 0.275, 1, "МЕТКИ КПК");
 		m_MarkerList = new KPK_List(side, 0.04, 0.06, 0.92, 0.44, 8, "— меток нет —");
@@ -1045,7 +1048,16 @@ class KPK_Menu extends UIScriptedMenu
 
 		AddButton(side, B_MAP_HERE, "ПОСТАВИТЬ ЗДЕСЬ", 0.04, 0.805, 0.92, 0.042);
 		m_MapHint = KPK_UI.MText(side, 0.04, 0.855, 0.92, 0.085, 12, KPK_UI.C_DIM);
-		AddButton(side, B_MAP_SELF, "МОЯ ПОЗИЦИЯ", 0.04, 0.945, 0.92, 0.045);
+		if (IsBrick())
+		{
+			// brick: the metro map switch shares the last row with "my position"
+			AddButton(side, B_MAP_SELF, "МОЯ ПОЗИЦИЯ", 0.04, 0.945, 0.45, 0.045);
+			AddButton(side, B_MAP_METRO, "МЕТРО", 0.51, 0.945, 0.45, 0.045);
+		}
+		else
+		{
+			AddButton(side, B_MAP_SELF, "МОЯ ПОЗИЦИЯ", 0.04, 0.945, 0.92, 0.045);
+		}
 
 		UpdateMarkerEditor();
 		ApplyMetroMode();
