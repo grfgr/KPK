@@ -20,6 +20,7 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_TAB = 1;          // 1..8
 	static const int B_CLOSE = 90;
 	static const int B_LOGIN = 100;
+	static const int B_LOGIN_CLEAR = 101;  // clears the callsign and both password boxes
 	static const int B_MAP_SELF = 200;
 	static const int B_MAP_GOTO = 201;
 	static const int B_MAP_DEL = 202;
@@ -836,7 +837,8 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Text(page, "Steam ID", 0.05, 0.47, 0.3, 0.07, 15, KPK_UI.C_DIM);
 		m_LoginSteam = KPK_UI.Text(page, "", 0.35, 0.47, 0.6, 0.07, 17, KPK_UI.C_WHITE);
 
-		m_LoginButton = AddButton(page, B_LOGIN, "", 0.3, 0.6, 0.4, 0.08);
+		m_LoginButton = AddButton(page, B_LOGIN, "", 0.22, 0.6, 0.36, 0.08);
+		AddButton(page, B_LOGIN_CLEAR, "ОЧИСТИТЬ", 0.6, 0.6, 0.18, 0.08);
 		m_LoginHint = KPK_UI.MText(page, 0.05, 0.71, 0.9, 0.14, 13, KPK_UI.C_DIM);
 		return page;
 	}
@@ -3110,6 +3112,15 @@ class KPK_Menu extends UIScriptedMenu
 				break;
 			case B_LOGIN:
 				SubmitLogin();
+				break;
+			case B_LOGIN_CLEAR:
+				if (m_LoginCallsign)
+					m_LoginCallsign.SetText("");
+				if (m_LoginPassword)
+					m_LoginPassword.SetText("");
+				if (m_LoginRepeat)
+					m_LoginRepeat.SetText("");
+				SetStatus("Поля очищены");
 				break;
 
 			// map
