@@ -3,6 +3,9 @@
 class KPK_Metro
 {
 	static const int C_DIM = 0x9E000000;        // затемнение обычной карты
+	static const int C_BG = 0xF2060B12;         // фон схемы метро
+	static const int C_GRID = 0x3346607A;       // сетка 1 км
+	static const int C_PLAYER = 0xFFFFC040;     // отметка игрока
 	static const int C_LINE_WIDE = 0x8C2F7DFF;  // полупрозрачная синяя линия
 	static const int C_LINE_CORE = 0xB89CCBFF;  // светлая середина линии
 	static const int C_ENTRANCE = 0xFF4FA3FF;   // кольцо входа
@@ -22,6 +25,14 @@ class KPK_Metro
 	#ifdef DREZINA
 		DrezinaMetroMap.Collect(lines, entrances, 20.0);
 	#endif
+	}
+
+	static void Grow(vector p, inout float minX, inout float minZ, inout float maxX, inout float maxZ)
+	{
+		if (p[0] < minX) minX = p[0];
+		if (p[0] > maxX) maxX = p[0];
+		if (p[2] < minZ) minZ = p[2];
+		if (p[2] > maxZ) maxZ = p[2];
 	}
 
 	// --- рисование на CanvasWidget (координаты — пиксели внутри канвы)

@@ -20,6 +20,7 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_TAB = 1;          // 1..8
 	static const int B_CLOSE = 90;
 	static const int B_LOGIN = 100;
+	static const int B_LOGIN_CLEAR = 101;  // clears the callsign and both password boxes
 	static const int B_MAP_SELF = 200;
 	static const int B_MAP_GOTO = 201;
 	static const int B_MAP_DEL = 202;
@@ -122,7 +123,7 @@ class KPK_Menu extends UIScriptedMenu
 	protected bool m_HasMapPos;
 	// metro map (brick only): the paper map is dimmed and the lines are drawn over it in blue
 	protected bool m_MetroMode;
-	protected Widget m_MetroDim;
+	protected Widget m_MetroPanel;          // own dark metro scheme; the MapWidget is hidden while it is shown
 	protected CanvasWidget m_MetroCanvas;
 	protected ref array<ref array<vector>> m_MetroLines = new array<ref array<vector>>();
 	protected ref array<vector> m_MetroEntrances = new array<vector>();
@@ -741,22 +742,15 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void CreateMap()
 	{
-		if (m_Map)
+		// в режиме метро карты нет совсем: MapWidget не прячется через Show(false) и закрывал схему метро
+		if (m_Map || m_MetroMode)
 			return;
 		m_Map = MapWidget.Cast(KPK_UI.Make("kpk_map.layout", m_MapHolder, 0, 0, 1, 1));
 		if (!m_Map)
 			return;
 		m_Map.SetHandler(m_MapHandler);
 		m_Map.SetScale(m_MapScale);
-		// metro layers on top of the map (children of the map widget), brick only
-		m_MetroDim = null;
-		m_MetroCanvas = null;
-		if (IsBrick())
-		{
-			m_MetroDim = KPK_UI.Panel(m_Map, 0, 0, 1, 1, KPK_Metro.C_DIM);
-			m_MetroCanvas = CanvasWidget.Cast(KPK_UI.Make("kpk_canvas.layout", m_Map, 0, 0, 1, 1));
-			ApplyMetroMode();
-		}
+		m_Map.Show(!m_MetroMode);
 		PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
 		if (m_HasMapPos)
 			m_Map.SetMapPos(m_MapPos);
@@ -773,8 +767,6 @@ class KPK_Menu extends UIScriptedMenu
 		m_HasMapPos = true;
 		m_Map.Unlink();
 		m_Map = null;
-		m_MetroDim = null;      // were children of the map, gone with it
-		m_MetroCanvas = null;
 	}
 
 	// =================================================================== boot
@@ -846,7 +838,8 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Text(page, "Steam ID", 0.05, 0.47, 0.3, 0.07, 15, KPK_UI.C_DIM);
 		m_LoginSteam = KPK_UI.Text(page, "", 0.35, 0.47, 0.6, 0.07, 17, KPK_UI.C_WHITE);
 
-		m_LoginButton = AddButton(page, B_LOGIN, "", 0.3, 0.6, 0.4, 0.08);
+		m_LoginButton = AddButton(page, B_LOGIN, "", 0.22, 0.6, 0.36, 0.08);
+		AddButton(page, B_LOGIN_CLEAR, "ОЧИСТИТЬ", 0.6, 0.6, 0.18, 0.08);
 		m_LoginHint = KPK_UI.MText(page, 0.05, 0.71, 0.9, 0.14, 13, KPK_UI.C_DIM);
 		return page;
 	}
@@ -1011,7 +1004,7 @@ class KPK_Menu extends UIScriptedMenu
 		Widget mapBox = KPK_UI.Panel(page, 0, 0, 0.71, 1, 0xFF000000, true);
 		m_MapHolder = KPK_UI.Frame(mapBox, 0.004, 0.004, 0.992, 0.992);
 		// grid of a field map over the paper
-		for (int gl = 1; gl < 10; gl++)
+		for (int gl = 2; gl < 10; gl += 2)   // fewer lines: the engine has a widget cap shared by all mods
 		{
 			KPK_UI.Panel(mapBox, gl * 0.1, 0, 0.0015, 1, KPK_UI.C_GRID);
 			KPK_UI.Panel(mapBox, 0, gl * 0.1, 1, 0.002, KPK_UI.C_GRID);
@@ -1020,8 +1013,16 @@ class KPK_Menu extends UIScriptedMenu
 		KPK_UI.Panel(mapBox, 0, 0, 1, 1, KPK_UI.C_TINT);
 		KPK_UI.Panel(mapBox, 0, 0, 1, 0.004, KPK_UI.C_EDGE);
 		KPK_UI.Panel(mapBox, 0, 0.996, 1, 0.004, KPK_UI.C_EDGE);
-		// the metro layers (dimming + canvas) are created as children of the map widget in CreateMap():
-		// the MapWidget draws over its siblings, anything beside it stays hidden under the map
+		// brick: own metro scheme (dark panel + canvas). The MapWidget draws over everything around it,
+		// so in metro mode the map is hidden and the scheme is drawn in its place
+		m_MetroPanel = null;
+		m_MetroCanvas = null;
+		if (IsBrick())
+		{
+			m_MetroPanel = KPK_UI.Panel(mapBox, 0.004, 0.004, 0.992, 0.992, KPK_Metro.C_BG, true);
+			m_MetroCanvas = CanvasWidget.Cast(KPK_UI.Make("kpk_canvas.layout", m_MetroPanel, 0, 0, 1, 1));
+		}
+		Print("[KPK] map page: brick=" + IsBrick() + " metro panel=" + m_MetroPanel + " canvas=" + m_MetroCanvas);
 		m_MapInfo = KPK_UI.Text(mapBox, "", 0.02, 0.94, 0.96, 0.05, 13, KPK_UI.C_ACCENT);
 
 		Widget side = KPK_UI.Card(page, 0.725, 0, 0.275, 1, "МЕТКИ КПК");
@@ -1075,8 +1076,12 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (!IsBrick())
 			m_MetroMode = false;
-		if (m_MetroDim)
-			m_MetroDim.Show(m_MetroMode);
+		if (m_MetroMode)
+			DestroyMap();
+		else if (m_Page == P_MAP)
+			CreateMap();
+		if (m_MetroPanel)
+			m_MetroPanel.Show(m_MetroMode);
 		if (m_MetroCanvas)
 		{
 			m_MetroCanvas.Show(m_MetroMode);
@@ -1104,52 +1109,91 @@ class KPK_Menu extends UIScriptedMenu
 	// redrawn every frame while shown: the lines follow panning and zooming of the map
 	protected void DrawMetro(float timeslice)
 	{
-		if (!m_MetroCanvas || !m_Map)
+		if (!m_MetroCanvas)
 			return;
 		m_MetroDataTime += timeslice;
 		if (m_MetroDataTime > 2.0)
 		{
 			m_MetroDataTime = 0;
 			RefreshMetroData();
+			Print("[KPK] metro: available=" + KPK_Metro.Available() + " lines=" + m_MetroLines.Count() + " entrances=" + m_MetroEntrances.Count());
 			if (m_MapInfo)
 			{
 				if (!KPK_Metro.Available() || m_MetroLines.Count() == 0)
 					m_MapInfo.SetText("КАРТА МЕТРО   ·   нет данных о метро");
 				else
-					m_MapInfo.SetText("КАРТА МЕТРО   ·   линий: " + m_MetroLines.Count() + "   ·   входов: " + m_MetroEntrances.Count());
+					m_MapInfo.SetText("КАРТА МЕТРО   ·   линий: " + m_MetroLines.Count() + "   ·   входов: " + m_MetroEntrances.Count() + "   ·   сетка 1 км");
 			}
 		}
 
 		m_MetroCanvas.Clear();
-		float cx, cy, cw, ch;
-		m_MetroCanvas.GetScreenPos(cx, cy);
+		float cw, ch;
 		m_MetroCanvas.GetScreenSize(cw, ch);
+		if (cw < 10 || ch < 10)
+			return;
+
+		// area: all lines, entrances and the player, with a margin (at least 2 km across)
+		PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+		float minX = 1e9, minZ = 1e9, maxX = -1e9, maxZ = -1e9;
+		foreach (array<vector> ln : m_MetroLines)
+		{
+			foreach (vector lp : ln)
+				KPK_Metro.Grow(lp, minX, minZ, maxX, maxZ);
+		}
+		foreach (vector ep : m_MetroEntrances)
+			KPK_Metro.Grow(ep, minX, minZ, maxX, maxZ);
+		if (player)
+			KPK_Metro.Grow(player.GetPosition(), minX, minZ, maxX, maxZ);
+		if (minX > maxX)
+		{
+			minX = 0; minZ = 0; maxX = 15360; maxZ = 15360;
+		}
+		float midX = (minX + maxX) * 0.5;
+		float midZ = (minZ + maxZ) * 0.5;
+		float span = Math.Max(Math.Max(maxX - minX, maxZ - minZ) * 1.25, 2000);
+		float scale = Math.Min(cw, ch) / span;   // pixels per metre
+		float ox = cw * 0.5 - midX * scale;
+		float oy = ch * 0.5 + midZ * scale;       // screen y grows down, world z grows north
+
+		// 1 km grid
+		float gx0 = Math.Floor((midX - cw * 0.5 / scale) / 1000) * 1000;
+		for (float gx = gx0; gx * scale + ox <= cw; gx += 1000)
+			KPK_Metro.Line(m_MetroCanvas, gx * scale + ox, 0, gx * scale + ox, ch, cw, ch, 1, KPK_Metro.C_GRID);
+		float gz0 = Math.Floor((midZ - ch * 0.5 / scale) / 1000) * 1000;
+		for (float gz = gz0; oy - gz * scale >= 0; gz += 1000)
+			KPK_Metro.Line(m_MetroCanvas, 0, oy - gz * scale, cw, oy - gz * scale, cw, ch, 1, KPK_Metro.C_GRID);
 
 		// two passes: a wide translucent blue band, then a brighter thin core on top
 		for (int pass = 0; pass < 2; pass++)
 		{
-			float width = 7;
+			float width = 9;
 			int color = KPK_Metro.C_LINE_WIDE;
 			if (pass == 1)
 			{
-				width = 2.5;
+				width = 3;
 				color = KPK_Metro.C_LINE_CORE;
 			}
 			foreach (array<vector> line : m_MetroLines)
 			{
-				vector prev = m_Map.MapToScreen(line[0]);
 				for (int i = 1; i < line.Count(); i++)
 				{
-					vector cur = m_Map.MapToScreen(line[i]);
-					KPK_Metro.Line(m_MetroCanvas, prev[0] - cx, prev[1] - cy, cur[0] - cx, cur[1] - cy, cw, ch, width, color);
-					prev = cur;
+					vector p0 = line[i - 1];
+					vector p1 = line[i];
+					KPK_Metro.Line(m_MetroCanvas, p0[0] * scale + ox, oy - p0[2] * scale, p1[0] * scale + ox, oy - p1[2] * scale, cw, ch, width, color);
 				}
 			}
 		}
 		foreach (vector e : m_MetroEntrances)
+			KPK_Metro.Entrance(m_MetroCanvas, e[0] * scale + ox, oy - e[2] * scale, cw, ch);
+
+		// the player: a small bright cross
+		if (player)
 		{
-			vector es = m_Map.MapToScreen(e);
-			KPK_Metro.Entrance(m_MetroCanvas, es[0] - cx, es[1] - cy, cw, ch);
+			vector pp = player.GetPosition();
+			float px = pp[0] * scale + ox;
+			float py = oy - pp[2] * scale;
+			KPK_Metro.Line(m_MetroCanvas, px - 7, py, px + 7, py, cw, ch, 3, KPK_Metro.C_PLAYER);
+			KPK_Metro.Line(m_MetroCanvas, px, py - 7, px, py + 7, cw, ch, 3, KPK_Metro.C_PLAYER);
 		}
 	}
 
@@ -3072,6 +3116,15 @@ class KPK_Menu extends UIScriptedMenu
 			case B_LOGIN:
 				SubmitLogin();
 				break;
+			case B_LOGIN_CLEAR:
+				if (m_LoginCallsign)
+					m_LoginCallsign.SetText("");
+				if (m_LoginPassword)
+					m_LoginPassword.SetText("");
+				if (m_LoginRepeat)
+					m_LoginRepeat.SetText("");
+				SetStatus("Поля очищены");
+				break;
 
 			// map
 			case B_TYPE_PREV:
@@ -3108,6 +3161,7 @@ class KPK_Menu extends UIScriptedMenu
 				break;
 			case B_MAP_METRO:
 				m_MetroMode = !m_MetroMode;
+				Print("[KPK] metro mode " + m_MetroMode);
 				ApplyMetroMode();
 				break;
 			case B_MAP_SELF:
