@@ -1001,7 +1001,7 @@ class KPK_Menu extends UIScriptedMenu
 		Widget mapBox = KPK_UI.Panel(page, 0, 0, 0.71, 1, 0xFF000000, true);
 		m_MapHolder = KPK_UI.Frame(mapBox, 0.004, 0.004, 0.992, 0.992);
 		// grid of a field map over the paper
-		for (int gl = 1; gl < 10; gl++)
+		for (int gl = 2; gl < 10; gl += 2)   // fewer lines: the engine has a widget cap shared by all mods
 		{
 			KPK_UI.Panel(mapBox, gl * 0.1, 0, 0.0015, 1, KPK_UI.C_GRID);
 			KPK_UI.Panel(mapBox, 0, gl * 0.1, 1, 0.002, KPK_UI.C_GRID);
@@ -1018,8 +1018,8 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			m_MetroPanel = KPK_UI.Panel(mapBox, 0.004, 0.004, 0.992, 0.992, KPK_Metro.C_BG, true);
 			m_MetroCanvas = CanvasWidget.Cast(KPK_UI.Make("kpk_canvas.layout", m_MetroPanel, 0, 0, 1, 1));
-			Print("[KPK] metro scheme panel=" + m_MetroPanel + " canvas=" + m_MetroCanvas);
 		}
+		Print("[KPK] map page: brick=" + IsBrick() + " metro panel=" + m_MetroPanel + " canvas=" + m_MetroCanvas);
 		m_MapInfo = KPK_UI.Text(mapBox, "", 0.02, 0.94, 0.96, 0.05, 13, KPK_UI.C_ACCENT);
 
 		Widget side = KPK_UI.Card(page, 0.725, 0, 0.275, 1, "МЕТКИ КПК");
