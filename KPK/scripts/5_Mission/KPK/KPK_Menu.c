@@ -742,7 +742,8 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected void CreateMap()
 	{
-		if (m_Map)
+		// в режиме метро карты нет совсем: MapWidget не прячется через Show(false) и закрывал схему метро
+		if (m_Map || m_MetroMode)
 			return;
 		m_Map = MapWidget.Cast(KPK_UI.Make("kpk_map.layout", m_MapHolder, 0, 0, 1, 1));
 		if (!m_Map)
@@ -1075,8 +1076,10 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		if (!IsBrick())
 			m_MetroMode = false;
-		if (m_Map)
-			m_Map.Show(!m_MetroMode);
+		if (m_MetroMode)
+			DestroyMap();
+		else if (m_Page == P_MAP)
+			CreateMap();
 		if (m_MetroPanel)
 			m_MetroPanel.Show(m_MetroMode);
 		if (m_MetroCanvas)
