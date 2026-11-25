@@ -1072,13 +1072,15 @@ class KPK_Menu extends UIScriptedMenu
 
 	// =================================================================== metro map (brick)
 
-	protected void ApplyMetroMode()
+	protected void ApplyMetroMode(bool createMap = false)
 	{
 		if (!IsBrick())
 			m_MetroMode = false;
+		// карту создаёт только ShowPage (после всей страницы): созданная раньше правой панели, она
+		// рисовалась поверх её кнопок. Здесь — только убрать карту в режиме метро или вернуть по кнопке.
 		if (m_MetroMode)
 			DestroyMap();
-		else if (m_Page == P_MAP)
+		else if (createMap && m_Page == P_MAP)
 			CreateMap();
 		if (m_MetroPanel)
 			m_MetroPanel.Show(m_MetroMode);
@@ -3162,7 +3164,7 @@ class KPK_Menu extends UIScriptedMenu
 			case B_MAP_METRO:
 				m_MetroMode = !m_MetroMode;
 				Print("[KPK] metro mode " + m_MetroMode);
-				ApplyMetroMode();
+				ApplyMetroMode(true);
 				break;
 			case B_MAP_SELF:
 				if (player && m_Map)
