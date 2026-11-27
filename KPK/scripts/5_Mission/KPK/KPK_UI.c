@@ -397,6 +397,14 @@ class KPK_TextBox
 		if (!m_Input)
 			return;
 		string text = m_Input.GetText();
+		// Backspace in the engine's edit box removes one byte, a Russian letter is two: half of a letter
+		// stayed behind (the text did not delete completely). A torn letter at the end is removed here.
+		string cleaned = DropTornTail(text);
+		if (cleaned != text)
+		{
+			m_Input.SetText(cleaned);
+			text = cleaned;
+		}
 		if (m_Mask)
 		{
 			string stars = "";
@@ -433,6 +441,51 @@ class KPK_TextBox
 			m_Lines.SetText(shown);
 		if (m_Line)
 			m_Line.SetText(shown);
+	}
+
+	// the last letter of the text cut in half (a lone lead byte of a multi-byte UTF-8 letter)
+	static string DropTornTail(string text)
+	{
+		int len = text.Length();
+		if (len == 0)
+			return text;
+		int last = text.Substring(len - 1, 1).ToAscii();
+		if (last < 0)
+			last += 256;
+		// 0xC0..0xFF starts a letter of 2..4 bytes: alone at the end it is a torn letter
+		if (last >= 192)
+			return text.Substring(0, len - 1);
+		// continuation bytes 0x80..0xBF: walk back to the lead byte and check the letter is complete
+		if (last >= 128)
+		{
+			int i = len - 1;
+			int tail = 0;
+			while (i >= 0 && tail < 4)
+			{
+				int c = text.Substring(i, 1).ToAscii();
+				if (c < 0)
+					c += 256;
+				if (c < 128 || c >= 192)
+					break;
+				tail++;
+				i--;
+			}
+			if (i < 0)
+				return "";
+			int lead = text.Substring(i, 1).ToAscii();
+			if (lead < 0)
+				lead += 256;
+			int need = 0;
+			if (lead >= 240)
+				need = 3;
+			else if (lead >= 224)
+				need = 2;
+			else if (lead >= 192)
+				need = 1;
+			if (tail < need)
+				return text.Substring(0, i);
+		}
+		return text;
 	}
 
 	// lines of at most "chars" characters: broken at the last space, a word longer than a line is cut
