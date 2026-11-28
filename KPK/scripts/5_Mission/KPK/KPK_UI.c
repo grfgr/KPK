@@ -176,11 +176,23 @@ class KPK_UI
 		return EditBoxWidget.Cast(root.FindAnyWidget("input"));
 	}
 
-	// a password box: a plain edit box. It is invisible anyway (KPK_TextBox draws stars over it), and the
-	// engine's PasswordEditBoxWidget breaks on Cyrillic letters: Backspace removed only half of a letter,
-	// the rest could not be deleted and the password never matched
+	// a password box; if the engine refuses the password input, a plain edit box is used instead so
+	// the KPK can still be logged into
 	static EditBoxWidget Password(Widget parent, float x, float y, float w, float h)
 	{
+		Widget root = Make("kpk_password.layout", parent, x, y, w, h);
+		if (root)
+		{
+			PasswordEditBoxWidget input = PasswordEditBoxWidget.Cast(root.FindAnyWidget("input"));
+			if (input)
+			{
+				input.SetHideText(true);
+				Panel(root, 0, 0.94, 1, 0.06, C_EDGE);
+				return input;
+			}
+			root.Unlink();
+		}
+		Print("[KPK] password input could not be created, using a plain edit box");
 		return Edit(parent, x, y, w, h);
 	}
 

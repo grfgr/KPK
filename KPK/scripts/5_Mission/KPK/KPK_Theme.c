@@ -96,6 +96,7 @@ class KPK_Theme
 		Tabs.Clear();
 		Tabs.Insert(a); Tabs.Insert(b); Tabs.Insert(c); Tabs.Insert(d); Tabs.Insert(e); Tabs.Insert(f);
 		Tabs.Insert(g); Tabs.Insert(h);
+		Tabs.Insert("МЕТРО");   // only the admin «Куратор» shows it
 	}
 
 	// КПК-7 «Вестник»: green phosphor
