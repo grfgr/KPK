@@ -1367,20 +1367,20 @@ class KPK_Menu extends UIScriptedMenu
 		foreach (DrezinaMetroLine dl : lines)
 		{
 			KPK_MetroLine l = new KPK_MetroLine();
-			l.Id = dl.Id;
-			l.Zone = dl.Zone;
-			l.Length = dl.Length;
-			l.A = dl.A;
-			l.B = dl.B;
-			l.JoinA = dl.JoinA;
-			l.JoinB = dl.JoinB;
-			foreach (vector dp : dl.Points)
-				l.Points.Insert(dp);
+			l.LineId = dl.Id;
+			l.InZone = dl.Zone;
+			l.LenM = dl.LenM;
+			l.EndA = dl.A;
+			l.EndB = dl.B;
+			l.JoinToA = dl.JoinA;
+			l.JoinToB = dl.JoinB;
+			foreach (vector dp : dl.Axis)
+				l.Axis.Insert(dp);
 			// by number
 			int at = m_MetroLines.Count();
 			for (int k = 0; k < m_MetroLines.Count(); k++)
 			{
-				if (m_MetroLines[k].Id > l.Id)
+				if (m_MetroLines[k].LineId > l.LineId)
 				{
 					at = k;
 					break;
@@ -1391,11 +1391,11 @@ class KPK_Menu extends UIScriptedMenu
 		foreach (DrezinaMetroCross dc : cross)
 		{
 			KPK_MetroCross c = new KPK_MetroCross();
-			c.A = dc.A;
-			c.B = dc.B;
-			c.Pos = dc.Pos;
-			c.Tee = dc.Tee;
-			c.Ring = dc.Ring;
+			c.LineA = dc.A;
+			c.LineB = dc.B;
+			c.Spot = dc.Spot;
+			c.IsTee = dc.Tee;
+			c.IsRing = dc.Ring;
 			m_MetroCross.Insert(c);
 		}
 #endif
@@ -1410,9 +1410,9 @@ class KPK_Menu extends UIScriptedMenu
 
 	protected string CrossKind(KPK_MetroCross c)
 	{
-		if (c.Tee)
+		if (c.IsTee)
 			return "Т-развязка";
-		if (c.Ring)
+		if (c.IsRing)
 			return "кольцо";
 		return "два съезда";
 	}
@@ -1427,9 +1427,9 @@ class KPK_Menu extends UIScriptedMenu
 	{
 		int best = 0;
 		float bestD = -1;
-		for (int i = 0; i < l.Points.Count(); i++)
+		for (int i = 0; i < l.Axis.Count(); i++)
 		{
-			vector q = l.Points[i];
+			vector q = l.Axis[i];
 			float d = (q[0] - p[0]) * (q[0] - p[0]) + (q[2] - p[2]) * (q[2] - p[2]);
 			if (bestD < 0 || d < bestD)
 			{
@@ -1452,10 +1452,10 @@ class KPK_Menu extends UIScriptedMenu
 			int nx = 0;
 			foreach (KPK_MetroCross c : m_MetroCross)
 			{
-				if (c.A == l.Id || c.B == l.Id)
+				if (c.LineA == l.LineId || c.LineB == l.LineId)
 					nx++;
 			}
-			names.Insert("M" + l.Id + "   " + KmText(l.Length) + "   пересеч.: " + nx);
+			names.Insert("M" + l.LineId + "   " + KmText(l.LenM) + "   пересеч.: " + nx);
 			colors.Insert(MetroColor(i));
 		}
 		m_MetroLineList.Set(names, colors);
@@ -1469,20 +1469,20 @@ class KPK_Menu extends UIScriptedMenu
 			KPK_MetroLine sl = m_MetroLines[m_MetroSel];
 			// start
 			string startName = "НАЧАЛО: вход A";
-			if (sl.JoinA > 0)
-				startName = "НАЧАЛО: примыкает к M" + sl.JoinA + " (Т-развязка)";
-			AddMetroPoint(rows, rowColors, sl.A, startName, KPK_UI.C_WHITE);
+			if (sl.JoinToA > 0)
+				startName = "НАЧАЛО: примыкает к M" + sl.JoinToA + " (Т-развязка)";
+			AddMetroPoint(rows, rowColors, sl.EndA, startName, KPK_UI.C_WHITE);
 
 			// crossings in order along the line
 			array<KPK_MetroCross> mine = new array<KPK_MetroCross>();
 			array<int> order = new array<int>();
 			foreach (KPK_MetroCross mc : m_MetroCross)
 			{
-				if (mc.A != sl.Id && mc.B != sl.Id)
+				if (mc.LineA != sl.LineId && mc.LineB != sl.LineId)
 					continue;
-				if (mc.Tee && mc.B == sl.Id)
+				if (mc.IsTee && mc.LineB == sl.LineId)
 					continue;   // its own joined end: already the start / end row
-				int along = AlongLine(sl, mc.Pos);
+				int along = AlongLine(sl, mc.Spot);
 				int at = order.Count();
 				for (int k = 0; k < order.Count(); k++)
 				{
@@ -1497,22 +1497,22 @@ class KPK_Menu extends UIScriptedMenu
 			}
 			foreach (KPK_MetroCross xc : mine)
 			{
-				int other = xc.B;
-				if (other == sl.Id)
-					other = xc.A;
+				int other = xc.LineB;
+				if (other == sl.LineId)
+					other = xc.LineA;
 				string xname = "ПЕРЕСЕЧЕНИЕ с M" + other + " (" + CrossKind(xc) + ")";
-				if (xc.Tee)
+				if (xc.IsTee)
 					xname = "ПРИМЫКАЕТ M" + other + " (Т-развязка)";
-				AddMetroPoint(rows, rowColors, xc.Pos, xname, KPK_UI.C_ACCENT);
+				AddMetroPoint(rows, rowColors, xc.Spot, xname, KPK_UI.C_ACCENT);
 			}
 
 			string endName = "КОНЕЦ: вход B";
-			if (sl.JoinB > 0)
-				endName = "КОНЕЦ: примыкает к M" + sl.JoinB + " (Т-развязка)";
-			AddMetroPoint(rows, rowColors, sl.B, endName, KPK_UI.C_WHITE);
+			if (sl.JoinToB > 0)
+				endName = "КОНЕЦ: примыкает к M" + sl.JoinToB + " (Т-развязка)";
+			AddMetroPoint(rows, rowColors, sl.EndB, endName, KPK_UI.C_WHITE);
 
-			string info = "M" + sl.Id + ": " + KmText(sl.Length) + ",  " + At(sl.A) + "  →  " + At(sl.B);
-			if (sl.Zone)
+			string info = "M" + sl.LineId + ": " + KmText(sl.LenM) + ",  " + At(sl.EndA) + "  →  " + At(sl.EndB);
+			if (sl.InZone)
 				info += "\nтоннель в локации за картой (входы — здесь)";
 			m_MetroInfo.SetText(info);
 		}
@@ -1539,7 +1539,7 @@ class KPK_Menu extends UIScriptedMenu
 			SetStatus("Сначала выберите линию в списке.");
 			return;
 		}
-		int lineId = m_MetroLines[m_MetroSel].Id;
+		int lineId = m_MetroLines[m_MetroSel].LineId;
 		KPK_Button del = m_ById.Get(B_M_DEL);
 		if (m_MetroDelArm != lineId)
 		{
@@ -1579,12 +1579,12 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			int keepId = -1;
 			if (m_MetroSel >= 0 && m_MetroSel < m_MetroLines.Count())
-				keepId = m_MetroLines[m_MetroSel].Id;
+				keepId = m_MetroLines[m_MetroSel].LineId;
 			LoadMetro();
 			m_MetroSel = -1;
 			for (int i = 0; i < m_MetroLines.Count(); i++)
 			{
-				if (m_MetroLines[i].Id == keepId)
+				if (m_MetroLines[i].LineId == keepId)
 					m_MetroSel = i;
 			}
 			if (m_MetroSel < 0)
@@ -1598,7 +1598,7 @@ class KPK_Menu extends UIScriptedMenu
 				bool gone = true;
 				foreach (KPK_MetroLine l : m_MetroLines)
 				{
-					if (l.Id == m_MetroDelWait)
+					if (l.LineId == m_MetroDelWait)
 						gone = false;
 				}
 				if (gone)
@@ -1642,7 +1642,7 @@ class KPK_Menu extends UIScriptedMenu
 			FitMetroAll();
 			return;
 		}
-		FitMetro(m_MetroLines[m_MetroSel].Points);
+		FitMetro(m_MetroLines[m_MetroSel].Axis);
 	}
 
 	protected void FitMetroAll()
@@ -1650,7 +1650,7 @@ class KPK_Menu extends UIScriptedMenu
 		array<vector> all = new array<vector>();
 		foreach (KPK_MetroLine l : m_MetroLines)
 		{
-			foreach (vector p : l.Points)
+			foreach (vector p : l.Axis)
 				all.Insert(p);
 		}
 		FitMetro(all);
@@ -1695,15 +1695,15 @@ class KPK_Menu extends UIScriptedMenu
 			if (m_MetroSel >= 0 && m_MetroSel != i)
 				color = (color & 0x00FFFFFF) | 0x80000000;
 			// the axis as a dotted line (the end points get their own marks)
-			for (int k = 1; k < l.Points.Count() - 1; k++)
-				m_Map.AddUserMark(l.Points[k], "", color, dot);
-			if (l.JoinA <= 0)
-				m_Map.AddUserMark(l.A, "M" + l.Id + " начало", color, gate);
-			if (l.JoinB <= 0)
-				m_Map.AddUserMark(l.B, "M" + l.Id + " конец", color, gate);
+			for (int k = 1; k < l.Axis.Count() - 1; k++)
+				m_Map.AddUserMark(l.Axis[k], "", color, dot);
+			if (l.JoinToA <= 0)
+				m_Map.AddUserMark(l.EndA, "M" + l.LineId + " начало", color, gate);
+			if (l.JoinToB <= 0)
+				m_Map.AddUserMark(l.EndB, "M" + l.LineId + " конец", color, gate);
 		}
 		foreach (KPK_MetroCross c : m_MetroCross)
-			m_Map.AddUserMark(c.Pos, "M" + c.A + " × M" + c.B, KPK_UI.C_WHITE, cross);
+			m_Map.AddUserMark(c.Spot, "M" + c.LineA + " × M" + c.LineB, KPK_UI.C_WHITE, cross);
 
 		if (m_MetroHasFocus)
 			m_Map.AddUserMark(m_MetroFocus, "► " + m_MetroFocusName, KPK_UI.C_ACCENT, "\\DZ\\gear\\navigation\\data\\map_viewpoint_ca.paa");
@@ -3774,21 +3774,21 @@ class KPK_Menu extends UIScriptedMenu
 // metro data for the admin tab (copied from the Drezina mod, which may be missing)
 class KPK_MetroLine
 {
-	int Id;
-	bool Zone;
-	float Length;
-	vector A;
-	vector B;
-	int JoinA;
-	int JoinB;
-	ref array<vector> Points = new array<vector>();
+	int LineId;
+	bool InZone;
+	float LenM;
+	vector EndA;
+	vector EndB;
+	int JoinToA;
+	int JoinToB;
+	ref array<vector> Axis = new array<vector>();
 }
 
 class KPK_MetroCross
 {
-	int A;
-	int B;
-	vector Pos;
-	bool Tee;
-	bool Ring;
+	int LineA;
+	int LineB;
+	vector Spot;
+	bool IsTee;
+	bool IsRing;
 }
