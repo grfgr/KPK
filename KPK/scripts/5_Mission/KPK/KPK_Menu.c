@@ -3288,8 +3288,27 @@ class KPK_Menu extends UIScriptedMenu
 	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
 	{
 		if (button == MouseState.LEFT && w && (EditBoxWidget.Cast(w) || MultilineEditBoxWidget.Cast(w)))
+		{
 			SetFocus(w);
+			// the click put the (invisible) cursor where the mouse was, in the middle of the text, while
+			// the drawn cursor is always at the end: Backspace then left the rest of the text. Writing the
+			// text back moves the cursor to its end, a moment after the engine placed it.
+			m_CaretBox = EditBoxWidget.Cast(w);
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(CaretToEnd, 60, false);
+		}
 		return super.OnMouseButtonDown(w, x, y, button);
+	}
+
+	protected EditBoxWidget m_CaretBox;
+
+	void CaretToEnd()
+	{
+		if (!m_CaretBox)
+			return;
+		string text = m_CaretBox.GetText();
+		m_CaretBox.SetText("");
+		m_CaretBox.SetText(text);
+		m_CaretBox = null;
 	}
 
 	override bool OnClick(Widget w, int x, int y, int button)
