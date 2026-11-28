@@ -89,6 +89,7 @@ class KPK_Menu extends UIScriptedMenu
 	static const int B_M_LINE = 1000;     // metro: show the whole selected line
 	static const int B_M_ALL = 1001;      // metro: show all lines
 	static const int B_M_RELOAD = 1002;   // metro: read the lines again
+	static const int B_M_DEL = 1003;      // metro: delete the selected line (press twice)
 
 	protected ref array<ref KPK_Button> m_Buttons;
 	protected ref array<ref KPK_Button> m_Tabs;
@@ -160,6 +161,10 @@ class KPK_Menu extends UIScriptedMenu
 	protected bool m_MetroHasFocus;          // a point of the line was picked: mark it on the map
 	protected vector m_MetroFocus;
 	protected string m_MetroFocusName;
+	protected int m_MetroDelArm;             // line id waiting for the second press of «УДАЛИТЬ»
+	protected int m_MetroDelWait;            // line id asked to be deleted, waiting for new data
+	protected float m_MetroDelTime;
+	protected int m_MetroVer = -1;           // Drezina data version the lists were built from
 
 	// map
 	protected MapWidget m_Map;
@@ -1338,7 +1343,9 @@ class KPK_Menu extends UIScriptedMenu
 
 		AddButton(side, B_M_LINE, "ВСЯ ЛИНИЯ", 0.04, 0.89, 0.45, 0.045);
 		AddButton(side, B_M_ALL, "ВСЁ МЕТРО", 0.51, 0.89, 0.45, 0.045);
-		AddButton(side, B_M_RELOAD, "ОБНОВИТЬ", 0.04, 0.943, 0.92, 0.045);
+		AddButton(side, B_M_RELOAD, "ОБНОВИТЬ", 0.04, 0.943, 0.45, 0.045);
+		AddButton(side, B_M_DEL, "УДАЛИТЬ ЛИНИЮ", 0.51, 0.943, 0.45, 0.045);
+		m_MetroDelArm = 0;
 
 		LoadMetro();
 		if (m_MetroSel >= m_MetroLines.Count())
@@ -1353,6 +1360,7 @@ class KPK_Menu extends UIScriptedMenu
 		m_MetroLines.Clear();
 		m_MetroCross.Clear();
 #ifdef DREZINA
+		m_MetroVer = DrezinaMetroMap.s_Version;
 		array<ref DrezinaMetroLine> lines = new array<ref DrezinaMetroLine>();
 		array<ref DrezinaMetroCross> cross = new array<ref DrezinaMetroCross>();
 		DrezinaMetroMap.CollectFull(lines, cross, 40.0);
@@ -1521,6 +1529,94 @@ class KPK_Menu extends UIScriptedMenu
 		if (keep >= 0 && keep < rows.Count())
 			m_MetroPointList.Select(keep);
 		RedrawMetroMarks();
+	}
+
+	// «УДАЛИТЬ ЛИНИЮ»: the first press asks, the second sends /metro del <id> to Drezina
+	protected void MetroDelete()
+	{
+		if (m_MetroSel < 0 || m_MetroSel >= m_MetroLines.Count())
+		{
+			SetStatus("Сначала выберите линию в списке.");
+			return;
+		}
+		int lineId = m_MetroLines[m_MetroSel].Id;
+		KPK_Button del = m_ById.Get(B_M_DEL);
+		if (m_MetroDelArm != lineId)
+		{
+			m_MetroDelArm = lineId;
+			if (del)
+				del.SetText("ТОЧНО M" + lineId + "?");
+			SetStatus("Удалить M" + lineId + " вместе с путём, входами и развязками? Нажмите ещё раз.");
+			return;
+		}
+		DisarmMetroDelete();
+#ifdef DREZINA
+		DrezinaMetroMap.RequestDelete(lineId);
+		m_MetroDelWait = lineId;
+		m_MetroDelTime = 0;
+		SetStatus("M" + lineId + ": запрос на удаление отправлен...");
+#else
+		SetStatus("Мод Drezina не установлен.");
+#endif
+	}
+
+	protected void DisarmMetroDelete()
+	{
+		m_MetroDelArm = 0;
+		KPK_Button del = m_ById.Get(B_M_DEL);
+		if (del)
+			del.SetText("УДАЛИТЬ ЛИНИЮ");
+	}
+
+	// new metro data from the server (a line built, deleted, rebuilt): read the lists again
+	protected void MetroTick(float timeslice)
+	{
+		int ver = m_MetroVer;
+#ifdef DREZINA
+		ver = DrezinaMetroMap.s_Version;
+#endif
+		if (ver != m_MetroVer)
+		{
+			int keepId = -1;
+			if (m_MetroSel >= 0 && m_MetroSel < m_MetroLines.Count())
+				keepId = m_MetroLines[m_MetroSel].Id;
+			LoadMetro();
+			m_MetroSel = -1;
+			for (int i = 0; i < m_MetroLines.Count(); i++)
+			{
+				if (m_MetroLines[i].Id == keepId)
+					m_MetroSel = i;
+			}
+			if (m_MetroSel < 0)
+				m_MetroHasFocus = false;
+			if (m_MetroLineList)
+				m_MetroLineList.Select(m_MetroSel);
+			if (m_MetroPointList)
+				m_MetroPointList.Select(-1);
+			if (m_MetroDelWait > 0)
+			{
+				bool gone = true;
+				foreach (KPK_MetroLine l : m_MetroLines)
+				{
+					if (l.Id == m_MetroDelWait)
+						gone = false;
+				}
+				if (gone)
+					SetStatus("M" + m_MetroDelWait + " удалено.");
+				m_MetroDelWait = 0;
+			}
+			RefreshMetro();
+			return;
+		}
+		if (m_MetroDelWait > 0)
+		{
+			m_MetroDelTime += timeslice;
+			if (m_MetroDelTime > 15)
+			{
+				SetStatus("M" + m_MetroDelWait + " не удалено: сервер не ответил. Нужны права админа Drezina (admins.json или суперадмин VPP).");
+				m_MetroDelWait = 0;
+			}
+		}
 	}
 
 	protected void AddMetroPoint(array<string> rows, array<int> rowColors, vector p, string name, int color)
@@ -3096,6 +3192,8 @@ class KPK_Menu extends UIScriptedMenu
 			RefreshHeader();
 		}
 
+		if (m_Page == P_METRO)
+			MetroTick(timeslice);
 		if (m_Page == P_MAP || m_Page == P_METRO)
 		{
 			m_MapRedrawTime += timeslice;
@@ -3259,6 +3357,7 @@ class KPK_Menu extends UIScriptedMenu
 		{
 			m_MetroSel = m_MetroLineList.Selected();
 			m_MetroHasFocus = false;
+			DisarmMetroDelete();
 			m_MetroPointList.Select(-1);
 			RefreshMetro();
 			FitMetroLine();
@@ -3311,6 +3410,11 @@ class KPK_Menu extends UIScriptedMenu
 			m_MetroHasFocus = false;
 			FitMetroAll();
 			RedrawMetroMarks();
+			return;
+		}
+		if (id == B_M_DEL)
+		{
+			MetroDelete();
 			return;
 		}
 		if (id == B_M_RELOAD)
