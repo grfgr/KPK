@@ -383,6 +383,10 @@ class KPK_Menu extends UIScriptedMenu
 		Widget loginPage = BuildLogin();
 		Widget bootPage = BuildBoot();
 		m_Admin = model == KPK_Model.ADMIN;
+		int metroTab = 0;
+		if (m_Tabs.Count() > P_METRO && m_Tabs[P_METRO] && m_Tabs[P_METRO].m_Root)
+			metroTab = 1;
+		Print("[KPK] menu: tabs " + m_Tabs.Count() + ", metro tab " + metroTab + ", admin " + m_Admin + ", model " + model);
 		// the tab pages are built when first shown: the engine caps how many widgets may be created
 		// (and does not give them back at once when a window is destroyed). Building all eight pages up
 		// front ran into that cap: empty fields, missing buttons. Pages live in a host under the screen
