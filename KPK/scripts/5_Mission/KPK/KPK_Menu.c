@@ -370,7 +370,24 @@ class KPK_Menu extends UIScriptedMenu
 		FitDevice(device, model);
 		m_Skin = new KPK_Skin();
 
+		// вход и загрузка — самыми первыми: если общий на все моды лимит виджетов уже почти выбран
+		// (например, открывали админку VPP), не создаётся то, что строится последним. Страница входа без
+		// полей — тупик, а без пары украшений КПК работает.
+		// (на кирпиче — после рамки: там ряд вкладок под меню перекрыл бы заголовок страницы входа)
+		Widget loginPage;
+		Widget bootPage;
+		if (m_Full)
+		{
+			loginPage = BuildLogin();
+			bootPage = BuildBoot();
+		}
+
 		BuildChrome();
+		if (!m_Full)
+		{
+			loginPage = BuildLogin();
+			bootPage = BuildBoot();
+		}
 		// the host of the tab pages comes before the login and boot pages: lying above them, the
 		// full-screen host took the clicks and the password box could not be focused
 		// it covers only the content area (not the tabs, title bar or status bar)
@@ -378,10 +395,8 @@ class KPK_Menu extends UIScriptedMenu
 			m_PageHost = KPK_UI.Frame(m_Screen, 0.178, 0.095, 0.812, 0.83);
 		else
 			m_PageHost = KPK_UI.Frame(m_Screen, 0.012, 0.165, 0.976, 0.762);
-		// login and boot are built before everything else: if the engine's widget limit is reached it
-		// must never be on the password box (the box appeared, the input inside it did not)
-		Widget loginPage = BuildLogin();
-		Widget bootPage = BuildBoot();
+		// (login and boot pages are built above, before the chrome; the host is hidden while they are shown,
+		// so lying above them it does not take their clicks)
 		m_Admin = model == KPK_Model.ADMIN;
 		int metroTab = 0;
 		if (m_Tabs.Count() > P_METRO && m_Tabs[P_METRO] && m_Tabs[P_METRO].m_Root)
@@ -744,6 +759,8 @@ class KPK_Menu extends UIScriptedMenu
 		m_Page = page;
 		for (int i = 0; i < m_Pages.Count(); i++)
 			m_Pages[i].Show(i == page);
+		if (m_PageHost)
+			m_PageHost.Show(page < TAB_COUNT);
 		for (int t = 0; t < m_Tabs.Count(); t++)
 			m_Tabs[t].SetActive(t == page);
 		if (page < TAB_COUNT)
